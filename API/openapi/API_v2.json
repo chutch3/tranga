@@ -3046,6 +3046,56 @@
         }
       }
     },
+    "/v2/Search/{MangaConnectorName}/Manga/{ConnectorMangaId}": {
+      "get": {
+        "tags": [
+          "Search"
+        ],
+        "summary": "Returns full API.Schema.MangaContext.Manga detail from a API.Controllers.DTOs.MangaConnector by its site ID, without saving to the database",
+        "parameters": [
+          {
+            "name": "MangaConnectorName",
+            "in": "path",
+            "description": "API.Controllers.DTOs.MangaConnector.Name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ConnectorMangaId",
+            "in": "path",
+            "description": "The manga's ID on the connector site",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Full API.Controllers.DTOs.Manga detail",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "$ref": "#/components/schemas/Manga"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Manga not found on connector",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/Search": {
       "get": {
         "tags": [
@@ -4353,6 +4403,11 @@
             "minLength": 1,
             "type": "string",
             "description": "Id of the Library the Manga gets downloaded to"
+          },
+          "coverUrl": {
+            "type": "string",
+            "description": "External cover image URL from the connector",
+            "nullable": true
           },
           "name": {
             "minLength": 1,

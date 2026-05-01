@@ -13,8 +13,17 @@ namespace API.Controllers;
 [ApiVersion(2)]
 [ApiController]
 [Route("v{v:apiVersion}/[controller]")]
-public class SearchController(MangaContext context) : ControllerBase
+public class SearchController(MangaContext context, Func<string, string, (Manga, Schema.MangaContext.MangaConnectorId<Manga>)?>? connectorLookup = null) : ControllerBase
 {
+    private (Manga, Schema.MangaContext.MangaConnectorId<Manga>)? LookupFromConnector(string connectorName, string mangaIdOnSite)
+    {
+        if (connectorLookup is not null)
+            return connectorLookup(connectorName, mangaIdOnSite);
+        
+        if (Tranga.MangaConnectors.FirstOrDefault(c => c.Name.Equals(connectorName, StringComparison.InvariantCultureIgnoreCase)) is not { } connector)
+            return null;
+        return connector.GetMangaFromId(mangaIdOnSite);
+    }
     /// <summary>
     /// Initiate a search for a <see cref="Schema.MangaContext.Manga"/> on <see cref="MangaConnector"/> with searchTerm
     /// </summary>
@@ -48,6 +57,39 @@ public class SearchController(MangaContext context) : ControllerBase
         });
 
         return TypedResults.Ok(result.ToList());
+    }
+
+    /// <summary>
+    /// Returns full <see cref="Schema.MangaContext.Manga"/> detail from a <see cref="MangaConnector"/> by its site ID, without saving to the database
+    /// </summary>
+    /// <param name="MangaConnectorName"><see cref="MangaConnector"/>.Name</param>
+    /// <param name="ConnectorMangaId">The manga's ID on the connector site</param>
+    /// <response code="200">Full <see cref="DTOs.Manga"/> detail</response>
+    /// <response code="404">Manga not found on connector</response>
+    [HttpGet("{MangaConnectorName}/Manga/{ConnectorMangaId}")]
+    [ProducesResponseType<DTOs.Manga>(Status200OK, "application/json")]
+    [ProducesResponseType<string>(Status404NotFound, "text/plain")]
+    public Task<Results<Ok<DTOs.Manga>, NotFound<string>>> GetMangaFromConnector(string MangaConnectorName, string ConnectorMangaId)
+    {
+        if (LookupFromConnector(MangaConnectorName, ConnectorMangaId) is not ({ } manga, { } id))
+            return Task.FromResult<Results<Ok<DTOs.Manga>, NotFound<string>>>(TypedResults.NotFound(nameof(ConnectorMangaId)));
+        IEnumerable<DTOs.MangaConnectorId<DTOs.Manga>> ids =
+        [
+            new DTOs.MangaConnectorId<DTOs.Manga>(id.Key, id.MangaConnectorName, id.ObjId, id.WebsiteUrl, id.UseForDownload)
+        ];
+        IEnumerable<DTOs.Author> authors = manga.Authors.Select(a => new DTOs.Author(a.Key, a.AuthorName));
+        IEnumerable<string> tags = manga.MangaTags.Select(t => t.Tag);
+        IEnumerable<DTOs.Link> links = manga.Links.Select(l => new DTOs.Link(l.Key, l.LinkProvider, l.LinkUrl));
+        IEnumerable<DTOs.AltTitle> altTitles = manga.AltTitles.Select(a => new DTOs.AltTitle(a.Language, a.Title));
+
+        DTOs.Manga result = new(
+            manga.Key, manga.Name, manga.Description, manga.ReleaseStatus, ids,
+            manga.IgnoreChaptersBefore, manga.Year, manga.OriginalLanguage,
+            authors, tags, links, altTitles,
+            FileLibraryId: null,
+            CoverUrl: manga.CoverUrl);
+
+        return Task.FromResult<Results<Ok<DTOs.Manga>, NotFound<string>>>(TypedResults.Ok(result));
     }
 
     /// <summary>
