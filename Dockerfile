@@ -1,22 +1,13 @@
-﻿# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1
 ARG DOTNET=10.0
-FROM mcr.microsoft.com/dotnet/aspnet:$DOTNET AS base
+FROM mcr.microsoft.com/dotnet/aspnet:$DOTNET-alpine AS base
 
 # Temporarily switch to root for Chromium install
 USER root
 
-# Add ppa:xtradeb/apps for non-snap Chromium install
-RUN apt-get update \
-    && apt-get install -y software-properties-common \
-    && add-apt-repository ppa:xtradeb/apps
+RUN apk add --no-cache chromium
 
-RUN apt-get update \
-  && apt-get install -y libx11-6 libx11-xcb1 libatk1.0-0t64 libgtk-3-0t64 libcups2t64 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libasound2t64 libxshmfence1 libnss3 ungoogled-chromium \
-  && apt-get autopurge -y \
-  && apt-get autoclean -y \
-  && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
-
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:$DOTNET AS build-env
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:$DOTNET-alpine AS build-env
 WORKDIR /src
 COPY Tranga.sln /src
 COPY API/API.csproj /src/API/API.csproj
@@ -36,20 +27,18 @@ EXPOSE 6531
 ARG UNAME=tranga
 ARG UID=1000
 ARG GID=1000
-RUN groupadd -g $GID -o $UNAME \
-  && useradd -m -u $UID -g $GID -o -s /bin/bash $UNAME \
+RUN addgroup -g $GID $UNAME \
+  && adduser -D -u $UID -G $UNAME -s /bin/sh $UNAME \
   && mkdir /usr/share/tranga-api \
   && mkdir /Manga \
   && chown 1000:1000 /usr/share/tranga-api \
-  && chown 1000:1000 /Manga \
-  # Ensure Chromium is executable
-  && chmod +x /usr/bin/ungoogled-chromium
+  && chown 1000:1000 /Manga
 
 USER $UNAME
 
 # Env vars for PuppeteerSharp (Chromium path + no-sandbox args)
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/ungoogled-chromium
-ENV CHROME_BIN=/usr/bin/ungoogled-chromium
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+ENV CHROME_BIN=/usr/bin/chromium-browser
 ENV PUPPETEER_ARGS="--no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage --disable-gpu --no-zygote --single-process"
 
 
