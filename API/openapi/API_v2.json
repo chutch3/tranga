@@ -445,6 +445,73 @@
           }
         }
       },
+      "patch": {
+        "tags": [
+          "Chapters"
+        ],
+        "summary": "Updates mutable metadata (API.Schema.MangaContext.Chapter.FileName and API.Schema.MangaContext.Chapter.VolumeNumber) on a API.Controllers.DTOs.Chapter",
+        "parameters": [
+          {
+            "name": "ChapterId",
+            "in": "path",
+            "description": "API.Controllers.DTOs.Chapter.Key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Fields to update",
+          "content": {
+            "application/json-patch+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchChapterRecord"
+              }
+            },
+            "application/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchChapterRecord"
+              }
+            },
+            "text/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchChapterRecord"
+              }
+            },
+            "application/*+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchChapterRecord"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "404": {
+            "description": "API.Controllers.DTOs.Chapter with ChapterId not found",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error during Database Operation",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
       "delete": {
         "tags": [
           "Chapters"
@@ -4546,6 +4613,27 @@
           }
         },
         "additionalProperties": false
+      },
+      "PatchChapterRecord": {
+        "required": [
+          "fileName"
+        ],
+        "type": "object",
+        "properties": {
+          "fileName": {
+            "minLength": 1,
+            "type": "string",
+            "description": "Relative file path of the chapter archive"
+          },
+          "volumeNumber": {
+            "type": "integer",
+            "description": "Volume number, or null if not part of a volume",
+            "format": "int32",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Request body for updating mutable metadata on a Chapter"
       },
       "PatchFileLibraryRecord": {
         "required": [

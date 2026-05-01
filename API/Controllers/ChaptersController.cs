@@ -17,7 +17,7 @@ namespace API.Controllers;
 [ApiVersion(2)]
 [ApiController]
 [Route("v{v:apiVersion}/[controller]")]
-public class ChaptersController(MangaContext context) : ControllerBase
+public class ChaptersController(MangaContext context, Func<string, string, Task>? moveFile = null) : ControllerBase
 {
     /// <summary>
     /// Returns all <see cref="Schema.MangaContext.Chapter"/> of <see cref="Schema.MangaContext.Manga"/> with <paramref name="MangaId"/>
@@ -171,6 +171,47 @@ public class ChaptersController(MangaContext context) : ControllerBase
         return TypedResults.Ok(new Chapter(chapter.Key, chapter.ParentMangaId, chapter.VolumeNumber, chapter.ChapterNumber, chapter.Title,ids, chapter.Downloaded, chapter.FileName));
     }
     
+    /// <summary>
+    /// Updates mutable metadata (<see cref="Schema.MangaContext.Chapter.FileName"/> and <see cref="Schema.MangaContext.Chapter.VolumeNumber"/>) on a <see cref="Chapter"/>
+    /// </summary>
+    /// <param name="ChapterId"><see cref="Chapter"/>.Key</param>
+    /// <param name="patch">Fields to update</param>
+    /// <response code="200"></response>
+    /// <response code="404"><see cref="Chapter"/> with <paramref name="ChapterId"/> not found</response>
+    /// <response code="500">Error during Database Operation</response>
+    [HttpPatch("{ChapterId}")]
+    [ProducesResponseType(Status200OK)]
+    [ProducesResponseType<string>(Status404NotFound, "text/plain")]
+    [ProducesResponseType<string>(Status500InternalServerError, "text/plain")]
+    public async Task<Results<Ok, NotFound<string>, InternalServerError<string>>> UpdateChapter(string ChapterId, [FromBody] PatchChapterRecord patch)
+    {
+        if (await context.Chapters.FirstOrDefaultAsync(c => c.Key == ChapterId, HttpContext.RequestAborted) is not { } chapter)
+            return TypedResults.NotFound(nameof(ChapterId));
+
+        string? oldFileName = chapter.FileName;
+        bool fileNameChanged = patch.FileName != oldFileName;
+
+        if (fileNameChanged && oldFileName is not null && moveFile is not null)
+        {
+            try
+            {
+                await moveFile(oldFileName, patch.FileName);
+            }
+            catch (Exception ex)
+            {
+                return TypedResults.InternalServerError(ex.Message);
+            }
+        }
+
+        chapter.FileName = patch.FileName;
+        chapter.VolumeNumber = patch.VolumeNumber;
+
+        if (await context.Sync(HttpContext.RequestAborted, GetType(), System.Reflection.MethodBase.GetCurrentMethod()?.Name) is { success: false } result)
+            return TypedResults.InternalServerError(result.exceptionMessage);
+
+        return TypedResults.Ok();
+    }
+
     /// <summary>
     /// Deletes <see cref="Chapter"/> with <paramref name="ChapterId"/>
     /// </summary>

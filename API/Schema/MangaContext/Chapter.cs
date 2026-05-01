@@ -18,7 +18,7 @@ public class Chapter : Identifiable, IComparable<Chapter>
         MangaConnectorIds.ToDictionary(id => id.MangaConnectorName, id => id.IdOnConnectorSite);
     public ICollection<MangaConnectorId<Chapter>> MangaConnectorIds = null!;
 
-    public int? VolumeNumber { get; private set; }
+    public int? VolumeNumber { get; internal set; }
     [StringLength(10)] public string ChapterNumber { get; private set; }
 
     [StringLength(256)] public string? Title { get; private set; }
