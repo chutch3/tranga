@@ -29,7 +29,7 @@ public class Chapter : Identifiable, IComparable<Chapter>
 
     /// <exception cref="DirectoryNotFoundException">Library for Manga not loaded</exception>
     [NotMapped]
-    public string? FullArchiveFilePath => GetFullFilepath();
+    public string? FullArchiveFilePath => GetFullFilepath(Tranga.Settings.ChapterNamingScheme);
 
     private static readonly Regex ChapterNumberRegex = new(@"(?:\d+\.)*\d+", RegexOptions.Compiled);
     public Chapter(Manga parentManga, string chapterNumber,
@@ -74,7 +74,7 @@ public class Chapter : Identifiable, IComparable<Chapter>
     }
 
 
-    private readonly Regex _chRex = new Regex(@"C(?:(?:h?\.?)|(?:hapter\.?))?.?([0-9]+)");
+    private static readonly Regex ChRex = new Regex(@"C(?:(?:h?\.?)|(?:hapter\.?))?.?([0-9]+)", RegexOptions.Compiled);
     /// <summary>
     /// Checks the filesystem if an archive at the ArchiveFilePath exists
     /// </summary>
@@ -82,7 +82,7 @@ public class Chapter : Identifiable, IComparable<Chapter>
     /// <param name="token"></param>
     /// <returns>True if archive exists on disk</returns>
     /// <exception cref="KeyNotFoundException">Unable to load Chapter, Parent or Library</exception>
-    public async Task<bool> CheckDownloaded(MangaContext context, CancellationToken? token = null)
+    public async Task<bool> CheckDownloaded(MangaContext context, string namingScheme, bool? exactMatch = null, CancellationToken? token = null)
     {
         if(await context.Chapters
                .Include(c => c.ParentManga)
@@ -90,18 +90,20 @@ public class Chapter : Identifiable, IComparable<Chapter>
                .FirstOrDefaultAsync(c => c.Key == this.Key, token??CancellationToken.None) is not { } chapter)
             throw new KeyNotFoundException("Unable to find chapter");
 
-        if (chapter.ParentManga.Library is null || (chapter.FileName is null && Constants.DownloadedChaptersCheckMatchExactName))
+        bool useExactMatch = exactMatch ?? Constants.DownloadedChaptersCheckMatchExactName;
+        if (chapter.ParentManga.Library is null || (chapter.FileName is null && useExactMatch))
         {
             this.Downloaded = false;
             this.FileName = null;
             return false;
         }
-        
-        if (File.Exists(chapter.FullArchiveFilePath))
+
+        string? chapterFullPath = chapter.GetFullFilepath(namingScheme);
+        if (File.Exists(chapterFullPath))
         {
             this.Downloaded = true;
-            this.FileName = new FileInfo(chapter.FullArchiveFilePath).Name;
-        }else if (Constants.DownloadedChaptersCheckMatchExactName)
+            this.FileName = Path.GetRelativePath(chapter.ParentManga.FullDirectoryPath, chapterFullPath!);
+        }else if (useExactMatch)
         {
             this.Downloaded = false;
             this.FileName = null;
@@ -114,25 +116,26 @@ public class Chapter : Identifiable, IComparable<Chapter>
                 return false;
             }
 
-            string? existingFile = Directory.EnumerateFiles(directoryPath).Select(path => new FileInfo(path).Name).FirstOrDefault(file =>
+            string? existingFile = Directory.EnumerateFiles(directoryPath, "*", SearchOption.AllDirectories).FirstOrDefault(path =>
             {
-                double similarity = NeedlemanWunschStringUtil.CalculateSimilarityPercentage(file, this.FileName ?? GetArchiveFileName());
+                string file = new FileInfo(path).Name;
+                double similarity = NeedlemanWunschStringUtil.CalculateSimilarityPercentage(file, this.FileName ?? GetArchiveFileName(namingScheme));
                 if (similarity > 90)
                     return true;
 
-                Match chMatch = _chRex.Match(file);
+                Match chMatch = ChRex.Match(file);
                 if (!chMatch.Groups[1].Success)
                     return false;
                 return chMatch.Groups[1].Value == this.ChapterNumber;
             });
             this.Downloaded = existingFile is not null;
-            this.FileName = existingFile is not null ? new FileInfo(existingFile).Name : null;
+            this.FileName = existingFile is not null ? Path.GetRelativePath(chapter.ParentManga.FullDirectoryPath, existingFile) : null;
         }
-        
+
         await context.Sync(token??CancellationToken.None, GetType(), $"CheckDownloaded {this} {this.Downloaded}");
         return this.Downloaded;
-    } 
-    
+    }
+
     /// Placeholders:
     /// %M Obj Name
     /// %V Volume
@@ -148,11 +151,10 @@ public class Chapter : Identifiable, IComparable<Chapter>
     /// Returns the formatted Filename of the Archive for this chapter. Formatting is done according to <see cref="TrangaSettings.ChapterNamingScheme"/>
     /// </summary>
     /// <returns>A filename</returns>
-    private string GetArchiveFileName()
+    internal string GetArchiveFileName(string namingScheme)
     {
-        string archiveNamingScheme = Tranga.Settings.ChapterNamingScheme;
         StringBuilder stringBuilder = new();
-        foreach (Match nullable in NullableRex.Matches(archiveNamingScheme))
+        foreach (Match nullable in NullableRex.Matches(namingScheme))
         {
             if (nullable.Groups[3].Success)
             {
@@ -174,10 +176,10 @@ public class Chapter : Identifiable, IComparable<Chapter>
             if(!isNull)
                 stringBuilder.Append(nullable.Groups[2].Value);
         }
-        
+
         string checkedString = stringBuilder.ToString();
         stringBuilder = new();
-        
+
         foreach (Match replace in ReplaceRexx.Matches(checkedString))
         {
             if (replace.Groups[2].Success)
@@ -185,7 +187,7 @@ public class Chapter : Identifiable, IComparable<Chapter>
                 stringBuilder.Append(replace.Groups[2].Value);
                 continue;
             }
-            
+
             char placeholder = replace.Groups[1].Value[0];
             string? value = placeholder switch
             {
@@ -197,19 +199,19 @@ public class Chapter : Identifiable, IComparable<Chapter>
                 'Y' => ParentManga?.Year.ToString(),
                 _ => null
             };
-            stringBuilder.Append(value);
+            stringBuilder.Append(value?.CleanNameForWindows());
         }
 
         stringBuilder.Append(".cbz");
 
-        return stringBuilder.ToString().CleanNameForWindows();
+        return stringBuilder.ToString();
     }
 
-    private string? GetFullFilepath()
+    internal string? GetFullFilepath(string namingScheme)
     {
         try
         {
-            return Path.Join(ParentManga.FullDirectoryPath, this.FileName is null ? GetArchiveFileName() : FileName);
+            return Path.Join(ParentManga.FullDirectoryPath, this.FileName is null ? GetArchiveFileName(namingScheme) : FileName);
         }
         catch (Exception)
         {
@@ -235,10 +237,10 @@ public class Chapter : Identifiable, IComparable<Chapter>
     {
         int[] ch1Arr = ch1.Split('.').Select(c => int.TryParse(c, out int result) ? result : -1).ToArray();
         int[] ch2Arr = ch2.Split('.').Select(c => int.TryParse(c, out int result) ? result : -1).ToArray();
-        
+
         if (ch1Arr.Contains(-1) || ch2Arr.Contains(-1))
             throw new ArgumentException("Chapter number is not in correct format");
-        
+
         int i = 0, j = 0;
 
         while (i < ch1Arr.Length && j < ch2Arr.Length)

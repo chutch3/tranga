@@ -12,7 +12,7 @@ public class UpdateChaptersDownloadedWorker(TimeSpan? interval = null, IEnumerab
 {
     public DateTime LastExecution { get; set; } = DateTime.UnixEpoch;
     public TimeSpan Interval { get; set; } = interval??TimeSpan.FromDays(1);
-    
+
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     private MangaContext MangaContext = null!;
 
@@ -20,7 +20,7 @@ public class UpdateChaptersDownloadedWorker(TimeSpan? interval = null, IEnumerab
     {
         MangaContext = GetContext<MangaContext>(serviceScope);
     }
-    
+
     protected override async Task<BaseWorker[]> DoWorkInternal()
     {
         Log.Debug("Checking chapter files...");
@@ -30,7 +30,7 @@ public class UpdateChaptersDownloadedWorker(TimeSpan? interval = null, IEnumerab
         {
             try
             {
-                bool downloaded = await chapter.CheckDownloaded(MangaContext, CancellationToken);
+                bool downloaded = await chapter.CheckDownloaded(MangaContext, Tranga.Settings.ChapterNamingScheme, token: CancellationToken);
                 chapter.Downloaded = downloaded;
                 if (!downloaded)
                     chapter.FileName = null;
@@ -43,7 +43,7 @@ public class UpdateChaptersDownloadedWorker(TimeSpan? interval = null, IEnumerab
 
         if(await MangaContext.Sync(CancellationToken, GetType(), System.Reflection.MethodBase.GetCurrentMethod()?.Name) is { success: false } e)
             Log.ErrorFormat("Failed to save database changes: {0}", e.exceptionMessage);
-        
+
         return [];
     }
 }

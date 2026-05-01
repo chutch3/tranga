@@ -41,7 +41,7 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
         ActionsContext = GetContext<ActionsContext>(serviceScope);
         NotificationsContext = GetContext<NotificationsContext>(serviceScope);
     }
-    
+
     protected override async Task<BaseWorker[]> DoWorkInternal()
     {
         Log.Debug($"Downloading chapter for MangaConnectorId {ChapterIdId}...");
@@ -55,29 +55,29 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
             Log.Error("Could not get MangaConnectorId.");
             return [];
         }
-        
+
         // Check if Chapter already exists...
-        if (await mangaConnectorId.Obj.CheckDownloaded(MangaContext, CancellationToken))
+        if (await mangaConnectorId.Obj.CheckDownloaded(MangaContext, Tranga.Settings.ChapterNamingScheme, token: CancellationToken))
         {
             Log.Warn("Chapter already exists!");
             return [];
         }
-        
+
         if (!Tranga.TryGetMangaConnector(mangaConnectorId.MangaConnectorName, out MangaConnector? mangaConnector))
         {
             Log.Error("Could not get MangaConnector.");
             return [];
         }
-        
+
         Log.Debug($"Downloading chapter for MangaConnectorId {mangaConnectorId}...");
-        
+
         Chapter chapter = mangaConnectorId.Obj;
         if (chapter.ParentManga.LibraryId is null)
         {
             Log.Info($"Library is not set for {chapter.ParentManga} {chapter}");
             return [];
         }
-        
+
         Log.Info($"Getting imageUrls for chapter {chapter}");
         string[] imageUrls = mangaConnector.GetChapterImageUrls(mangaConnectorId);
         if (imageUrls.Length < 1)
@@ -92,7 +92,7 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
             return [];
         }
         Log.Debug($"Chapter path: {saveArchiveFilePath}");
-        
+
         //Check if Publication Directory already exists
         string? directoryPath = Path.GetDirectoryName(saveArchiveFilePath);
         if (directoryPath is null)
@@ -129,9 +129,9 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
                 return [];
             }
         }
-        
+
         await CopyCoverFromCacheToDownloadLocation(chapter.ParentManga);
-        
+
         Log.Debug($"Loading collections {chapter}");
         foreach (CollectionEntry collectionEntry in MangaContext.Entry(chapter.ParentManga).Collections)
             await collectionEntry.LoadAsync(CancellationToken);
@@ -159,7 +159,7 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
             }
             else
                 Log.Debug("Skipping ComicInfo.xml. CREATE_COMICINFO_XML is set to false");
-            
+
             for (int i = 0; i < images.Count; i++)
             {
                 Log.Debug($"Packaging images to archive {chapter} , image {i}");
@@ -183,7 +183,7 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
         chapter.FileName = new FileInfo(saveArchiveFilePath).Name;
         if(await MangaContext.Sync(CancellationToken, GetType(), "Downloading complete") is { success: false } chapterContextException)
             Log.Error($"Failed to save database changes: {chapterContextException.exceptionMessage}");
-        
+
         Log.Debug($"Downloaded chapter {chapter}.");
 
         await ActionsContext.Actions.AddAsync(new ChapterDownloadedActionRecord(chapter.ParentManga, chapter));
@@ -213,7 +213,7 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
         _ => true
     };
     private async Task<bool> AllDownloadsFinished() => (await StartNewChapterDownloadsWorker.GetMissingChapters(MangaContext, CancellationToken)).Count == 0;
-    
+
     private async Task<Stream> ProcessImage(Stream imageStream, CancellationToken? cancellationToken = null)
     {
         Log.Debug("Processing image");
@@ -258,7 +258,7 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
             return processedImage;
         }
     }
-    
+
     private async Task CopyCoverFromCacheToDownloadLocation(Manga manga)
     {
         Log.Debug($"Copying cover for {manga}");
@@ -294,7 +294,7 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
                 Log.Error($"MangaConnector with name {mangaConnectorId.MangaConnectorName} could not be found");
                 return;
             }
-            
+
             coverFileNameInCache = mangaConnector.SaveCoverImageToCache(mangaConnectorId);
             manga.CoverFileNameInCache = coverFileNameInCache;
             if (await MangaContext.Sync(CancellationToken, reason: "Update cover filename") is { success: false } result)
@@ -305,7 +305,7 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
             Log.Error($"File {coverFileNameInCache} does not exist and failed to download cover");
             return;
         }
-        
+
         string fullCoverPath = Path.Join(TrangaSettings.CoverImageCacheOriginal, coverFileNameInCache);
         string newFilePath = Path.Join(publicationFolder, $"cover.{Path.GetFileName(coverFileNameInCache).Split('.')[^1]}" );
         File.Copy(fullCoverPath, newFilePath, true);
