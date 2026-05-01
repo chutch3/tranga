@@ -5,7 +5,7 @@ FROM mcr.microsoft.com/dotnet/aspnet:$DOTNET-alpine AS base
 # Temporarily switch to root for Chromium install
 USER root
 
-RUN apk add --no-cache chromium
+RUN apk add --no-cache chromium krb5-libs
 
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:$DOTNET-alpine AS build-env
 WORKDIR /src
