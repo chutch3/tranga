@@ -36,15 +36,14 @@ public class SearchController(MangaContext context) : ControllerBase
         
         (Manga manga, Schema.MangaContext.MangaConnectorId<Manga> id)[] mangas = connector.SearchManga(Query);
 
-        IEnumerable<(Manga manga, Schema.MangaContext.MangaConnectorId<Manga> id)> addedManga =
-            mangas.Select(kv => context.AddMangaToContext(kv, HttpContext.RequestAborted))
-                .Where(t => t.Result is not null)
-                .Select(t => t.Result)
-                .Cast<(Manga manga, Schema.MangaContext.MangaConnectorId<Manga> id)>();
-        IEnumerable<MinimalManga> result = addedManga.Select(manga => manga.manga).Select(m =>
+        IEnumerable<MinimalManga> result = mangas.Select(kv =>
         {
-            IEnumerable<DTOs.MangaConnectorId<DTOs.Manga>> ids = m.MangaConnectorIds.Select(id =>
-                new DTOs.MangaConnectorId<DTOs.Manga>(id.Key, id.MangaConnectorName, id.ObjId, id.WebsiteUrl, id.UseForDownload));
+            Manga m = kv.manga;
+            Schema.MangaContext.MangaConnectorId<Manga> id = kv.id;
+            IEnumerable<DTOs.MangaConnectorId<DTOs.Manga>> ids =
+            [
+                new DTOs.MangaConnectorId<DTOs.Manga>(id.Key, id.MangaConnectorName, id.ObjId, id.WebsiteUrl, id.UseForDownload)
+            ];
             return new MinimalManga(m.Key, m.Name, m.Description, m.ReleaseStatus, ids);
         });
 
@@ -72,7 +71,9 @@ public class SearchController(MangaContext context) : ControllerBase
             return TypedResults.NotFound("Could not retrieve Manga");
         
         if(await context.AddMangaToContext(manga, HttpContext.RequestAborted) is not { } added)
-            return TypedResults.InternalServerError("Could not add Manga to context");  
+            return TypedResults.InternalServerError("Could not add Manga to context");
+        added.manga.IsTracked = true;
+        await context.SaveChangesAsync(HttpContext.RequestAborted);
         
         IEnumerable<DTOs.MangaConnectorId<DTOs.Manga>> ids = added.manga.MangaConnectorIds.Select(id =>
             new DTOs.MangaConnectorId<DTOs.Manga>(id.Key, id.MangaConnectorName, id.ObjId, id.WebsiteUrl, id.UseForDownload));

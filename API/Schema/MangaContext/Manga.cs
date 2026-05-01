@@ -27,6 +27,7 @@ public class Manga : Identifiable
     [StringLength(512)] public string? CoverFileNameInCache { get; internal set; }
     public uint? Year { get; internal init; }
     [StringLength(8)] public string? OriginalLanguage { get; internal init; }
+    public bool IsTracked { get; internal set; }
     
     
     /// <exception cref="DirectoryNotFoundException">Library not loaded</exception>

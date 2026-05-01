@@ -37,7 +37,7 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
     [ProducesResponseType(Status500InternalServerError)]
     public async Task<Results<Ok<List<MinimalManga>>, InternalServerError>> GetAllManga ()
     {
-        if (await context.Mangas.Include(m => m.MangaConnectorIds)
+        if (await context.GetTrackedMangas()
                 .OrderBy(m => m.Name)
                 .ToArrayAsync(HttpContext.RequestAborted) is not
             { } result)

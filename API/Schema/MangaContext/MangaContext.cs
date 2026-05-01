@@ -16,6 +16,13 @@ public class MangaContext(DbContextOptions<MangaContext> options) : TrangaBaseCo
     public DbSet<MangaConnectorId<Chapter>> MangaConnectorToChapter { get; set; }
     public DbSet<MetadataEntry> MetadataEntries { get; set; }
 
+    public IQueryable<Manga> GetTrackedMangas() =>
+        Mangas
+            .Include(m => m.MangaConnectorIds)
+            .Where(m => m.IsTracked
+                        || m.MangaConnectorIds.Any(id => id.UseForDownload)
+                        || Chapters.Any(c => c.ParentMangaId == m.Key && c.Downloaded));
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         //MangaConnector Types
