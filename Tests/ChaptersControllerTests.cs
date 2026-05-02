@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 
 namespace Tests;
@@ -227,5 +228,16 @@ public class ChaptersControllerTests
 
         Assert.IsType<Ok>(result.Result);
         Assert.Equal(0, await ctx.Chapters.CountAsync()); // Should be gone
+    }
+
+    // Temporary test until integration tests are added
+    [Fact]
+    public void PatchChapterRecord_Metadata_IsCompatibleWithModelBinding()
+    {
+        var modelMetadataProvider = new EmptyModelMetadataProvider();
+        Action action = () => modelMetadataProvider.GetMetadataForType(typeof(PatchChapterRecord));
+
+        var exception = Record.Exception(action);
+        Assert.Null(exception);
     }
 }

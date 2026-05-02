@@ -8,11 +8,11 @@ namespace API.Controllers.Requests;
 /// </summary>
 public record PatchChapterRecord(
     /// <summary>Relative file path of the chapter archive</summary>
-    [property: Required]
-    [property: Description("Relative file path of the chapter archive")]
+    [Required]
+    [Description("Relative file path of the chapter archive")]
     string FileName,
 
     /// <summary>Volume number, or null if not part of a volume</summary>
-    [property: Description("Volume number, or null if not part of a volume")]
+    [Description("Volume number, or null if not part of a volume")]
     int? VolumeNumber
 );

@@ -4670,19 +4670,14 @@
         "additionalProperties": false
       },
       "PatchChapterRecord": {
-        "required": [
-          "fileName"
-        ],
         "type": "object",
         "properties": {
           "fileName": {
-            "minLength": 1,
             "type": "string",
-            "description": "Relative file path of the chapter archive"
+            "nullable": true
           },
           "volumeNumber": {
             "type": "integer",
-            "description": "Volume number, or null if not part of a volume",
             "format": "int32",
             "nullable": true
           }
