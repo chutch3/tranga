@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using API.Schema.ActionsContext;
 using API.Schema.ActionsContext.Actions;
 
@@ -9,56 +8,66 @@ public class MoveFileOrFolderWorker(string toLocation, string fromLocation, IEnu
 {
     public readonly string FromLocation = fromLocation;
     public readonly string ToLocation = toLocation;
-    
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
-    private ActionsContext ActionsContext = null!;
+
+    // 1. Renamed to _actionsContext to remove the need for [SuppressMessage]
+    private ActionsContext _actionsContext = null!;
 
     protected override void SetContexts(IServiceScope serviceScope)
     {
-        ActionsContext = GetContext<ActionsContext>(serviceScope);
+        _actionsContext = GetContext<ActionsContext>(serviceScope);
     }
 
     protected override async Task<BaseWorker[]> DoWorkInternal()
     {
         try
         {
-            FileInfo fi = new (FromLocation);
-            if (!fi.Exists)
+            bool isDir = Directory.Exists(FromLocation);
+            bool isFile = File.Exists(FromLocation);
+
+            if (!isDir && !isFile)
             {
-                Log.ErrorFormat("File does not exist at {0}", FromLocation);
+                Log.ErrorFormat("Source does not exist at {0}", FromLocation);
                 return [];
             }
 
-            if (File.Exists(ToLocation))//Do not override existing
+            if (File.Exists(ToLocation) || Directory.Exists(ToLocation))
             {
-                Log.ErrorFormat("File already exists at {0}", ToLocation);
+                Log.ErrorFormat("Destination already exists at {0}", ToLocation);
                 return [];
-            } 
-            if(fi.Attributes.HasFlag(FileAttributes.Directory))
-                MoveDirectory(fi, ToLocation);
+            }
+
+            // 2. Unify the directory creation logic before we attempt the move
+            EnsureParentDirectoryExists(ToLocation);
+
+            // 3. Inline the moves directly using the string paths
+            if (isDir)
+                Directory.Move(FromLocation, ToLocation);
             else
-                MoveFile(fi, ToLocation);
+                File.Move(FromLocation, ToLocation);
         }
         catch (Exception e)
         {
             Log.Error(e);
+            return []; // Bail out on IO failure so we don't accidentally update the DB!
         }
 
-        ActionsContext.Actions.Add(new DataMovedActionRecord(FromLocation, ToLocation));
-        if(await ActionsContext.Sync(CancellationToken, GetType(), "Library Moved") is { success: false } actionsContextException)
-            Log.ErrorFormat("Failed to save database changes: {0}", actionsContextException.exceptionMessage);
+        _actionsContext.Actions.Add(new DataMovedActionRecord(FromLocation, ToLocation));
+        if (await _actionsContext.Sync(CancellationToken, GetType(), "Library Moved") is { success: false } syncResult)
+        {
+            Log.ErrorFormat("Failed to save database changes: {0}", syncResult.exceptionMessage);
+        }
 
         return [];
     }
 
-    private static void MoveDirectory(FileInfo from, string toLocation)
+    // A single, unified helper method for creating the target paths
+    private static void EnsureParentDirectoryExists(string path)
     {
-        Directory.Move(from.FullName, toLocation);        
-    }
-
-    private static void MoveFile(FileInfo from, string toLocation)
-    {
-        File.Move(from.FullName, toLocation);
+        var parentDir = Path.GetDirectoryName(path);
+        if (!string.IsNullOrWhiteSpace(parentDir))
+        {
+            Directory.CreateDirectory(parentDir);
+        }
     }
 
     public override string ToString() => $"{base.ToString()} {FromLocation} {ToLocation}";

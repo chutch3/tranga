@@ -20,8 +20,8 @@ public abstract class BaseWorkerWithContexts(IEnumerable<BaseWorker>? dependsOn 
     }
 
     protected abstract void SetContexts(IServiceScope serviceScope);
-    
-    public new Task<BaseWorker[]> DoWork(IServiceScope serviceScope, Action? callback = null)
+
+    public Task<BaseWorker[]> DoWork(IServiceScope serviceScope, Action? callback = null)
     {
         SetContexts(serviceScope);
         return base.DoWork(callback);
