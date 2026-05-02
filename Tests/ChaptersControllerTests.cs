@@ -1,10 +1,12 @@
 using API.Controllers;
 using API.Controllers.Requests;
+using API.Controllers.DTOs;
 using API.Schema.MangaContext;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+
 
 namespace Tests;
 
@@ -18,9 +20,9 @@ public class ChaptersControllerTests
         return new MangaContext(options);
     }
 
-    private static ChaptersController CreateController(MangaContext ctx, Func<string, string, Task>? moveFile = null)
+    private static ChaptersController CreateController(MangaContext ctx)
     {
-        var controller = new ChaptersController(ctx, moveFile ?? ((_, _) => Task.CompletedTask));
+        var controller = new ChaptersController(ctx);
         controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext()
@@ -28,7 +30,7 @@ public class ChaptersControllerTests
         return controller;
     }
 
-    private static Manga MakeTestManga(string name)
+    private static API.Schema.MangaContext.Manga MakeTestManga(string name)
         => new(name, "", "http://example.com/img.jpg", MangaReleaseStatus.Continuing, [], [], [], []);
 
     [Fact]
@@ -36,7 +38,7 @@ public class ChaptersControllerTests
     {
         using var ctx = CreateContext();
         var manga = MakeTestManga("Berserk");
-        var chapter = new Chapter(manga, "1", null);
+        var chapter = new API.Schema.MangaContext.Chapter(manga, "1", null);
         ctx.Mangas.Add(manga);
         ctx.Chapters.Add(chapter);
         await ctx.SaveChangesAsync();
@@ -66,7 +68,7 @@ public class ChaptersControllerTests
     {
         using var ctx = CreateContext();
         var manga = MakeTestManga("Berserk");
-        var chapter = new Chapter(manga, "1", 5);
+        var chapter = new API.Schema.MangaContext.Chapter(manga, "1", 5);
         ctx.Mangas.Add(manga);
         ctx.Chapters.Add(chapter);
         await ctx.SaveChangesAsync();
@@ -80,72 +82,150 @@ public class ChaptersControllerTests
         Assert.Null(updated.VolumeNumber);
     }
 
+
     [Fact]
-    public async Task UpdateChapter_FileNameChanges_MovesFileFromOldPathToNewPath()
+    public async Task GetChapters_InvalidPagination_ReturnsBadRequest()
     {
+        // Edge Case: User passes 0 or negative numbers for pagination
         using var ctx = CreateContext();
-        var manga = MakeTestManga("Berserk");
-        var chapter = new Chapter(manga, "1", null);
-        chapter.FileName = "Berserk - Ch.1.cbz";
+
+        var result = await CreateController(ctx).GetChapters("any-id", filter: null, page: 0, pageSize: 10);
+
+        Assert.IsType<BadRequest>(result.Result);
+    }
+
+    [Fact]
+    public async Task GetChapters_WithDownloadedFilter_ReturnsOnlyDownloadedChapters()
+    {
+        // Edge Case: Filtering should correctly exclude non-matching records
+        using var ctx = CreateContext();
+        var manga = MakeTestManga("One Punch Man");
+
+        var downloadedChapter = new API.Schema.MangaContext.Chapter(manga, "1", 1) { Downloaded = true };
+        var missingChapter = new API.Schema.MangaContext.Chapter(manga, "2", 1) { Downloaded = false };
+
         ctx.Mangas.Add(manga);
-        ctx.Chapters.Add(chapter);
+        ctx.Chapters.AddRange(downloadedChapter, missingChapter);
         await ctx.SaveChangesAsync();
 
-        string? capturedSrc = null;
-        string? capturedDst = null;
-        Task CaptureMove(string src, string dst)
+        var filter = new ChapterFilterRecord(true, null, null, null);
+        var response = await CreateController(ctx).GetChapters(manga.Key, filter, page: 1, pageSize: 10);
+
+        var okResult = Assert.IsType<Ok<PagedResponse<API.Controllers.DTOs.Chapter>>>(response.Result);
+        var pagedData = okResult.Value;
+
+        Assert.NotNull(pagedData);
+        Assert.Single(pagedData.Data); // Should only return the 1 downloaded chapter
+        Assert.Equal(downloadedChapter.Key, pagedData.Data.First().Key);
+    }
+
+    [Fact]
+    public async Task GetChapters_MultiplePages_ReturnsCorrectPaginationMetadata()
+    {
+        using var ctx = CreateContext();
+        var manga = MakeTestManga("Naruto");
+        ctx.Mangas.Add(manga);
+
+        // Add 15 chapters
+        for (int i = 1; i <= 15; i++)
         {
-            capturedSrc = src;
-            capturedDst = dst;
-            return Task.CompletedTask;
+            ctx.Chapters.Add(new API.Schema.MangaContext.Chapter(manga, i.ToString(), null));
         }
+        await ctx.SaveChangesAsync();
+        var response = await CreateController(ctx).GetChapters(manga.Key, null, page: 1, pageSize: 10);
+        var okResult = Assert.IsType<Ok<API.Controllers.DTOs.PagedResponse<API.Controllers.DTOs.Chapter>>>(response.Result);
+        var pagedData = okResult.Value;
 
-        var request = new PatchChapterRecord("Berserk Vol 1/Berserk - Ch.1.cbz", 1);
-        await CreateController(ctx, CaptureMove).UpdateChapter(chapter.Key, request);
-
-        Assert.Equal("Berserk - Ch.1.cbz", capturedSrc);
-        Assert.Equal("Berserk Vol 1/Berserk - Ch.1.cbz", capturedDst);
+        Assert.NotNull(pagedData);
+        Assert.Equal(2, pagedData.TotalPages); // 15 items / 10 per page = 2 pages
+        Assert.Equal(10, pagedData.Data.Count());
     }
 
     [Fact]
-    public async Task UpdateChapter_FileNameUnchanged_DoesNotMoveFile()
+    public async Task GetChapter_KnownId_ReturnsChapter()
     {
         using var ctx = CreateContext();
-        var manga = MakeTestManga("Berserk");
-        var chapter = new Chapter(manga, "1", null);
-        chapter.FileName = "Berserk - Ch.1.cbz";
+        var manga = MakeTestManga("Jujutsu Kaisen");
+        var chapter = new API.Schema.MangaContext.Chapter(manga, "1", 1);
         ctx.Mangas.Add(manga);
         ctx.Chapters.Add(chapter);
         await ctx.SaveChangesAsync();
 
-        var moveInvoked = false;
-        Task TrackMove(string src, string dst) { moveInvoked = true; return Task.CompletedTask; }
+        var result = await CreateController(ctx).GetChapter(chapter.Key);
 
-        var request = new PatchChapterRecord("Berserk - Ch.1.cbz", 1);
-        await CreateController(ctx, TrackMove).UpdateChapter(chapter.Key, request);
+        var okResult = Assert.IsType<Ok<API.Controllers.DTOs.Chapter>>(result.Result);
 
-        Assert.False(moveInvoked);
+        // Assert it's not null to fix the CS8602 warning
+        Assert.NotNull(okResult.Value);
+        Assert.Equal(chapter.Key, okResult.Value.Key);
     }
 
     [Fact]
-    public async Task UpdateChapter_MoveThrows_ReturnsInternalServerError_AndDoesNotUpdateDb()
+    public async Task GetLatestChapter_UnknownManga_ReturnsNotFound()
     {
         using var ctx = CreateContext();
-        var manga = MakeTestManga("Berserk");
-        var chapter = new Chapter(manga, "1", null);
-        chapter.FileName = "Berserk - Ch.1.cbz";
+
+        // Requesting latest chapter for a manga ID that doesn't exist in the DB
+        var result = await CreateController(ctx).GetLatestChapter("invalid-manga-id");
+
+        Assert.IsType<NotFound<string>>(result.Result);
+    }
+
+
+    [Fact]
+    public async Task GetLatestDownloaded_WhenNoneAreDownloaded_ReturnsNoContent()
+    {
+        // Edge Case: The manga exists and has chapters, but NONE of them are downloaded yet.
+        using var ctx = CreateContext();
+        var manga = MakeTestManga("Mob Psycho 100");
+
+        // Add 3 chapters, all marked as not downloaded
+        ctx.Mangas.Add(manga);
+        ctx.Chapters.Add(new API.Schema.MangaContext.Chapter(manga, "1", 1) { Downloaded = false });
+        ctx.Chapters.Add(new API.Schema.MangaContext.Chapter(manga, "2", 1) { Downloaded = false });
+        ctx.Chapters.Add(new API.Schema.MangaContext.Chapter(manga, "3", 1) { Downloaded = false });
+        await ctx.SaveChangesAsync();
+
+        var result = await CreateController(ctx).GetLatestChapterDownloaded(manga.Key);
+
+        Assert.IsType<NoContent>(result.Result);
+    }
+
+
+    [Fact]
+    public async Task IgnoreChaptersBefore_ValidManga_UpdatesThresholdInDatabase()
+    {
+        // Edge Case: Ensure the threshold physically saves to the DB entity
+        using var ctx = CreateContext();
+        var manga = MakeTestManga("My Hero Academia");
+        ctx.Mangas.Add(manga);
+        await ctx.SaveChangesAsync();
+
+        // Act: Set threshold to chapter 50.5
+        float newThreshold = 50.5f;
+        var result = await CreateController(ctx).IgnoreChaptersBefore(manga.Key, newThreshold);
+
+        Assert.IsType<Ok>(result.Result);
+        var updatedManga = await ctx.Mangas.FirstAsync(m => m.Key == manga.Key);
+        Assert.Equal(newThreshold, updatedManga.IgnoreChaptersBefore);
+    }
+
+    [Fact]
+    public async Task DeleteChapter_ExistingChapter_RemovesFromDatabase()
+    {
+        using var ctx = CreateContext();
+        var manga = MakeTestManga("Attack on Titan");
+        var chapter = new API.Schema.MangaContext.Chapter(manga, "1", 1);
         ctx.Mangas.Add(manga);
         ctx.Chapters.Add(chapter);
         await ctx.SaveChangesAsync();
 
-        Task FailingMove(string src, string dst) => Task.FromException(new IOException("disk full"));
+        // Ensure it's there
+        Assert.Equal(1, await ctx.Chapters.CountAsync());
 
-        var request = new PatchChapterRecord("Berserk Vol 1/Berserk - Ch.1.cbz", 1);
-        var result = await CreateController(ctx, FailingMove).UpdateChapter(chapter.Key, request);
+        var result = await CreateController(ctx).DeleteChapter(chapter.Key);
 
-        Assert.IsType<InternalServerError<string>>(result.Result);
-        var unchanged = await ctx.Chapters.FirstAsync(c => c.Key == chapter.Key);
-        Assert.Equal("Berserk - Ch.1.cbz", unchanged.FileName);
-        Assert.Null(unchanged.VolumeNumber);
+        Assert.IsType<Ok>(result.Result);
+        Assert.Equal(0, await ctx.Chapters.CountAsync()); // Should be gone
     }
 }

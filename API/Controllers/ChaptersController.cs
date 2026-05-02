@@ -2,6 +2,7 @@ using API.Controllers.DTOs;
 using API.Controllers.Requests;
 using API.Schema.MangaContext;
 using API.Workers.MangaDownloadWorkers;
+using API.Workers;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -10,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using static Microsoft.AspNetCore.Http.StatusCodes;
 using Chapter = API.Controllers.DTOs.Chapter;
 
+
 // ReSharper disable InconsistentNaming
 
 namespace API.Controllers;
@@ -17,7 +19,7 @@ namespace API.Controllers;
 [ApiVersion(2)]
 [ApiController]
 [Route("v{v:apiVersion}/[controller]")]
-public class ChaptersController(MangaContext context, Func<string, string, Task>? moveFile = null) : ControllerBase
+public class ChaptersController(MangaContext context) : ControllerBase
 {
     /// <summary>
     /// Returns all <see cref="Schema.MangaContext.Chapter"/> of <see cref="Schema.MangaContext.Manga"/> with <paramref name="MangaId"/>
@@ -41,7 +43,7 @@ public class ChaptersController(MangaContext context, Func<string, string, Task>
         IQueryable<Schema.MangaContext.Chapter> queryable = context.Chapters
             .Include(ch => ch.MangaConnectorIds)
             .Where(ch => ch.ParentMangaId == MangaId);
-        
+
         if (filter is not null)
         {
             if(filter.Downloaded.HasValue)
@@ -67,7 +69,7 @@ public class ChaptersController(MangaContext context, Func<string, string, Task>
 
         return TypedResults.Ok(pagedResponse);
     }
-    
+
     /// <summary>
     /// Returns the latest <see cref="Chapter"/> of requested <see cref="Schema.MangaContext.Manga"/>
     /// </summary>
@@ -81,21 +83,26 @@ public class ChaptersController(MangaContext context, Func<string, string, Task>
     [ProducesResponseType<string>(Status404NotFound, "text/plain")]
     public async Task<Results<Ok<Chapter>, NoContent, NotFound<string>>> GetLatestChapter(string MangaId)
     {
-        if(await context.Chapters.Include(ch => ch.MangaConnectorIds)
-               .Where(ch => ch.ParentMangaId == MangaId)
-               .ToListAsync(HttpContext.RequestAborted)
-           is not { } dbChapters)
+        // 1. Explicitly check if the parent Manga actually exists
+        if (!await context.Mangas.AnyAsync(m => m.Key == MangaId, HttpContext.RequestAborted))
             return TypedResults.NotFound(nameof(MangaId));
 
+        // 2. Fetch the chapters
+        var dbChapters = await context.Chapters.Include(ch => ch.MangaConnectorIds)
+            .Where(ch => ch.ParentMangaId == MangaId)
+            .ToListAsync(HttpContext.RequestAborted);
+
         Schema.MangaContext.Chapter? c = dbChapters.Max();
+
+        // 3. If Manga exists but has 0 chapters, return NoContent
         if (c is null)
             return TypedResults.NoContent();
-            
+
         IEnumerable<DTOs.MangaConnectorId<Chapter>> ids = c.MangaConnectorIds.Select(id =>
             new DTOs.MangaConnectorId<Chapter>(id.Key, id.MangaConnectorName, id.ObjId, id.WebsiteUrl, id.UseForDownload));
+
         return TypedResults.Ok(new Chapter(c.Key, c.ParentMangaId, c.VolumeNumber, c.ChapterNumber, c.Title, ids, c.Downloaded, c.FileName));
     }
-    
     /// <summary>
     /// Returns the latest <see cref="Chapter"/> of requested <see cref="Schema.MangaContext.Manga"/> that is downloaded
     /// </summary>
@@ -122,7 +129,7 @@ public class ChaptersController(MangaContext context, Func<string, string, Task>
         Schema.MangaContext.Chapter? c = dbChapters.Max();
         if (c is null)
             return TypedResults.NoContent();
-            
+
         IEnumerable<DTOs.MangaConnectorId<Chapter>> ids = c.MangaConnectorIds.Select(id =>
             new DTOs.MangaConnectorId<Chapter>(id.Key, id.MangaConnectorName, id.ObjId, id.WebsiteUrl, id.UseForDownload));
         return TypedResults.Ok(new Chapter(c.Key, c.ParentMangaId, c.VolumeNumber, c.ChapterNumber, c.Title, ids, c.Downloaded, c.FileName));
@@ -144,14 +151,14 @@ public class ChaptersController(MangaContext context, Func<string, string, Task>
     {
         if (await context.Mangas.FirstOrDefaultAsync(m => m.Key == MangaId, HttpContext.RequestAborted) is not { } manga)
             return TypedResults.NotFound(nameof(MangaId));
-        
+
         manga.IgnoreChaptersBefore = chapterThreshold;
         if(await context.Sync(HttpContext.RequestAborted, GetType(), System.Reflection.MethodBase.GetCurrentMethod()?.Name) is { success: false } result)
             return TypedResults.InternalServerError(result.exceptionMessage);
 
         return TypedResults.Ok();
     }
-    
+
     /// <summary>
     /// Returns <see cref="Chapter"/> with <paramref name="ChapterId"/>
     /// </summary>
@@ -165,12 +172,12 @@ public class ChaptersController(MangaContext context, Func<string, string, Task>
     {
         if (await context.Chapters.FirstOrDefaultAsync(c => c.Key == ChapterId, HttpContext.RequestAborted) is not { } chapter)
             return TypedResults.NotFound(nameof(ChapterId));
-        
+
         IEnumerable<DTOs.MangaConnectorId<Chapter>> ids = chapter.MangaConnectorIds.Select(id =>
             new DTOs.MangaConnectorId<Chapter>(id.Key, id.MangaConnectorName, id.ObjId, id.WebsiteUrl, id.UseForDownload));
         return TypedResults.Ok(new Chapter(chapter.Key, chapter.ParentMangaId, chapter.VolumeNumber, chapter.ChapterNumber, chapter.Title,ids, chapter.Downloaded, chapter.FileName));
     }
-    
+
     /// <summary>
     /// Updates mutable metadata (<see cref="Schema.MangaContext.Chapter.FileName"/> and <see cref="Schema.MangaContext.Chapter.VolumeNumber"/>) on a <see cref="Chapter"/>
     /// </summary>
@@ -180,9 +187,6 @@ public class ChaptersController(MangaContext context, Func<string, string, Task>
     /// <response code="404"><see cref="Chapter"/> with <paramref name="ChapterId"/> not found</response>
     /// <response code="500">Error during Database Operation</response>
     [HttpPatch("{ChapterId}")]
-    [ProducesResponseType(Status200OK)]
-    [ProducesResponseType<string>(Status404NotFound, "text/plain")]
-    [ProducesResponseType<string>(Status500InternalServerError, "text/plain")]
     public async Task<Results<Ok, NotFound<string>, InternalServerError<string>>> UpdateChapter(string ChapterId, [FromBody] PatchChapterRecord patch)
     {
         if (await context.Chapters.FirstOrDefaultAsync(c => c.Key == ChapterId, HttpContext.RequestAborted) is not { } chapter)
@@ -191,16 +195,12 @@ public class ChaptersController(MangaContext context, Func<string, string, Task>
         string? oldFileName = chapter.FileName;
         bool fileNameChanged = patch.FileName != oldFileName;
 
-        if (fileNameChanged && oldFileName is not null && moveFile is not null)
+        // Trigger the worker we built!
+        if (fileNameChanged && oldFileName is not null && patch.FileName is not null)
         {
-            try
-            {
-                await moveFile(oldFileName, patch.FileName);
-            }
-            catch (Exception ex)
-            {
-                return TypedResults.InternalServerError(ex.Message);
-            }
+            // Add the file move to your background queue
+            var moveWorker = new MoveFileOrFolderWorker(toLocation: patch.FileName, fromLocation: oldFileName);
+            Tranga.AddWorker(moveWorker);
         }
 
         chapter.FileName = patch.FileName;
@@ -219,12 +219,15 @@ public class ChaptersController(MangaContext context, Func<string, string, Task>
     /// <response code="200"></response>
     /// <response code="404"><see cref="Chapter"/> with <paramref name="ChapterId"/> not found</response>
     [HttpDelete("{ChapterId}")]
-    [ProducesResponseType(Status200OK)]
-    [ProducesResponseType<string>(Status404NotFound, "text/plain")]
-    public async Task<Results<Ok, NotFound<string>>> DeleteChapter (string ChapterId)
+    public async Task<Results<Ok, NotFound<string>>> DeleteChapter(string ChapterId)
     {
-        if (await context.Chapters.Where(c => c.Key == ChapterId).ExecuteDeleteAsync(HttpContext.RequestAborted) < 1)
+        var chapter = await context.Chapters.FirstOrDefaultAsync(c => c.Key == ChapterId, HttpContext.RequestAborted);
+        if (chapter == null)
             return TypedResults.NotFound(nameof(ChapterId));
+
+        context.Chapters.Remove(chapter);
+        await context.SaveChangesAsync(HttpContext.RequestAborted);
+
         return TypedResults.Ok();
     }
 
@@ -243,7 +246,7 @@ public class ChaptersController(MangaContext context, Func<string, string, Task>
             return TypedResults.NotFound(nameof(MangaConnectorIdId));
 
         DTOs.MangaConnectorId<Chapter> result = new (mcIdManga.Key, mcIdManga.MangaConnectorName, mcIdManga.ObjId, mcIdManga.WebsiteUrl, mcIdManga.UseForDownload);
-        
+
         return TypedResults.Ok(result);
     }
 
@@ -301,7 +304,7 @@ public class ChaptersController(MangaContext context, Func<string, string, Task>
             DownloadChapterFromMangaconnectorWorker worker = new(chId);
             Tranga.AddWorker(worker);
         }
-        
+
         return TypedResults.Ok();
     }
 }

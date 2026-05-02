@@ -493,7 +493,7 @@
           "404": {
             "description": "API.Controllers.DTOs.Chapter with ChapterId not found",
             "content": {
-              "text/plain; x-version=2.0": {
+              "application/json; x-version=2.0": {
                 "schema": {
                   "type": "string"
                 }
@@ -503,7 +503,7 @@
           "500": {
             "description": "Error during Database Operation",
             "content": {
-              "text/plain; x-version=2.0": {
+              "application/json; x-version=2.0": {
                 "schema": {
                   "type": "string"
                 }
@@ -535,7 +535,7 @@
           "404": {
             "description": "API.Controllers.DTOs.Chapter with ChapterId not found",
             "content": {
-              "text/plain; x-version=2.0": {
+              "application/json; x-version=2.0": {
                 "schema": {
                   "type": "string"
                 }
