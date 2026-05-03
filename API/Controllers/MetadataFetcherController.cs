@@ -15,7 +15,7 @@ namespace API.Controllers;
 [ApiVersion(2)]
 [ApiController]
 [Route("v{v:apiVersion}/[controller]")]
-public class MetadataFetcherController(MangaContext mangaContext, ActionsContext actionsContext) : ControllerBase
+public class MetadataFetcherController(MangaContext mangaContext, ActionsContext actionsContext, IEnumerable<MetadataFetcher> fetchers) : ControllerBase
 {
     /// <summary>
     /// Get all <see cref="MetadataFetcher"/> (Metadata-Sites)
@@ -25,7 +25,7 @@ public class MetadataFetcherController(MangaContext mangaContext, ActionsContext
     [ProducesResponseType<List<string>>(Status200OK, "application/json")]
     public Ok<List<string>> GetConnectors ()
     {
-        return TypedResults.Ok(Tranga.MetadataFetchers.Select(m => m.Name).ToList());
+        return TypedResults.Ok(fetchers.Select(m => m.Name).ToList());
     }
 
     /// <summary>
@@ -77,7 +77,7 @@ public class MetadataFetcherController(MangaContext mangaContext, ActionsContext
     {
         if (await mangaContext.Mangas.FirstOrDefaultAsync(m => m.Key == MangaId, HttpContext.RequestAborted) is not { } manga)
             return TypedResults.NotFound(nameof(MangaId));
-        if(Tranga.MetadataFetchers.FirstOrDefault(f => f.Name == MetadataFetcherName) is not { } fetcher)
+        if(fetchers.FirstOrDefault(f => f.Name == MetadataFetcherName) is not { } fetcher)
             return TypedResults.BadRequest();
 
         MetadataSearchResult[] searchResults = searchTerm is null ? fetcher.SearchMetadataEntry(manga) : fetcher.SearchMetadataEntry(searchTerm);
@@ -103,7 +103,7 @@ public class MetadataFetcherController(MangaContext mangaContext, ActionsContext
     {
         if (await mangaContext.Mangas.FirstOrDefaultAsync(m => m.Key == MangaId, HttpContext.RequestAborted) is not { } manga)
             return TypedResults.NotFound(nameof(MangaId));
-        if(Tranga.MetadataFetchers.FirstOrDefault(f => f.Name == MetadataFetcherName) is not { } fetcher)
+        if(fetchers.FirstOrDefault(f => f.Name == MetadataFetcherName) is not { } fetcher)
             return TypedResults.BadRequest();
         
         MetadataEntry entry = fetcher.CreateMetadataEntry(manga, Identifier);
@@ -135,7 +135,7 @@ public class MetadataFetcherController(MangaContext mangaContext, ActionsContext
     {
         if (!await mangaContext.Mangas.AnyAsync(m => m.Key == MangaId, HttpContext.RequestAborted))
             return TypedResults.NotFound(nameof(MangaId));
-        if(Tranga.MetadataFetchers.All(f => f.Name != MetadataFetcherName))
+        if(fetchers.All(f => f.Name != MetadataFetcherName))
             return TypedResults.BadRequest();
         if (await mangaContext.MetadataEntries.Where(e => e.MangaId == MangaId && e.MetadataFetcherName == MetadataFetcherName)
                 .ExecuteDeleteAsync(HttpContext.RequestAborted) < 1)
@@ -161,7 +161,7 @@ public class MetadataFetcherController(MangaContext mangaContext, ActionsContext
         if (await mangaContext.MetadataEntries.FirstOrDefaultAsync(e => e.MetadataFetcherName == MetadataFetcherName && e.MangaId == MangaId, HttpContext.RequestAborted) is not { } metadataEntry)
             return TypedResults.StatusCode(Status412PreconditionFailed);
         
-        if(Tranga.MetadataFetchers.FirstOrDefault(f => f.Name == metadataEntry.MetadataFetcherName) is not { } fetcher)
+        if(fetchers.FirstOrDefault(f => f.Name == metadataEntry.MetadataFetcherName) is not { } fetcher)
             return TypedResults.BadRequest();
 
         await fetcher.UpdateMetadata(metadataEntry, mangaContext, HttpContext.RequestAborted);

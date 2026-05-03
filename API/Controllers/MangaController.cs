@@ -1,4 +1,5 @@
 ﻿using API.Controllers.DTOs;
+using API.MangaConnectors;
 using API.Schema.ActionsContext;
 using API.Schema.ActionsContext.Actions;
 using API.Schema.MangaContext;
@@ -16,6 +17,7 @@ using Author = API.Controllers.DTOs.Author;
 using Chapter = API.Schema.MangaContext.Chapter;
 using Link = API.Controllers.DTOs.Link;
 using Manga = API.Controllers.DTOs.Manga;
+using MangaConnectorImpl = API.MangaConnectors.MangaConnector;
 
 // ReSharper disable InconsistentNaming
 
@@ -24,7 +26,7 @@ namespace API.Controllers;
 [ApiVersion(2)]
 [ApiController]
 [Route("v{v:apiVersion}/[controller]")]
-public class MangaController(MangaContext context, ActionsContext actionsContext) : ControllerBase
+public class MangaController(MangaContext context, ActionsContext actionsContext, TrangaSettings settings, IEnumerable<MangaConnectorImpl> connectors, IWorkerQueue workerQueue) : ControllerBase
 {
     
     /// <summary>
@@ -139,7 +141,7 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
             return TypedResults.NotFound(nameof(MangaIdInto));
         
         BaseWorker[] newJobs = into.MergeFrom(from, context);
-        Tranga.AddWorkers(newJobs);
+        workerQueue.AddWorkers(newJobs);
         
         return TypedResults.Ok();
     }
@@ -170,10 +172,10 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
 
         string cache = CoverSize switch
         {
-            MangaController.CoverSize.Small => TrangaSettings.CoverImageCacheSmall,
-            MangaController.CoverSize.Medium => TrangaSettings.CoverImageCacheMedium,
-            MangaController.CoverSize.Large => TrangaSettings.CoverImageCacheLarge,
-            _ => TrangaSettings.CoverImageCacheOriginal
+            MangaController.CoverSize.Small => settings.CoverImageCacheSmall,
+            MangaController.CoverSize.Medium => settings.CoverImageCacheMedium,
+            MangaController.CoverSize.Large => settings.CoverImageCacheLarge,
+            _ => settings.CoverImageCacheOriginal
         };
 
         if (await manga.GetCoverImage(cache, HttpContext.RequestAborted) is not { } data)
@@ -219,7 +221,7 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
         manga.Library = library;
         Dictionary<Chapter, string?> newPaths = oldPaths.ToDictionary(kv => kv.Key, kv => kv.Key.FullArchiveFilePath);
         IEnumerable<MoveFileOrFolderWorker> workers = oldPaths.Select(kv => new MoveFileOrFolderWorker(newPaths[kv.Key]!, kv.Value!));
-        Tranga.AddWorkers(workers);
+        workerQueue.AddWorkers(workers);
         
         if(await context.Sync(HttpContext.RequestAborted, GetType(), "Move Manga") is { success: false } mangaContextResult)
             return TypedResults.InternalServerError(mangaContextResult.exceptionMessage);
@@ -256,7 +258,7 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
                 .Include(m => m.MangaConnectorIds.Where(mId => mId.MangaConnectorName == MangaConnectorName))
                 .FirstOrDefaultAsync(m => m.Key == MangaId, HttpContext.RequestAborted) is not { } manga)
             return TypedResults.NotFound(nameof(MangaId));
-        if(!Tranga.TryGetMangaConnector(MangaConnectorName, out API.MangaConnectors.MangaConnector? _))
+        if(!connectors.Any(c => c.Name.Equals(MangaConnectorName, StringComparison.InvariantCultureIgnoreCase)))
             return TypedResults.NotFound(nameof(MangaConnectorName));
 
         if (manga.MangaConnectorIds.FirstOrDefault(mId => mId.MangaConnectorName == MangaConnectorName) is not { } mcId)
@@ -283,9 +285,9 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
         if(await context.Sync(HttpContext.RequestAborted, GetType(), "Update download from MangaConnector.") is { success: false } result)
             return TypedResults.InternalServerError(result.exceptionMessage);
 
-        DownloadCoverFromMangaconnectorWorker downloadCover = new(mcId);
-        RetrieveMangaChaptersFromMangaconnectorWorker retrieveChapters = new(mcId, Tranga.Settings.DownloadLanguage);
-        Tranga.AddWorkers([downloadCover, retrieveChapters]);
+        DownloadCoverFromMangaconnectorWorker downloadCover = new(mcId, connectors);
+        RetrieveMangaChaptersFromMangaconnectorWorker retrieveChapters = new(mcId, settings.DownloadLanguage, connectors);
+        workerQueue.AddWorkers([downloadCover, retrieveChapters]);
         
         return TypedResults.Ok();
     }
@@ -307,7 +309,7 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
         if (await context.Mangas.FirstOrDefaultAsync(m => m.Key == MangaId, HttpContext.RequestAborted) is not { } manga)
             return TypedResults.NotFound(nameof(MangaId));
 
-        return new SearchController(context).SearchManga(MangaConnectorName, manga.Name);
+        return new SearchController(context, connectors, workerQueue).SearchManga(MangaConnectorName, manga.Name);
     }
     
     /// <summary>

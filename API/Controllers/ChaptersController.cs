@@ -1,5 +1,6 @@
 using API.Controllers.DTOs;
 using API.Controllers.Requests;
+using API.MangaConnectors;
 using API.Schema.MangaContext;
 using API.Workers.MangaDownloadWorkers;
 using API.Workers;
@@ -10,6 +11,7 @@ using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.EntityFrameworkCore;
 using static Microsoft.AspNetCore.Http.StatusCodes;
 using Chapter = API.Controllers.DTOs.Chapter;
+using MangaConnectorImpl = API.MangaConnectors.MangaConnector;
 
 
 // ReSharper disable InconsistentNaming
@@ -19,7 +21,7 @@ namespace API.Controllers;
 [ApiVersion(2)]
 [ApiController]
 [Route("v{v:apiVersion}/[controller]")]
-public class ChaptersController(MangaContext context) : ControllerBase
+public class ChaptersController(MangaContext context, TrangaSettings settings, IEnumerable<MangaConnectorImpl> connectors, IWorkerQueue workerQueue) : ControllerBase
 {
     /// <summary>
     /// Returns all <see cref="Schema.MangaContext.Chapter"/> of <see cref="Schema.MangaContext.Manga"/> with <paramref name="MangaId"/>
@@ -200,7 +202,7 @@ public class ChaptersController(MangaContext context) : ControllerBase
         {
             // Add the file move to your background queue
             var moveWorker = new MoveFileOrFolderWorker(toLocation: patch.FileName, fromLocation: oldFileName);
-            Tranga.AddWorker(moveWorker);
+            workerQueue.AddWorker(moveWorker);
         }
 
         chapter.FileName = patch.FileName;
@@ -285,7 +287,7 @@ public class ChaptersController(MangaContext context) : ControllerBase
     {
         if (await context.Chapters.FirstOrDefaultAsync(ch => ch.Key == ChapterId, HttpContext.RequestAborted) is not { } _)
             return TypedResults.NotFound(nameof(ChapterId));
-        if(!Tranga.TryGetMangaConnector(MangaConnectorName, out API.MangaConnectors.MangaConnector? _))
+        if(!connectors.Any(c => c.Name.Equals(MangaConnectorName, StringComparison.InvariantCultureIgnoreCase)))
             return TypedResults.NotFound(nameof(MangaConnectorName));
 
         if (await context.MangaConnectorToChapter
@@ -301,8 +303,8 @@ public class ChaptersController(MangaContext context) : ControllerBase
 
         if (IsRequested)
         {
-            DownloadChapterFromMangaconnectorWorker worker = new(chId);
-            Tranga.AddWorker(worker);
+            DownloadChapterFromMangaconnectorWorker worker = new(chId, connectors, settings);
+            workerQueue.AddWorker(worker);
         }
 
         return TypedResults.Ok();

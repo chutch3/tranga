@@ -1,5 +1,9 @@
 using API.Controllers.DTOs;
+using API.MangaConnectors;
+using MangaConnectorImpl = API.MangaConnectors.MangaConnector;
 using API.Schema.MangaContext;
+using API.Workers;
+using API.Workers.MangaDownloadWorkers;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -13,17 +17,23 @@ namespace API.Controllers;
 [ApiVersion(2)]
 [ApiController]
 [Route("v{v:apiVersion}/[controller]")]
-public class SearchController(MangaContext context, Func<string, string, (Manga, Schema.MangaContext.MangaConnectorId<Manga>)?>? connectorLookup = null) : ControllerBase
+public class SearchController(
+    MangaContext context,
+    IEnumerable<MangaConnectorImpl> connectors,
+    IWorkerQueue workerQueue,
+    Func<string, string, (Manga, Schema.MangaContext.MangaConnectorId<Manga>)?>? connectorLookup = null)
+    : ControllerBase
 {
     private (Manga, Schema.MangaContext.MangaConnectorId<Manga>)? LookupFromConnector(string connectorName, string mangaIdOnSite)
     {
         if (connectorLookup is not null)
             return connectorLookup(connectorName, mangaIdOnSite);
-        
-        if (Tranga.MangaConnectors.FirstOrDefault(c => c.Name.Equals(connectorName, StringComparison.InvariantCultureIgnoreCase)) is not { } connector)
+
+        if (connectors.FirstOrDefault(c => c.Name.Equals(connectorName, StringComparison.InvariantCultureIgnoreCase)) is not { } connector)
             return null;
         return connector.GetMangaFromId(mangaIdOnSite);
     }
+
     /// <summary>
     /// Initiate a search for a <see cref="Schema.MangaContext.Manga"/> on <see cref="MangaConnector"/> with searchTerm
     /// </summary>
@@ -36,13 +46,13 @@ public class SearchController(MangaContext context, Func<string, string, (Manga,
     [ProducesResponseType<List<MinimalManga>>(Status200OK, "application/json")]
     [ProducesResponseType<string>(Status404NotFound, "text/plain")]
     [ProducesResponseType(Status406NotAcceptable)]
-    public Results<Ok<List<MinimalManga>>, NotFound<string>, StatusCodeHttpResult> SearchManga (string MangaConnectorName, string Query)
+    public Results<Ok<List<MinimalManga>>, NotFound<string>, StatusCodeHttpResult> SearchManga(string MangaConnectorName, string Query)
     {
-        if(Tranga.MangaConnectors.FirstOrDefault(c => c.Name.Equals(MangaConnectorName, StringComparison.InvariantCultureIgnoreCase)) is not { } connector)
+        if (connectors.FirstOrDefault(c => c.Name.Equals(MangaConnectorName, StringComparison.InvariantCultureIgnoreCase)) is not { } connector)
             return TypedResults.NotFound(nameof(MangaConnectorName));
         if (!connector.Enabled)
             return TypedResults.StatusCode(Status412PreconditionFailed);
-        
+
         (Manga manga, Schema.MangaContext.MangaConnectorId<Manga> id)[] mangas = connector.SearchManga(Query);
 
         IEnumerable<MinimalManga> result = mangas.Select(kv =>
@@ -103,23 +113,27 @@ public class SearchController(MangaContext context, Func<string, string, (Manga,
     [ProducesResponseType<MinimalManga>(Status200OK, "application/json")]
     [ProducesResponseType<string>(Status404NotFound, "text/plain")]
     [ProducesResponseType<string>(Status500InternalServerError, "text/plain")]
-    public async Task<Results<Ok<MinimalManga>, NotFound<string>, InternalServerError<string>>> GetMangaFromUrl([FromQuery]string url)
+    public async Task<Results<Ok<MinimalManga>, NotFound<string>, InternalServerError<string>>> GetMangaFromUrl([FromQuery] string url)
     {
-        url = url.Trim('"', '\'', ' '); //Trim extraneous values
-        if(Tranga.MangaConnectors.FirstOrDefault(c => c.Name.Equals("Global", StringComparison.InvariantCultureIgnoreCase)) is not { } connector)
+        url = url.Trim('"', '\'', ' '); // Trim extraneous values
+        if (connectors.FirstOrDefault(c => c.Name.Equals("Global", StringComparison.InvariantCultureIgnoreCase)) is not { } connector)
             return TypedResults.InternalServerError("Could not find Global Connector.");
 
-        if(connector.GetMangaFromUrl(url) is not ({ } m, not null) manga)
+        if (connector.GetMangaFromUrl(url) is not ({ } m, not null) manga)
             return TypedResults.NotFound("Could not retrieve Manga");
-        
-        if(await context.AddMangaToContext(manga, HttpContext.RequestAborted) is not { } added)
+
+        if (await context.UpsertManga(manga.Item1, manga.Item2, HttpContext.RequestAborted) is not { } added)
             return TypedResults.InternalServerError("Could not add Manga to context");
+
         added.manga.IsTracked = true;
         await context.SaveChangesAsync(HttpContext.RequestAborted);
-        
+
+        // Kick off cover download worker
+        workerQueue.AddWorker(new DownloadCoverFromMangaconnectorWorker(added.id, connectors));
+
         IEnumerable<DTOs.MangaConnectorId<DTOs.Manga>> ids = added.manga.MangaConnectorIds.Select(id =>
             new DTOs.MangaConnectorId<DTOs.Manga>(id.Key, id.MangaConnectorName, id.ObjId, id.WebsiteUrl, id.UseForDownload));
-        MinimalManga result = new (added.manga.Key, added.manga.Name, added.manga.Description, added.manga.ReleaseStatus, ids);
+        MinimalManga result = new(added.manga.Key, added.manga.Name, added.manga.Description, added.manga.ReleaseStatus, ids);
 
         return TypedResults.Ok(result);
     }

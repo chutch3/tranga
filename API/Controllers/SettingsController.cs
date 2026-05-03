@@ -11,7 +11,7 @@ namespace API.Controllers;
 [ApiVersion(2)]
 [ApiController]
 [Route("v{v:apiVersion}/[controller]")]
-public class SettingsController() : ControllerBase
+public class SettingsController(TrangaSettings settings) : ControllerBase
 {
     /// <summary>
     /// Get all <see cref="Tranga.Settings"/>
@@ -21,7 +21,7 @@ public class SettingsController() : ControllerBase
     [ProducesResponseType<TrangaSettings>(Status200OK, "application/json")]
     public Ok<TrangaSettings> GetSettings()
     {
-        return TypedResults.Ok(Tranga.Settings);
+        return TypedResults.Ok(settings);
     }
     
     /// <summary>
@@ -32,7 +32,7 @@ public class SettingsController() : ControllerBase
     [ProducesResponseType<string>(Status200OK, "text/plain")]
     public Ok<string> GetUserAgent()
     {
-        return TypedResults.Ok(Tranga.Settings.UserAgent);
+        return TypedResults.Ok(settings.UserAgent);
     }
     
     /// <summary>
@@ -44,7 +44,7 @@ public class SettingsController() : ControllerBase
     public Ok SetUserAgent([FromBody]string userAgent)
     {
         //TODO Validate
-        Tranga.Settings.SetUserAgent(userAgent);
+        settings.SetUserAgent(userAgent);
         return TypedResults.Ok();
     }
     
@@ -56,7 +56,7 @@ public class SettingsController() : ControllerBase
     [ProducesResponseType(Status200OK)]
     public Ok ResetUserAgent()
     {
-        Tranga.Settings.SetUserAgent(TrangaSettings.DefaultUserAgent);
+        settings.SetUserAgent(TrangaSettings.DefaultUserAgent);
         return TypedResults.Ok();
     }
     
@@ -68,7 +68,7 @@ public class SettingsController() : ControllerBase
     [ProducesResponseType<int>(Status200OK, "text/plain")]
     public Ok<int> GetImageCompression()
     {
-        return TypedResults.Ok(Tranga.Settings.ImageCompression);
+        return TypedResults.Ok(settings.ImageCompression);
     }
     
     /// <summary>
@@ -84,7 +84,7 @@ public class SettingsController() : ControllerBase
     {
         if (level < 1 || level > 100)
             return TypedResults.BadRequest();
-        Tranga.Settings.UpdateImageCompression(level);
+        settings.UpdateImageCompression(level);
         return TypedResults.Ok();
     }
     
@@ -96,7 +96,7 @@ public class SettingsController() : ControllerBase
     [ProducesResponseType<bool>(Status200OK, "text/plain")]
     public Ok<bool> GetBwImagesToggle()
     {
-        return TypedResults.Ok(Tranga.Settings.BlackWhiteImages);
+        return TypedResults.Ok(settings.BlackWhiteImages);
     }
     
     /// <summary>
@@ -108,7 +108,7 @@ public class SettingsController() : ControllerBase
     [ProducesResponseType(Status200OK)]
     public Ok SetBwImagesToggle(bool enabled)
     {
-        Tranga.Settings.SetBlackWhiteImageEnabled(enabled);
+        settings.SetBlackWhiteImageEnabled(enabled);
         return TypedResults.Ok();
     }
     
@@ -134,7 +134,7 @@ public class SettingsController() : ControllerBase
     [ProducesResponseType<string>(Status200OK, "text/plain")]
     public Ok<string> GetCustomNamingScheme()
     {
-        return TypedResults.Ok(Tranga.Settings.ChapterNamingScheme);
+        return TypedResults.Ok(settings.ChapterNamingScheme);
     }
     
     /// <summary>
@@ -158,7 +158,7 @@ public class SettingsController() : ControllerBase
     public Ok SetCustomNamingScheme([FromBody]string namingScheme)
     {
         //TODO Move old Chapters
-        Tranga.Settings.SetChapterNamingScheme(namingScheme);
+        settings.SetChapterNamingScheme(namingScheme);
         
         return TypedResults.Ok();
     }
@@ -172,7 +172,7 @@ public class SettingsController() : ControllerBase
     [ProducesResponseType(Status200OK)]
     public Ok SetFlareSolverrUrl([FromBody]string flareSolverrUrl)
     {
-        Tranga.Settings.SetFlareSolverrUrl(flareSolverrUrl);
+        settings.SetFlareSolverrUrl(flareSolverrUrl);
         return TypedResults.Ok();
     }
 
@@ -184,7 +184,7 @@ public class SettingsController() : ControllerBase
     [ProducesResponseType(Status200OK)]
     public Ok ClearFlareSolverrUrl()
     {
-        Tranga.Settings.SetFlareSolverrUrl(string.Empty);
+        settings.SetFlareSolverrUrl(string.Empty);
         return TypedResults.Ok();
     }
 
@@ -199,7 +199,7 @@ public class SettingsController() : ControllerBase
     public async Task<Results<Ok, InternalServerError>> TestFlareSolverrReachable()
     {
         const string knownProtectedUrl = "https://prowlarr.servarr.com/v1/ping";
-        FlareSolverrDownloadClient client = new(new ());
+        FlareSolverrDownloadClient client = new(new HttpClient(), settings);
         HttpResponseMessage result = await client.MakeRequest(knownProtectedUrl, RequestType.Default);
         return result.IsSuccessStatusCode ? TypedResults.Ok() : TypedResults.InternalServerError(); 
     }
@@ -212,7 +212,7 @@ public class SettingsController() : ControllerBase
     [ProducesResponseType<string>(Status200OK,  "text/plain")]
     public Ok<string> GetDownloadLanguage()
     {
-        return TypedResults.Ok(Tranga.Settings.DownloadLanguage);
+        return TypedResults.Ok(settings.DownloadLanguage);
     }
 
     /// <summary>
@@ -224,7 +224,7 @@ public class SettingsController() : ControllerBase
     public Ok SetDownloadLanguage(string Language)
     {
         //TODO Validation
-        Tranga.Settings.SetDownloadLanguage(Language);
+        settings.SetDownloadLanguage(Language);
         return TypedResults.Ok();
     }
     
@@ -237,9 +237,9 @@ public class SettingsController() : ControllerBase
     [ProducesResponseType(Status200OK)]
     public Ok SetLibraryRefresh([FromBody]PatchLibraryRefreshRecord requestData)
     {
-        Tranga.Settings.SetLibraryRefreshSetting(requestData.Setting);
+        settings.SetLibraryRefreshSetting(requestData.Setting);
         if(requestData.RefreshLibraryWhileDownloadingEveryMinutes is { } value)
-            Tranga.Settings.SetRefreshLibraryWhileDownloadingEveryMinutes(value);
+            settings.SetRefreshLibraryWhileDownloadingEveryMinutes(value);
         return TypedResults.Ok();
     }
 }
