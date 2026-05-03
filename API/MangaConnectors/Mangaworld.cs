@@ -10,7 +10,7 @@ namespace API.MangaConnectors;
 
 public sealed class Mangaworld : MangaConnector
 {
-    public Mangaworld() : base(
+    public Mangaworld(TrangaSettings settings, RateLimitHandler rateLimitHandler) : base(
         "Mangaworld",
         ["it"],
         [
@@ -20,10 +20,11 @@ public sealed class Mangaworld : MangaConnector
             "mangaworld.ac","www.mangaworld.ac",
             "mangaworld.mx","www.mangaworld.mx"
         ],
-        "https://www.mangaworld.mx/public/assets/seo/favicon-96x96.png?v=3"
+        "https://www.mangaworld.mx/public/assets/seo/favicon-96x96.png?v=3",
+        settings
     )
     {
-        downloadClient = new HttpDownloadClient();
+        downloadClient = new HttpDownloadClient(rateLimitHandler, settings);
     }
 
     public override (Manga, MangaConnectorId<Manga>)[] SearchManga(string mangaSearchName)
@@ -397,4 +398,3 @@ public sealed class Mangaworld : MangaConnector
         return sr.ReadToEnd();
     }
 }
-

@@ -12,12 +12,12 @@ public class MangaDex : MangaConnector
     //https://api.mangadex.org/docs/3-enumerations/#language-codes--localization
     //https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes
     //https://gist.github.com/Josantonius/b455e315bc7f790d14b136d61d9ae469
-    public MangaDex() : base("MangaDex", 
+    public MangaDex(TrangaSettings settings, RateLimitHandler rateLimitHandler) : base("MangaDex",
         ["en","pt","pt-br","it","de","ru","aa","ab","ae","af","ak","am","an","ar-ae","ar-bh","ar-dz","ar-eg","ar-iq","ar-jo","ar-kw","ar-lb","ar-ly","ar-ma","ar-om","ar-qa","ar-sa","ar-sy","ar-tn","ar-ye","ar","as","av","ay","az","ba","be","bg","bh","bi","bm","bn","bo","br","bs","ca","ce","ch","co","cr","cs","cu","cv","cy","da","de-at","de-ch","de-de","de-li","de-lu","div","dv","dz","ee","el","en-au","en-bz","en-ca","en-cb","en-gb","en-ie","en-jm","en-nz","en-ph","en-tt","en-us","en-za","en-zw","eo","es-ar","es-bo","es-cl","es-co","es-cr","es-do","es-ec","es-es","es-gt","es-hn","es-la","es-mx","es-ni","es-pa","es-pe","es-pr","es-py","es-sv","es-us","es-uy","es-ve","es","et","eu","fa","ff","fi","fj","fo","fr-be","fr-ca","fr-ch","fr-fr","fr-lu","fr-mc","fr","fy","ga","gd","gl","gn","gu","gv","ha","he","hi","ho","hr-ba","hr-hr","hr","ht","hu","hy","hz","ia","id","ie","ig","ii","ik","in","io","is","it-ch","it-it","iu","iw","ja","ja-ro","ji","jv","jw","ka","kg","ki","kj","kk","kl","km","kn","ko","ko-ro","kr","ks","ku","kv","kw","ky","kz","la","lb","lg","li","ln","lo","ls","lt","lu","lv","mg","mh","mi","mk","ml","mn","mo","mr","ms-bn","ms-my","ms","mt","my","na","nb","nd","ne","ng","nl-be","nl-nl","nl","nn","no","nr","ns","nv","ny","oc","oj","om","or","os","pa","pi","pl","ps","pt-pt","qu-bo","qu-ec","qu-pe","qu","rm","rn","ro","rw","sa","sb","sc","sd","se-fi","se-no","se-se","se","sg","sh","si","sk","sl","sm","sn","so","sq","sr-ba","sr-sp","sr","ss","st","su","sv-fi","sv-se","sv","sw","sx","syr","ta","te","tg","th","ti","tk","tl","tn","to","tr","ts","tt","tw","ty","ug","uk","ur","us","uz","ve","vi","vo","wa","wo","xh","yi","yo","za","zh-cn","zh-hk","zh-mo","zh-ro","zh-sg","zh-tw","zh","zu"],
-        ["mangadex.org"], 
-        "https://mangadex.org/favicon.ico")
+        ["mangadex.org"],
+        "https://mangadex.org/favicon.ico", settings)
     {
-        this.downloadClient = new HttpDownloadClient();
+        this.downloadClient = new HttpDownloadClient(rateLimitHandler, settings);
     }
 
     private const int Limit = 100;
@@ -25,7 +25,7 @@ public class MangaDex : MangaConnector
     {
         Log.InfoFormat("Searching Obj: {0}", mangaSearchName);
         List<(Manga, MangaConnectorId<Manga>)> mangas = new ();
-        
+
         int offset = 0;
         int total = int.MaxValue;
         while(offset < total)
@@ -54,17 +54,17 @@ public class MangaDex : MangaConnector
             }
 
             total = jObject.Value<int>("total");
-            
+
             JArray? data = jObject.Value<JArray>("data");
             if (data is null)
             {
                 Log.Error("Data was null");
                 return [];
             }
-            
+
             mangas.AddRange(data.Select(ParseMangaFromJToken));
         }
-        
+
         Log.InfoFormat("Search {0} yielded {1} results.", mangaSearchName, mangas.Count);
         return mangas.ToArray();
     }
@@ -96,7 +96,7 @@ public class MangaDex : MangaConnector
         string requestUrl =
             $"https://api.mangadex.org/manga/{mangaIdOnSite}" +
             $"?includes%5B%5D=manga&includes%5B%5D=cover_art&includes%5B%5D=author&includes%5B%5D=artist&includes%5B%5D=tag'";
-        
+
         HttpResponseMessage result = downloadClient.MakeRequest(requestUrl, RequestType.MangaDexFeed).Result;
         if ((int)result.StatusCode < 200 || (int)result.StatusCode >= 300)
         {
@@ -113,7 +113,7 @@ public class MangaDex : MangaConnector
             Log.ErrorFormat("Request failed: {0}", string.Join(',', errors?.Select(e => e.Value<string>("title")) ?? []));
             return null;
         }
-        
+
         JObject? data = jObject["data"] as JObject;
         if (data is null)
         {
@@ -128,7 +128,7 @@ public class MangaDex : MangaConnector
     {
         Log.InfoFormat("Getting Chapters: {0}", mangaId.IdOnConnectorSite);
         List<(Chapter, MangaConnectorId<Chapter>)> chapters = new ();
-        
+
         int offset = 0;
         int total = int.MaxValue;
         while(offset < total)
@@ -160,17 +160,17 @@ public class MangaDex : MangaConnector
             }
 
             total = jObject.Value<int>("total");
-            
+
             JArray? data = jObject.Value<JArray>("data");
             if (data is null)
             {
                 Log.Error("Data was null");
                 return [];
             }
-            
+
             chapters.AddRange(data.Select(d => ParseChapterFromJToken(mangaId, d)));
         }
-        
+
         Log.InfoFormat("Request for chapters for {0} yielded {1} results.", mangaId.Obj.Name, chapters.Count);
         return chapters.ToArray();
     }
@@ -191,10 +191,10 @@ public class MangaDex : MangaConnector
             Log.DebugFormat("Url is not for Connector (Could not retrieve id). {0}", chapterId.WebsiteUrl);
             return [];
         }
-        
+
         string id = match.Groups[1].Value;
         string requestUrl = $"https://api.mangadex.org/at-home/server/{id}";
-        
+
         HttpResponseMessage result = downloadClient.MakeRequest(requestUrl, RequestType.Default).Result;
         if ((int)result.StatusCode < 200 || (int)result.StatusCode >= 300)
         {
@@ -204,14 +204,14 @@ public class MangaDex : MangaConnector
 
         using StreamReader sr = new (result.Content.ReadAsStream());
         JObject jObject = JObject.Parse(sr.ReadToEnd());
-        
+
         if (jObject.Value<string>("result") != "ok")
         {
             JArray? errors = jObject["errors"] as JArray;
             Log.ErrorFormat("Request failed: {0}", string.Join(',', errors?.Select(e => e.Value<string>("title")) ?? []));
             return [];
         }
-        
+
         string? baseUrl = jObject.Value<string>("baseUrl");
         JToken? chapterToken = jObject["chapter"];
         string? hash = chapterToken?.Value<string>("hash");
@@ -224,7 +224,7 @@ public class MangaDex : MangaConnector
         }
 
         IEnumerable<string> urls = data.Select(t => $"{baseUrl}/data/{hash}/{t.Value<string>()}");
-        
+
         return urls.ToArray();
     }
 
@@ -244,11 +244,11 @@ public class MangaDex : MangaConnector
         JArray? relationships = jToken["relationships"] as JArray;
         if (name is null || status is null || relationships is null)
             throw new ParsingException("jToken was not in expected format");
-        
+
         string? coverFileName = relationships.FirstOrDefault(r => r["type"]?.Value<string>() == "cover_art")?["attributes"]?.Value<string>("fileName");
         if(coverFileName is null)
             throw new ParsingException("jToken was not in expected format");
-        
+
         List<Link> links = attributes["links"]?
             .ToObject<Dictionary<string,string>>()?
             .Select(kv =>
@@ -290,20 +290,20 @@ public class MangaDex : MangaConnector
                     return null;
                 return new AltTitle(p.Name, p.Value.ToString());
             }).Where(x => x is not null).Cast<AltTitle>().ToList()??[];
-        
+
         List<MangaTag> tags = tagsJArray?
             .Where(t => t.Value<string>("type") == "tag")
             .Select(t => t["attributes"]?["name"]?.Value<string>("en")??t["attributes"]?["name"]?.First?.First?.Value<string>())
             .Select(str => str is not null ? new MangaTag(str) : null)
             .Where(x => x is not null).Cast<MangaTag>().ToList()??[];
-        
+
         List<Author> authors = relationships
             .Where(r => r["type"]?.Value<string>() == "author")
             .Select(t => t["attributes"]?.Value<string>("name"))
             .Select(str => str is not null ? new Author(str) : null)
             .Where(x => x is not null).Cast<Author>().ToList();
-            
-        
+
+
         MangaReleaseStatus releaseStatus = status switch
         {
             "completed" => MangaReleaseStatus.Completed,
@@ -330,12 +330,12 @@ public class MangaDex : MangaConnector
         string? volumeStr = attributes?.Value<string>("volume");
         int? volumeNumber = null;
         string? title = attributes?.Value<string>("title");
-        
+
         if(id is null || chapterStr is null)
             throw new ParsingException("jToken was not in expected format");
         if(volumeStr is not null)
             volumeNumber = int.Parse(volumeStr);
-        
+
         string websiteUrl = $"https://mangadex.org/chapter/{id}";
         Chapter chapter = new (mcIdManga.Obj, chapterStr, volumeNumber, title);
         MangaConnectorId<Chapter> mcId = new(chapter, this, id, websiteUrl);

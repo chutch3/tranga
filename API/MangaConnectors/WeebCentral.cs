@@ -14,9 +14,9 @@ namespace API.MangaConnectors;
 
 public class WeebCentral : MangaConnector
 {
-    public WeebCentral() : base("WeebCentral", new[] { "en" }, new[] { "weebcentral.com" }, "https://weebcentral.com/static/images/brand.png")
+    public WeebCentral(TrangaSettings settings, RateLimitHandler rateLimitHandler) : base("WeebCentral", new[] { "en" }, new[] { "weebcentral.com" }, "https://weebcentral.com/static/images/brand.png", settings)
     {
-        this.downloadClient = new HttpDownloadClient(); // Use Http for all
+        this.downloadClient = new HttpDownloadClient(rateLimitHandler, settings);
     }
 
     public override (Manga, MangaConnectorId<Manga>)[] SearchManga(string mangaSearchName)
@@ -172,11 +172,11 @@ public class WeebCentral : MangaConnector
         List<Link> links = new();
         // Match original constructor (null language for consistent Key)
         Manga manga = new(cleanTitle, description, coverUrl, releaseStatus, authors, tags, links, altTitles, null, 0f, year, null);
-        
+
         // Use mangaIdOnSite for ID (core slug, consistent)
         MangaConnectorId<Manga> mcId = new(manga, this, mangaIdOnSite, url);
         manga.MangaConnectorIds.Add(mcId);
-        
+
         return (manga, mcId);
     }
 
@@ -223,7 +223,7 @@ public class WeebCentral : MangaConnector
 				else
 					Log.Warn($"Failed to parse volume number: {volMatch.Groups[1].Value}");
 			}
-			
+
             // Get chapter number - supports decimals
             string chapterNumber;
 			Match chMatch = Regex.Match(text, @"(?:chapter|ch\.?)\s*([\d]+(?:\.\d+)?)", RegexOptions.IgnoreCase);
@@ -290,12 +290,12 @@ public class WeebCentral : MangaConnector
 		}
 
 		string html = await response.Content.ReadAsStringAsync();
-		
+
 		HtmlDocument doc = new();
 		doc.LoadHtml(html);
 
 		HtmlNodeCollection? imageNodes = doc.DocumentNode.SelectNodes("//img[starts-with(@alt, 'Page')]");
-		
+
 		if (imageNodes is null || imageNodes.Count == 0)
 		{
 			Log.Warn("No chapter page images found");
@@ -303,7 +303,7 @@ public class WeebCentral : MangaConnector
 		}
 
 		string[] imageUrls = imageNodes
-			.Select(i => 
+			.Select(i =>
 			{
 				string src = i.GetAttributeValue("src", "");
 				if (string.IsNullOrEmpty(src))

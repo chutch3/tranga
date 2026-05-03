@@ -1,30 +1,36 @@
-﻿using System.Net;
+using System.Net;
 using log4net;
 
 namespace API.MangaDownloadClients;
 
 internal class HttpDownloadClient : IDownloadClient
 {
-    private static readonly HttpClient Client = new(handler: Tranga.RateLimitHandler)
-    {
-        Timeout = TimeSpan.FromSeconds(Constants.HttpRequestTimeout),
-        DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrHigher,
-        DefaultRequestHeaders = { { "User-Agent", Tranga.Settings.UserAgent } }
-    };
-    private static readonly FlareSolverrDownloadClient FlareSolverrDownloadClient = new(Client);
+    private readonly HttpClient _client;
+    private readonly FlareSolverrDownloadClient _flareSolverrClient;
     private ILog Log { get; } = LogManager.GetLogger(typeof(HttpDownloadClient));
-    
+
+    public HttpDownloadClient(RateLimitHandler rateLimitHandler, TrangaSettings settings)
+    {
+        _client = new HttpClient(handler: rateLimitHandler)
+        {
+            Timeout = TimeSpan.FromSeconds(Constants.HttpRequestTimeout),
+            DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrHigher,
+            DefaultRequestHeaders = { { "User-Agent", settings.UserAgent } }
+        };
+        _flareSolverrClient = new FlareSolverrDownloadClient(_client, settings);
+    }
+
     public async Task<HttpResponseMessage> MakeRequest(string url, RequestType requestType, string? referrer = null, CancellationToken? cancellationToken = null)
     {
         Log.DebugFormat("Using {0} for {1}", typeof(HttpDownloadClient).FullName, url);
         HttpRequestMessage requestMessage = new(HttpMethod.Get, url);
         if (referrer is not null)
-            requestMessage.Headers.Referrer = new (referrer);
+            requestMessage.Headers.Referrer = new(referrer);
         Log.DebugFormat("Requesting {0}", url);
-        
+
         try
         {
-            HttpResponseMessage response = await Client.SendAsync(requestMessage, cancellationToken ?? CancellationToken.None);
+            HttpResponseMessage response = await _client.SendAsync(requestMessage, cancellationToken ?? CancellationToken.None);
             Log.DebugFormat("Request {0} returned {1} {2}", url, (int)response.StatusCode, response.StatusCode.ToString());
             if(response.IsSuccessStatusCode)
                 return response;
@@ -33,9 +39,9 @@ internal class HttpDownloadClient : IDownloadClient
                     (s.Product?.Name ?? "").Contains("cloudflare", StringComparison.InvariantCultureIgnoreCase)))
             {
                 Log.Debug("Retrying with FlareSolverr!");
-                return await FlareSolverrDownloadClient.MakeRequest(url, requestType, referrer);
+                return await _flareSolverrClient.MakeRequest(url, requestType, referrer);
             }
-            
+
             Log.Debug($"Request returned status code {(int)response.StatusCode} {response.StatusCode}:\n" +
                       $"=====\n" +
                       $"Request:\n" +

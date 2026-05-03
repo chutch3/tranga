@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
 using log4net;
@@ -9,16 +9,18 @@ namespace API.MangaDownloadClients;
 internal class ChromiumDownloadClient : IDownloadClient, IAsyncDisposable
 {
     private static readonly ILog Log = LogManager.GetLogger(typeof(ChromiumDownloadClient));
-    private IBrowser? _browser;  // Instance-level: Avoids shared state races
+    private IBrowser? _browser;
     private readonly HttpDownloadClient _httpFallback;
-    private readonly object _lock = new();  // Instance lock for init
-    private static readonly Regex _imageUrlRex = new(@"https?:\/\/.*\.(?:p?jpe?g|gif|a?png|bmp|avif|webp)(\?.*)?");  // v1 image fallback regex
-    private long _activePages = 0;  // Manual counter for active pages
-    private readonly int _maxPages = 2;  // Limit to 2 concurrent pages
+    private readonly TrangaSettings _settings;
+    private readonly object _lock = new();
+    private static readonly Regex _imageUrlRex = new(@"https?:\/\/.*\.(?:p?jpe?g|gif|a?png|bmp|avif|webp)(\?.*)?");
+    private long _activePages = 0;
+    private readonly int _maxPages = 2;
 
-    public ChromiumDownloadClient()
+    public ChromiumDownloadClient(TrangaSettings settings, RateLimitHandler rateLimitHandler)
     {
-        _httpFallback = new();  // Fallback for direct images
+        _settings = settings;
+        _httpFallback = new HttpDownloadClient(rateLimitHandler, settings);
     }
 
     private void EnsureBrowserInitialized()
@@ -27,12 +29,11 @@ internal class ChromiumDownloadClient : IDownloadClient, IAsyncDisposable
 
         lock (_lock)
         {
-            if (_browser != null) return;  // Double-check lock
+            if (_browser != null) return;
             try
             {
                 Log.Debug("Starting Chromium init.");
 
-                // Check for local Chrome path from ENV (skip download if present)
                 string? localPath = Environment.GetEnvironmentVariable("PUPPETEER_EXECUTABLE_PATH") ?? Environment.GetEnvironmentVariable("CHROME_BIN");
                 if (string.IsNullOrEmpty(localPath) || !System.IO.File.Exists(localPath))
                 {
@@ -43,16 +44,15 @@ internal class ChromiumDownloadClient : IDownloadClient, IAsyncDisposable
                 LaunchOptions launchOptions = new()
                 {
                     Headless = true,
-                    Timeout = 60000, 
+                    Timeout = 60000,
                     ExecutablePath = localPath,
-                    Args = Environment.GetEnvironmentVariable("PUPPETEER_ARGS")?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? new[] { 
-                        "--no-sandbox", 
-                        "--disable-setuid-sandbox", 
+                    Args = Environment.GetEnvironmentVariable("PUPPETEER_ARGS")?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? new[] {
+                        "--no-sandbox",
+                        "--disable-setuid-sandbox",
                         "--disable-dev-shm-usage",
                         "--disable-gpu"
                     }
                 };
-                // Launch with options and null loggerFactory
                 _browser = Puppeteer.LaunchAsync(launchOptions, null).GetAwaiter().GetResult();
 
                 Log.Debug("Chromium browser initialized successfully.");
@@ -89,11 +89,10 @@ internal class ChromiumDownloadClient : IDownloadClient, IAsyncDisposable
 
         if (_imageUrlRex.IsMatch(url))
         {
-            HttpDownloadClient httpClient = new();
-            return await httpClient.MakeRequest(url, requestType, referrer, cancellationToken);
+            return await _httpFallback.MakeRequest(url, requestType, referrer, cancellationToken);
         }
 
-        EnsureBrowserInitialized();  // Lazy init if needed
+        EnsureBrowserInitialized();
 
         if (_browser is null)
         {
@@ -101,19 +100,18 @@ internal class ChromiumDownloadClient : IDownloadClient, IAsyncDisposable
             return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable);
         }
 
-        // Wait for available slot (async poll loop)
         while (Interlocked.Read(ref _activePages) >= _maxPages)
         {
-            await Task.Delay(50, cancellationToken ?? CancellationToken.None);  // Poll every 50ms
+            await Task.Delay(50, cancellationToken ?? CancellationToken.None);
         }
 
-        Interlocked.Increment(ref _activePages);  // Increment counter
+        Interlocked.Increment(ref _activePages);
         IPage? page = null;
         try
         {
             page = await _browser.NewPageAsync();
 
-            await page.SetUserAgentAsync(Tranga.Settings.UserAgent);
+            await page.SetUserAgentAsync(_settings.UserAgent);
 
             if (!string.IsNullOrEmpty(referrer))
             {
@@ -129,7 +127,7 @@ internal class ChromiumDownloadClient : IDownloadClient, IAsyncDisposable
             }
             else
             {
-                navOptions.Timeout = 15000;  // Default 15s
+                navOptions.Timeout = 15000;
             }
 
             bool success = false;
@@ -138,7 +136,6 @@ internal class ChromiumDownloadClient : IDownloadClient, IAsyncDisposable
             {
                 try
                 {
-                    // Simple GoToAsync overload (no navOptions/CT to avoid generic issues)
                     await page.GoToAsync(url);
                     success = true;
                     Log.DebugFormat("Page loaded on retry {0}. {1}", retry + 1, url);
@@ -163,7 +160,7 @@ internal class ChromiumDownloadClient : IDownloadClient, IAsyncDisposable
             Log.DebugFormat("Page loaded. {0}", url);
 
             await page.EvaluateExpressionAsync("window.scrollTo(0, document.body.scrollHeight);");
-            await Task.Delay(2000);  // Hardcoded scroll wait
+            await Task.Delay(2000);
 
             string html = await page.GetContentAsync();
 
@@ -187,7 +184,7 @@ internal class ChromiumDownloadClient : IDownloadClient, IAsyncDisposable
                     Log.WarnFormat("Error closing page: {0}", ex.Message);
                 }
             }
-            Interlocked.Decrement(ref _activePages);  // Decrement counter
+            Interlocked.Decrement(ref _activePages);
         }
     }
 }

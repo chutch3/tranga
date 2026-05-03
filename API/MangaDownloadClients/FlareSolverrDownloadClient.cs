@@ -8,7 +8,7 @@ using Newtonsoft.Json.Linq;
 
 namespace API.MangaDownloadClients;
 
-public class FlareSolverrDownloadClient(HttpClient client) : IDownloadClient
+public class FlareSolverrDownloadClient(HttpClient client, TrangaSettings settings) : IDownloadClient
 {
     private ILog Log { get; } = LogManager.GetLogger(typeof(FlareSolverrDownloadClient));
 
@@ -17,19 +17,19 @@ public class FlareSolverrDownloadClient(HttpClient client) : IDownloadClient
         Log.DebugFormat("Using {0} for {1}", typeof(FlareSolverrDownloadClient).FullName, url);
         if(referrer is not null)
             Log.Warn("Client can not set referrer");
-        if (Tranga.Settings.FlareSolverrUrl == string.Empty)
+        if (settings.FlareSolverrUrl == string.Empty)
         {
             Log.Error("FlareSolverr URL is empty");
             return new(HttpStatusCode.InternalServerError);
         }
-        
-        Uri flareSolverrUri = new (Tranga.Settings.FlareSolverrUrl);
+
+        Uri flareSolverrUri = new(settings.FlareSolverrUrl);
         if (flareSolverrUri.Segments.Last() != "v1")
             flareSolverrUri = new UriBuilder(flareSolverrUri)
             {
                 Path = "v1"
             }.Uri;
-        
+
         JObject requestObj = new()
         {
             ["cmd"] = "request.get",
@@ -40,9 +40,9 @@ public class FlareSolverrDownloadClient(HttpClient client) : IDownloadClient
         {
             Content = new StringContent(JsonConvert.SerializeObject(requestObj)),
         };
-        requestMessage.Content.Headers.ContentType = new ("application/json");
+        requestMessage.Content.Headers.ContentType = new("application/json");
         Log.DebugFormat("Requesting {0}", url);
-        
+
         HttpResponseMessage? response;
         try
         {
@@ -51,7 +51,7 @@ public class FlareSolverrDownloadClient(HttpClient client) : IDownloadClient
         catch (HttpRequestException e)
         {
             Log.Error(e);
-            return new (HttpStatusCode.InternalServerError);
+            return new(HttpStatusCode.InternalServerError);
         }
 
         if (!response.IsSuccessStatusCode)
@@ -95,7 +95,7 @@ public class FlareSolverrDownloadClient(HttpClient client) : IDownloadClient
         if (statusCode < HttpStatusCode.OK || statusCode >= HttpStatusCode.MultipleChoices)
         {
             Log.DebugFormat("Status is: {0}", statusCode);
-            return new (statusCode);
+            return new(statusCode);
         }
 
         if (solution["response"]!.Value<string>() is not { } htmlString)

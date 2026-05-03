@@ -14,9 +14,14 @@ namespace API.MangaConnectors;
 
 public class AsuraComic : MangaConnector
 {
-    public AsuraComic() : base("AsuraComic", ["en"], ["asuracomic.net"], "https://asuracomic.net/images/logo.webp")
+    private readonly TrangaSettings _settings;
+    private readonly RateLimitHandler _rateLimitHandler;
+
+    public AsuraComic(TrangaSettings settings, RateLimitHandler rateLimitHandler) : base("AsuraComic", ["en"], ["asuracomic.net"], "https://asuracomic.net/images/logo.webp", settings)
     {
-        this.downloadClient = new HttpDownloadClient(); // Use Http for all
+        _settings = settings;
+        _rateLimitHandler = rateLimitHandler;
+        this.downloadClient = new HttpDownloadClient(rateLimitHandler, settings);
     }
 
     public override (Manga, MangaConnectorId<Manga>)[] SearchManga(string mangaSearchName)
@@ -174,11 +179,11 @@ public class AsuraComic : MangaConnector
         List<Link> links = new();
         // Match original constructor (null language for consistent Key)
         Manga manga = new(cleanTitle, description, coverUrl, releaseStatus, authors, tags, links, altTitles, null, 0f, year, null);
-        
+
         // Use mangaIdOnSite for ID (core slug, consistent)
         MangaConnectorId<Manga> mcId = new(manga, this, mangaIdOnSite, url);
         manga.MangaConnectorIds.Add(mcId);
-        
+
         return (manga, mcId);
     }
 
@@ -324,7 +329,7 @@ public class AsuraComic : MangaConnector
         }
 
         // Sync wrapper for async MakeRequest
-        ChromiumDownloadClient chromium = new();
+        ChromiumDownloadClient chromium = new(_settings, _rateLimitHandler);
         try
         {
             HttpResponseMessage response = chromium.MakeRequest(chapterId.WebsiteUrl!, RequestType.Default, referrer).GetAwaiter().GetResult();
@@ -349,7 +354,7 @@ public class AsuraComic : MangaConnector
             }
 
             string[] imageUrls = imageNodes
-                .Select(i => 
+                .Select(i =>
                 {
                     string src = i.GetAttributeValue("src", "");
                     if (string.IsNullOrEmpty(src))
