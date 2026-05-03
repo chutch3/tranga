@@ -1,5 +1,6 @@
 ﻿using API.MangaConnectors;
 using API.Schema.MangaContext.MetadataFetchers;
+using log4net;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 
@@ -7,6 +8,7 @@ namespace API.Schema.MangaContext;
 
 public class MangaContext(DbContextOptions<MangaContext> options) : TrangaBaseContext<MangaContext>(options)
 {
+    private static readonly ILog Log = LogManager.GetLogger(typeof(MangaContext));
     public DbSet<Manga> Mangas { get; set; }
     public DbSet<FileLibrary> FileLibraries { get; set; }
     public DbSet<Chapter> Chapters { get; set; }
@@ -25,15 +27,6 @@ public class MangaContext(DbContextOptions<MangaContext> options) : TrangaBaseCo
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        //MangaConnector Types
-        modelBuilder.Entity<MangaConnector>()
-            .HasDiscriminator(c => c.Name)
-            .HasValue<Global>("Global")
-            .HasValue<AsuraComic>("AsuraComic")
-            .HasValue<MangaDex>("MangaDex")
-            .HasValue<Mangaworld>("Mangaworld")
-            .HasValue<WeebCentral>("WeebCentral");
-
         //Manga has many Chapters
         modelBuilder.Entity<Manga>()
             .HasMany<Chapter>(m => m.Chapters)
@@ -144,4 +137,79 @@ public class MangaContext(DbContextOptions<MangaContext> options) : TrangaBaseCo
         MangaWithMetadata()
             .Include(m => m.Chapters)
             .Include(m => m.MangaConnectorIds);
+
+    /// <summary>
+    /// Upserts a Manga into the database: finds an existing match or inserts a new one,
+    /// merges tags/authors, and syncs. Does NOT kick off any background workers.
+    /// </summary>
+    public async Task<(Manga manga, MangaConnectorId<Manga> id)?> UpsertManga(
+        Manga addManga, MangaConnectorId<Manga> addMcId, CancellationToken token)
+    {
+        ChangeTracker.Clear();
+        Log.DebugFormat("Upserting Manga: {0}", addManga);
+        (Manga, MangaConnectorId<Manga>)? result;
+
+        if (await FindMangaLike(addManga, token) is { } mangaId)
+        {
+            Manga manga = await MangaIncludeAll().FirstAsync(m => m.Key == mangaId, token);
+            Log.DebugFormat("Merging with existing Manga: {0}", manga);
+
+            var existingMcId = manga.MangaConnectorIds
+                .FirstOrDefault(id => id.MangaConnectorName == addMcId.MangaConnectorName
+                                      && id.IdOnConnectorSite == addMcId.IdOnConnectorSite);
+
+            MangaConnectorId<Manga> mcIdToUse;
+            if (existingMcId == null)
+            {
+                mcIdToUse = new MangaConnectorId<Manga>(manga, addMcId.MangaConnectorName, addMcId.IdOnConnectorSite, addMcId.WebsiteUrl, addMcId.UseForDownload);
+                manga.MangaConnectorIds.Add(mcIdToUse);
+            }
+            else
+            {
+                mcIdToUse = existingMcId;
+                if (existingMcId.WebsiteUrl != addMcId.WebsiteUrl)
+                {
+                    var updatedMcId = new MangaConnectorId<Manga>(manga, existingMcId.MangaConnectorName, existingMcId.IdOnConnectorSite, addMcId.WebsiteUrl, existingMcId.UseForDownload);
+                    manga.MangaConnectorIds.Remove(existingMcId);
+                    manga.MangaConnectorIds.Add(updatedMcId);
+                    mcIdToUse = updatedMcId;
+                }
+            }
+
+            result = (manga, mcIdToUse);
+        }
+        else
+        {
+            Log.Debug("Manga does not exist yet, inserting.");
+            IEnumerable<MangaTag> mergedTags = addManga.MangaTags.Select(mt =>
+            {
+                MangaTag? inDb = Tags.Find(mt.Tag);
+                return inDb ?? mt;
+            });
+            addManga.MangaTags = mergedTags.ToList();
+
+            IEnumerable<Author> mergedAuthors = addManga.Authors.Select(ma =>
+            {
+                Author? inDb = Authors.Find(ma.Key);
+                return inDb ?? ma;
+            });
+            addManga.Authors = mergedAuthors.ToList();
+
+            Mangas.Add(addManga);
+            addManga.MangaConnectorIds.Add(addMcId);
+            result = (addManga, addMcId);
+        }
+
+        if (await Sync(token, reason: "UpsertManga") is { success: false })
+            return null;
+
+        return result;
+    }
+
+    /// <summary>
+    /// Convenience overload that unpacks a tuple.
+    /// </summary>
+    public Task<(Manga manga, MangaConnectorId<Manga> id)?> AddMangaToContext(
+        (Manga, MangaConnectorId<Manga>) addManga, CancellationToken token)
+        => UpsertManga(addManga.Item1, addManga.Item2, token);
 }

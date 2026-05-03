@@ -29,7 +29,7 @@ public class Chapter : Identifiable, IComparable<Chapter>
 
     /// <exception cref="DirectoryNotFoundException">Library for Manga not loaded</exception>
     [NotMapped]
-    public string? FullArchiveFilePath => GetFullFilepath(Tranga.Settings.ChapterNamingScheme);
+    public string? FullArchiveFilePath => GetFullFilepath(null);
 
     private static readonly Regex ChapterNumberRegex = new(@"(?:\d+\.)*\d+", RegexOptions.Compiled);
     public Chapter(Manga parentManga, string chapterNumber,
@@ -207,11 +207,12 @@ public class Chapter : Identifiable, IComparable<Chapter>
         return stringBuilder.ToString();
     }
 
-    internal string? GetFullFilepath(string namingScheme)
+    internal string? GetFullFilepath(string? namingScheme)
     {
         try
         {
-            return Path.Join(ParentManga.FullDirectoryPath, this.FileName is null ? GetArchiveFileName(namingScheme) : FileName);
+            string archiveName = this.FileName ?? (namingScheme is not null ? GetArchiveFileName(namingScheme) : null) ?? string.Empty;
+            return Path.Join(ParentManga.FullDirectoryPath, archiveName);
         }
         catch (Exception)
         {
