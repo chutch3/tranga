@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using API.MangaConnectors;
 using API.Schema.MangaContext;
 using API.Workers.MangaDownloadWorkers;
 using Microsoft.EntityFrameworkCore;
@@ -8,7 +9,7 @@ namespace API.Workers.PeriodicWorkers;
 /// <summary>
 /// Creates Jobs to update available Chapters for all Manga that are marked for Download
 /// </summary>
-public class CheckForNewChaptersWorker(TimeSpan? interval = null, IEnumerable<BaseWorker>? dependsOn = null)
+public class CheckForNewChaptersWorker(TrangaSettings settings, IEnumerable<MangaConnector> connectors, TimeSpan? interval = null, IEnumerable<BaseWorker>? dependsOn = null)
     : BaseWorkerWithContexts(dependsOn), IPeriodic
 {
     public DateTime LastExecution { get; set; } = DateTime.UnixEpoch;
@@ -31,7 +32,7 @@ public class CheckForNewChaptersWorker(TimeSpan? interval = null, IEnumerable<Ba
             .ToListAsync(CancellationToken);
         Log.DebugFormat("Creating {0} update jobs...", connectorIdsManga.Count);
 
-        List<BaseWorker> newWorkers = connectorIdsManga.Select(id => new RetrieveMangaChaptersFromMangaconnectorWorker(id, Tranga.Settings.DownloadLanguage))
+        List<BaseWorker> newWorkers = connectorIdsManga.Select(id => new RetrieveMangaChaptersFromMangaconnectorWorker(id, settings.DownloadLanguage, connectors))
             .ToList<BaseWorker>();
 
         return newWorkers.ToArray();

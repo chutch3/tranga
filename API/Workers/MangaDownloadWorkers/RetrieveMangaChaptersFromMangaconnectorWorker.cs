@@ -13,7 +13,7 @@ namespace API.Workers.MangaDownloadWorkers;
 /// <param name="mcId"></param>
 /// <param name="language"></param>
 /// <param name="dependsOn"></param>
-public class RetrieveMangaChaptersFromMangaconnectorWorker(MangaConnectorId<Manga> mcId, string language, IEnumerable<BaseWorker>? dependsOn = null)
+public class RetrieveMangaChaptersFromMangaconnectorWorker(MangaConnectorId<Manga> mcId, string language, IEnumerable<MangaConnector> connectors, IEnumerable<BaseWorker>? dependsOn = null)
     : BaseWorkerWithContexts(dependsOn)
 {
     private readonly string _mangaConnectorIdId = mcId.Key;
@@ -42,7 +42,8 @@ public class RetrieveMangaChaptersFromMangaconnectorWorker(MangaConnectorId<Mang
             Log.Error("Could not get MangaConnectorId.");
             return []; //TODO Exception?
         }
-        if (!Tranga.TryGetMangaConnector(mangaConnectorId.MangaConnectorName, out MangaConnector? mangaConnector))
+        MangaConnector? mangaConnector = connectors.FirstOrDefault(c => c.Name.Equals(mangaConnectorId.MangaConnectorName, StringComparison.InvariantCultureIgnoreCase));
+        if (mangaConnector is null)
         {
             Log.Error("Could not get MangaConnector.");
             return []; //TODO Exception?

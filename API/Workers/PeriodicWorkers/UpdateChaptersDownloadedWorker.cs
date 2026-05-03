@@ -7,7 +7,7 @@ namespace API.Workers.PeriodicWorkers;
 /// <summary>
 /// Updates the database to reflect changes made on disk
 /// </summary>
-public class UpdateChaptersDownloadedWorker(TimeSpan? interval = null, IEnumerable<BaseWorker>? dependsOn = null)
+public class UpdateChaptersDownloadedWorker(TrangaSettings settings, TimeSpan? interval = null, IEnumerable<BaseWorker>? dependsOn = null)
     : BaseWorkerWithContexts(dependsOn), IPeriodic
 {
     public DateTime LastExecution { get; set; } = DateTime.UnixEpoch;
@@ -30,7 +30,7 @@ public class UpdateChaptersDownloadedWorker(TimeSpan? interval = null, IEnumerab
         {
             try
             {
-                bool downloaded = await chapter.CheckDownloaded(MangaContext, Tranga.Settings.ChapterNamingScheme, token: CancellationToken);
+                bool downloaded = await chapter.CheckDownloaded(MangaContext, settings.ChapterNamingScheme, token: CancellationToken);
                 chapter.Downloaded = downloaded;
                 if (!downloaded)
                     chapter.FileName = null;

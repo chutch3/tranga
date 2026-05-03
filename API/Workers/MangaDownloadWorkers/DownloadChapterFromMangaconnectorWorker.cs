@@ -23,7 +23,7 @@ namespace API.Workers.MangaDownloadWorkers;
 /// </summary>
 /// <param name="chId"></param>
 /// <param name="dependsOn"></param>
-public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> chId, IEnumerable<BaseWorker>? dependsOn = null)
+public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> chId, IEnumerable<MangaConnector> connectors, TrangaSettings settings, IEnumerable<BaseWorker>? dependsOn = null)
     : BaseWorkerWithContexts(dependsOn)
 {
     public readonly string ChapterIdId = chId.Key;
@@ -57,13 +57,14 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
         }
 
         // Check if Chapter already exists...
-        if (await mangaConnectorId.Obj.CheckDownloaded(MangaContext, Tranga.Settings.ChapterNamingScheme, token: CancellationToken))
+        if (await mangaConnectorId.Obj.CheckDownloaded(MangaContext, settings.ChapterNamingScheme, token: CancellationToken))
         {
             Log.Warn("Chapter already exists!");
             return [];
         }
 
-        if (!Tranga.TryGetMangaConnector(mangaConnectorId.MangaConnectorName, out MangaConnector? mangaConnector))
+        MangaConnector? mangaConnector = connectors.FirstOrDefault(c => c.Name.Equals(mangaConnectorId.MangaConnectorName, StringComparison.InvariantCultureIgnoreCase));
+        if (mangaConnector is null)
         {
             Log.Error("Could not get MangaConnector.");
             return [];
@@ -86,7 +87,7 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
             return [];
         }
 
-        if (chapter.FullArchiveFilePath is not { } saveArchiveFilePath)
+        if (chapter.GetFullFilepath(settings.ChapterNamingScheme) is not { } saveArchiveFilePath)
         {
             Log.Error("Failed getting saveArchiveFilePath");
             return [];
@@ -199,17 +200,17 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
 
         bool refreshLibrary = await CheckLibraryRefresh();
         if(refreshLibrary)
-            Log.Info($"Condition {Tranga.Settings.LibraryRefreshSetting} met.");
-
+        if (refreshLibrary)
+            Log.Info($"Condition {settings.LibraryRefreshSetting} met.");
         return refreshLibrary? [new RefreshLibrariesWorker()] : [];
     }
 
-    private async Task<bool> CheckLibraryRefresh() => Tranga.Settings.LibraryRefreshSetting switch
+    private async Task<bool> CheckLibraryRefresh() => settings.LibraryRefreshSetting switch
     {
         LibraryRefreshSetting.AfterAllFinished => await AllDownloadsFinished(),
         LibraryRefreshSetting.AfterMangaFinished => await MangaContext.MangaConnectorToChapter.Include(chId => chId.Obj).Where(chId => chId.UseForDownload).AllAsync(chId => chId.Obj.Downloaded, CancellationToken),
         LibraryRefreshSetting.AfterEveryChapter => true,
-        LibraryRefreshSetting.WhileDownloading => await AllDownloadsFinished() ||  DateTime.UtcNow.Subtract(RefreshLibrariesWorker.LastRefresh).TotalMinutes > Tranga.Settings.RefreshLibraryWhileDownloadingEveryMinutes,
+        LibraryRefreshSetting.WhileDownloading => await AllDownloadsFinished() ||  DateTime.UtcNow.Subtract(RefreshLibrariesWorker.LastRefresh).TotalMinutes > settings.RefreshLibraryWhileDownloadingEveryMinutes,
         _ => true
     };
     private async Task<bool> AllDownloadsFinished() => (await StartNewChapterDownloadsWorker.GetMissingChapters(MangaContext, CancellationToken)).Count == 0;
@@ -218,7 +219,7 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
     {
         Log.Debug("Processing image");
         imageStream.Position = 0;
-        if (!Tranga.Settings.BlackWhiteImages && Tranga.Settings.ImageCompression == 100)
+        if (!settings.BlackWhiteImages && settings.ImageCompression == 100)
         {
             Log.Debug("No processing requested for image");
             return imageStream;
@@ -229,11 +230,11 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
         {
             using Image image = await Image.LoadAsync(imageStream, cancellationToken ?? CancellationToken.None);
             Log.Debug("Image loaded");
-            if (Tranga.Settings.BlackWhiteImages)
+            if (settings.BlackWhiteImages)
                 image.Mutate(i => i.ApplyProcessor(new AdaptiveThresholdProcessor()));
             await image.SaveAsJpegAsync(processedImage, new JpegEncoder()
             {
-                Quality = Tranga.Settings.ImageCompression
+                Quality = settings.ImageCompression
             });
             Log.Debug("Image processed");
             processedImage.Position = 0;
@@ -289,7 +290,8 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
         if (manga.CoverFileNameInCache is not { } coverFileNameInCache)
         {
             MangaConnectorId<Manga> mangaConnectorId = manga.MangaConnectorIds.First();
-            if (!Tranga.TryGetMangaConnector(mangaConnectorId.MangaConnectorName, out MangaConnector? mangaConnector))
+            MangaConnector? mangaConnector = connectors.FirstOrDefault(c => c.Name.Equals(mangaConnectorId.MangaConnectorName, StringComparison.InvariantCultureIgnoreCase));
+            if (mangaConnector is null)
             {
                 Log.Error($"MangaConnector with name {mangaConnectorId.MangaConnectorName} could not be found");
                 return;
@@ -306,7 +308,7 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
             return;
         }
 
-        string fullCoverPath = Path.Join(TrangaSettings.CoverImageCacheOriginal, coverFileNameInCache);
+        string fullCoverPath = Path.Join(settings.CoverImageCacheOriginal, coverFileNameInCache);
         string newFilePath = Path.Join(publicationFolder, $"cover.{Path.GetFileName(coverFileNameInCache).Split('.')[^1]}" );
         File.Copy(fullCoverPath, newFilePath, true);
         Log.Debug($"Copied cover from {fullCoverPath} to {newFilePath}");

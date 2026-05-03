@@ -10,9 +10,10 @@ namespace API.Workers.PeriodicWorkers;
 /// <summary>
 /// Updates Metadata for all Manga
 /// </summary>
+/// <param name="metadataFetchers"></param>
 /// <param name="interval"></param>
 /// <param name="dependsOn"></param>
-public class UpdateMetadataWorker(TimeSpan? interval = null, IEnumerable<BaseWorker>? dependsOn = null)
+public class UpdateMetadataWorker(IEnumerable<MetadataFetcher> metadataFetchers, TimeSpan? interval = null, IEnumerable<BaseWorker>? dependsOn = null)
     : BaseWorkerWithContexts(dependsOn), IPeriodic
 {
 
@@ -47,7 +48,7 @@ public class UpdateMetadataWorker(TimeSpan? interval = null, IEnumerable<BaseWor
         foreach (MetadataEntry metadataEntry in metadataEntriesToUpdate)
         {
             Log.DebugFormat("Updating metadata of {0}...", metadataEntry);
-            if(Tranga.MetadataFetchers.FirstOrDefault(f => f.Name == metadataEntry.MetadataFetcherName) is not { } fetcher)
+            if(metadataFetchers.FirstOrDefault(f => f.Name == metadataEntry.MetadataFetcherName) is not { } fetcher)
                 continue;
             await fetcher.UpdateMetadata(metadataEntry, MangaContext, CancellationToken);
             ActionsContext.Actions.Add(new MetadataUpdatedActionRecord(metadataEntry.Manga, fetcher));
