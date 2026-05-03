@@ -29,7 +29,9 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\API\API.csproj" />
+      <ProjectReference Include="..\API\API.csproj">
+        <AdditionalProperties>DisableOpenApiGeneration=true</AdditionalProperties>
+      </ProjectReference>
     </ItemGroup>
 
 </Project>

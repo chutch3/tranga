@@ -13,7 +13,7 @@ public class MangaTests
         return new MangaContext(options);
     }
 
-    private static Manga MakeTestManga(string name = "Test Manga")
+    internal static Manga MakeTestManga(string name = "Test Manga")
         => new(name, "", "http://example.com/img.jpg", MangaReleaseStatus.Continuing, [], [], [], []);
 
     [Fact]

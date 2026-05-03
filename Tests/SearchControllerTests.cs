@@ -25,7 +25,9 @@ public class SearchControllerTests
         MangaContext ctx,
         Func<string, string, (SchemaManga, SchemaConnectorId)?>? connectorLookup = null)
     {
-        var controller = new SearchController(ctx, connectorLookup ?? ((_, _) => null));
+        var connectors = Enumerable.Empty<API.MangaConnectors.MangaConnector>();
+        var workerQueue = new Moq.Mock<API.Workers.IWorkerQueue>().Object;
+        var controller = new SearchController(ctx, connectors, workerQueue, connectorLookup ?? ((_, _) => null));
         controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext()

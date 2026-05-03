@@ -26,7 +26,10 @@ public class MangaControllerTests
 
     private static MangaController CreateController(MangaContext ctx, ActionsContext actionsCtx)
     {
-        var controller = new MangaController(ctx, actionsCtx);
+        var settings = new API.TrangaSettings { AppData = Path.GetTempPath() };
+        var connectors = Enumerable.Empty<API.MangaConnectors.MangaConnector>();
+        var workerQueue = new Moq.Mock<API.Workers.IWorkerQueue>().Object;
+        var controller = new MangaController(ctx, actionsCtx, settings, connectors, workerQueue);
         controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext()

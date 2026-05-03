@@ -2,17 +2,27 @@ using API.Controllers;
 using API.Controllers.Requests;
 using API.Controllers.DTOs;
 using API.Schema.MangaContext;
+using API.Workers;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
-
+using Moq;
 
 namespace Tests;
 
-public class ChaptersControllerTests
+public class ChaptersControllerTests: IDisposable
 {
+    private readonly string _testWorkDir;
+
+    public ChaptersControllerTests()
+    {
+        // Ensure the directory exists for TrangaSettings during tests
+        _testWorkDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(_testWorkDir);
+    }
+
     private MangaContext CreateContext()
     {
         var options = new DbContextOptionsBuilder<MangaContext>()
@@ -23,12 +33,26 @@ public class ChaptersControllerTests
 
     private static ChaptersController CreateController(MangaContext ctx)
     {
-        var controller = new ChaptersController(ctx);
+        var testSettings = new API.TrangaSettings { AppData = Path.GetTempPath() };
+
+        var mockWorkerQueue = new Mock<IWorkerQueue>();
+        var connectors = Enumerable.Empty<API.MangaConnectors.MangaConnector>();
+
+        var controller = new ChaptersController(ctx, testSettings, connectors, mockWorkerQueue.Object);
         controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext()
         };
         return controller;
+    }
+
+    public void Dispose()
+    {
+        // Cleanup: Nuke the temp directory and all dummy settings files
+        if (Directory.Exists(_testWorkDir))
+        {
+            Directory.Delete(_testWorkDir, true);
+        }
     }
 
     private static API.Schema.MangaContext.Manga MakeTestManga(string name)
@@ -37,20 +61,23 @@ public class ChaptersControllerTests
     [Fact]
     public async Task UpdateChapter_KnownChapter_UpdatesFileNameAndVolumeNumber()
     {
+        // This test now implicitly checks that the absolute path logic inside
+        // UpdateChapter doesn't crash when loading settings.
         using var ctx = CreateContext();
         var manga = MakeTestManga("Berserk");
-        var chapter = new API.Schema.MangaContext.Chapter(manga, "1", null);
+        var chapter = new API.Schema.MangaContext.Chapter(manga, "23", null);
+        chapter.FileName = "Berserk - Ch.23.cbz";
         ctx.Mangas.Add(manga);
         ctx.Chapters.Add(chapter);
         await ctx.SaveChangesAsync();
 
-        var request = new PatchChapterRecord("Berserk Vol 1/Berserk - Ch.1.cbz", 1);
+        var request = new PatchChapterRecord("Berserk Vol 7/Berserk - Ch.23.cbz", 7);
         var result = await CreateController(ctx).UpdateChapter(chapter.Key, request);
 
         Assert.IsType<Ok>(result.Result);
         var updated = await ctx.Chapters.FirstAsync(c => c.Key == chapter.Key);
-        Assert.Equal("Berserk Vol 1/Berserk - Ch.1.cbz", updated.FileName);
-        Assert.Equal(1, updated.VolumeNumber);
+        Assert.Equal("Berserk Vol 7/Berserk - Ch.23.cbz", updated.FileName);
+        Assert.Equal(7, updated.VolumeNumber);
     }
 
     [Fact]
@@ -87,18 +114,14 @@ public class ChaptersControllerTests
     [Fact]
     public async Task GetChapters_InvalidPagination_ReturnsBadRequest()
     {
-        // Edge Case: User passes 0 or negative numbers for pagination
         using var ctx = CreateContext();
-
         var result = await CreateController(ctx).GetChapters("any-id", filter: null, page: 0, pageSize: 10);
-
         Assert.IsType<BadRequest>(result.Result);
     }
 
     [Fact]
     public async Task GetChapters_WithDownloadedFilter_ReturnsOnlyDownloadedChapters()
     {
-        // Edge Case: Filtering should correctly exclude non-matching records
         using var ctx = CreateContext();
         var manga = MakeTestManga("One Punch Man");
 
@@ -116,7 +139,7 @@ public class ChaptersControllerTests
         var pagedData = okResult.Value;
 
         Assert.NotNull(pagedData);
-        Assert.Single(pagedData.Data); // Should only return the 1 downloaded chapter
+        Assert.Single(pagedData.Data);
         Assert.Equal(downloadedChapter.Key, pagedData.Data.First().Key);
     }
 
@@ -127,7 +150,6 @@ public class ChaptersControllerTests
         var manga = MakeTestManga("Naruto");
         ctx.Mangas.Add(manga);
 
-        // Add 15 chapters
         for (int i = 1; i <= 15; i++)
         {
             ctx.Chapters.Add(new API.Schema.MangaContext.Chapter(manga, i.ToString(), null));
@@ -138,7 +160,7 @@ public class ChaptersControllerTests
         var pagedData = okResult.Value;
 
         Assert.NotNull(pagedData);
-        Assert.Equal(2, pagedData.TotalPages); // 15 items / 10 per page = 2 pages
+        Assert.Equal(2, pagedData.TotalPages);
         Assert.Equal(10, pagedData.Data.Count());
     }
 
@@ -156,7 +178,6 @@ public class ChaptersControllerTests
 
         var okResult = Assert.IsType<Ok<API.Controllers.DTOs.Chapter>>(result.Result);
 
-        // Assert it's not null to fix the CS8602 warning
         Assert.NotNull(okResult.Value);
         Assert.Equal(chapter.Key, okResult.Value.Key);
     }
@@ -165,10 +186,7 @@ public class ChaptersControllerTests
     public async Task GetLatestChapter_UnknownManga_ReturnsNotFound()
     {
         using var ctx = CreateContext();
-
-        // Requesting latest chapter for a manga ID that doesn't exist in the DB
         var result = await CreateController(ctx).GetLatestChapter("invalid-manga-id");
-
         Assert.IsType<NotFound<string>>(result.Result);
     }
 
@@ -176,11 +194,9 @@ public class ChaptersControllerTests
     [Fact]
     public async Task GetLatestDownloaded_WhenNoneAreDownloaded_ReturnsNoContent()
     {
-        // Edge Case: The manga exists and has chapters, but NONE of them are downloaded yet.
         using var ctx = CreateContext();
         var manga = MakeTestManga("Mob Psycho 100");
 
-        // Add 3 chapters, all marked as not downloaded
         ctx.Mangas.Add(manga);
         ctx.Chapters.Add(new API.Schema.MangaContext.Chapter(manga, "1", 1) { Downloaded = false });
         ctx.Chapters.Add(new API.Schema.MangaContext.Chapter(manga, "2", 1) { Downloaded = false });
@@ -196,13 +212,11 @@ public class ChaptersControllerTests
     [Fact]
     public async Task IgnoreChaptersBefore_ValidManga_UpdatesThresholdInDatabase()
     {
-        // Edge Case: Ensure the threshold physically saves to the DB entity
         using var ctx = CreateContext();
         var manga = MakeTestManga("My Hero Academia");
         ctx.Mangas.Add(manga);
         await ctx.SaveChangesAsync();
 
-        // Act: Set threshold to chapter 50.5
         float newThreshold = 50.5f;
         var result = await CreateController(ctx).IgnoreChaptersBefore(manga.Key, newThreshold);
 
@@ -221,16 +235,14 @@ public class ChaptersControllerTests
         ctx.Chapters.Add(chapter);
         await ctx.SaveChangesAsync();
 
-        // Ensure it's there
         Assert.Equal(1, await ctx.Chapters.CountAsync());
 
         var result = await CreateController(ctx).DeleteChapter(chapter.Key);
 
         Assert.IsType<Ok>(result.Result);
-        Assert.Equal(0, await ctx.Chapters.CountAsync()); // Should be gone
+        Assert.Equal(0, await ctx.Chapters.CountAsync());
     }
 
-    // Temporary test until integration tests are added
     [Fact]
     public void PatchChapterRecord_Metadata_IsCompatibleWithModelBinding()
     {
