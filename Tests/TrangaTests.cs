@@ -8,6 +8,7 @@ using API.Schema.MangaContext.MetadataFetchers;
 using API.Workers;
 using API.Workers.PeriodicWorkers;
 using API.Workers.PeriodicWorkers.MaintenanceWorkers;
+using API.Workers.MaintenanceWorkers;
 using API.Workers.MangaDownloadWorkers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,7 +22,8 @@ public class TrangaTests
     // Helper to build our Fake Dependency Injection Container
     private IServiceProvider BuildMockServiceProvider(
         List<MangaConnector>? connectors = null,
-        TrangaSettings? settings = null)
+        TrangaSettings? settings = null,
+        Mock<IWorkerQueue>? workerQueueMock = null)
     {
         var testSettings = settings ?? new TrangaSettings { AppData = "./test_data" };
         var services = new ServiceCollection();
@@ -42,7 +44,7 @@ public class TrangaTests
 
         var emptyConnectors = new List<MangaConnector>();
         var emptyFetchers = new List<MetadataFetcher>();
-        var mockWorkerQueue = new Mock<IWorkerQueue>().Object;
+        var mockWorkerQueue = workerQueueMock?.Object ?? new Mock<IWorkerQueue>().Object;
 
         // 3. Register real workers with empty test dependencies — Moq cannot proxy primary constructors
         // with IEnumerable<T> parameters due to type matching limitations.
@@ -55,6 +57,7 @@ public class TrangaTests
         services.AddTransient<RemoveOldNotificationsWorker>(_ => new RemoveOldNotificationsWorker());
         services.AddTransient<UpdateCoversWorker>(_ => new UpdateCoversWorker(emptyConnectors));
         services.AddTransient<CleanupMangaconnectorIdsWithoutConnector>(_ => new CleanupMangaconnectorIdsWithoutConnector(emptyConnectors, testSettings));
+        services.AddTransient<CleanupOrphanedFilesWorker>(_ => new CleanupOrphanedFilesWorker());
 
         // 4. Inject empty fetchers, rate limiter, worker queue, and MangaContext
         services.AddSingleton<IEnumerable<MetadataFetcher>>(emptyFetchers);
@@ -116,21 +119,20 @@ public class TrangaTests
     public void AddDefaultWorkers_ShouldResolveAndTrackExpectedWorkers()
     {
         // Arrange (Original Behavior: AddDefaultWorkers populates the KnownWorkers list)
-        var provider = BuildMockServiceProvider();
+        var mockQueue = new Mock<IWorkerQueue>();
+        var provider = BuildMockServiceProvider(workerQueueMock: mockQueue);
         var trangaManager = provider.GetRequiredService<Tranga>();
 
         // Act
         trangaManager.AddDefaultWorkers();
 
-        // Assert
-        var knownWorkers = trangaManager.GetKnownWorkers();
-
-        // We expect at least these 5 core workers to be pulled from DI and added to the tracking list
-        Assert.Contains(knownWorkers, w => w.GetType() == typeof(UpdateMetadataWorker) || w.GetType().BaseType == typeof(UpdateMetadataWorker));
-        Assert.Contains(knownWorkers, w => w.GetType() == typeof(CheckForNewChaptersWorker) || w.GetType().BaseType == typeof(CheckForNewChaptersWorker));
-        Assert.Contains(knownWorkers, w => w.GetType() == typeof(StartNewChapterDownloadsWorker) || w.GetType().BaseType == typeof(StartNewChapterDownloadsWorker));
-        Assert.Contains(knownWorkers, w => w.GetType() == typeof(RemoveOldNotificationsWorker) || w.GetType().BaseType == typeof(RemoveOldNotificationsWorker));
-        Assert.Contains(knownWorkers, w => w.GetType() == typeof(UpdateCoversWorker) || w.GetType().BaseType == typeof(UpdateCoversWorker));
+        // Assert - Verify that AddWorker was called for each expected worker type
+        mockQueue.Verify(x => x.AddWorker(It.IsAny<UpdateMetadataWorker>()), Times.Once);
+        mockQueue.Verify(x => x.AddWorker(It.IsAny<CheckForNewChaptersWorker>()), Times.Once);
+        mockQueue.Verify(x => x.AddWorker(It.IsAny<StartNewChapterDownloadsWorker>()), Times.Once);
+        mockQueue.Verify(x => x.AddWorker(It.IsAny<RemoveOldNotificationsWorker>()), Times.Once);
+        mockQueue.Verify(x => x.AddWorker(It.IsAny<UpdateCoversWorker>()), Times.Once);
+        mockQueue.Verify(x => x.AddWorker(It.IsAny<CleanupOrphanedFilesWorker>()), Times.Once);
     }
 
     [Fact]

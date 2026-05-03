@@ -23,25 +23,23 @@ public class Tranga
     private readonly IServiceProvider _serviceProvider;
     private readonly RateLimitHandler _rateLimitHandler;
     private readonly TrangaSettings _settings;
+    private readonly IWorkerQueue _workerQueue;
 
     public IEnumerable<MangaConnector> Connectors { get; }
     public IEnumerable<MetadataFetcher> MetadataFetchers { get; }
-
-    // 2. State collections are now instance variables, not static
-    internal readonly ConcurrentDictionary<IPeriodic, Task> PeriodicWorkers = new();
-    private readonly HashSet<BaseWorker> KnownWorkers = new();
-    private readonly ConcurrentDictionary<BaseWorker, Task<BaseWorker[]>> RunningWorkers = new();
 
     public Tranga(
         IServiceProvider serviceProvider,
         IEnumerable<MangaConnector> connectors,
         IEnumerable<MetadataFetcher> fetchers,
         RateLimitHandler rateLimitHandler,
-        TrangaSettings settings)
+        TrangaSettings settings,
+        IWorkerQueue workerQueue)
     {
         _serviceProvider = serviceProvider;
         _settings = settings;
         _rateLimitHandler = rateLimitHandler;
+        _workerQueue = workerQueue;
         Connectors = connectors;
         MetadataFetchers = fetchers;
     }
@@ -60,7 +58,7 @@ public class Tranga
             AddWorker(GetWorker<UpdateChaptersDownloadedWorker>());
 
         Log.Info("Waiting for startup to complete...");
-        while (RunningWorkers.Any(w => w.Key.State < WorkerExecutionState.Completed))
+        while (_workerQueue.GetRunningWorkers().Any(w => w.State < WorkerExecutionState.Completed))
             Thread.Sleep(1000);
         Log.Info("Start complete!");
     }
@@ -85,128 +83,14 @@ public class Tranga
     }
 
     // 4. Removed 'static' from all these operational methods
-    public void AddWorker(BaseWorker worker)
-    {
-        Log.DebugFormat("Adding Worker {0}", worker);
-        KnownWorkers.Add(worker);
-        if(worker is not IPeriodic)
-            StartWorker(worker, RemoveFromKnownWorkers(worker));
-        else
-            StartWorker(worker);
+    public void AddWorker(BaseWorker worker) => _workerQueue.AddWorker(worker);
 
-        if(worker is IPeriodic periodic)
-            AddPeriodicWorker(worker, periodic);
-    }
+    public void AddWorkers(IEnumerable<BaseWorker> workers) => _workerQueue.AddWorkers(workers);
 
-    private void AddPeriodicWorker(BaseWorker worker, IPeriodic periodic)
-    {
-        Log.DebugFormat("Adding Periodic {0}", worker);
-        Task periodicTask = RefreshedPeriodicTask(worker, periodic);
-        PeriodicWorkers.TryAdd((worker as IPeriodic)!, periodicTask);
-        periodicTask.Start();
-    }
+    public BaseWorker[] GetKnownWorkers() => _workerQueue.GetKnownWorkers();
+    public BaseWorker[] GetRunningWorkers() => _workerQueue.GetRunningWorkers();
 
-    private Task RefreshedPeriodicTask(BaseWorker worker, IPeriodic periodic) => new (() =>
-    {
-        Log.DebugFormat("Waiting {0} for next run of {1}", periodic.Interval, worker);
-        Thread.Sleep(periodic.Interval);
-        StartWorker(worker, RefreshTask(worker, periodic));
-    });
-
-    private Action RefreshTask(BaseWorker worker, IPeriodic periodic) => () =>
-    {
-        if (worker.State < WorkerExecutionState.Created) //Failed
-        {
-            Log.DebugFormat("Task {0} failed. Not refreshing.", worker);
-            return;
-        }
-        Log.DebugFormat("Refreshing {0}", worker);
-        Task periodicTask = RefreshedPeriodicTask(worker, periodic);
-        PeriodicWorkers.AddOrUpdate((worker as IPeriodic)!, periodicTask, (_, _) => periodicTask);
-        periodicTask.Start();
-    };
-
-    private Action RemoveFromKnownWorkers(BaseWorker worker) => () =>
-    {
-        if (KnownWorkers.Contains(worker))
-            KnownWorkers.Remove(worker);
-    };
-
-    public void AddWorkers(IEnumerable<BaseWorker> workers)
-    {
-        foreach (BaseWorker baseWorker in workers)
-            AddWorker(baseWorker);
-    }
-
-    public BaseWorker[] GetKnownWorkers() => KnownWorkers.ToArray();
-    public BaseWorker[] GetRunningWorkers() => RunningWorkers.Keys.ToArray();
-
-    internal void StartWorker(BaseWorker worker, Action? finishedCallback = null)
-    {
-        Log.DebugFormat("Starting {0}", worker);
-        if (_serviceProvider is null)
-        {
-            Log.Fatal("ServiceProvider is null");
-            return;
-        }
-        Action afterWorkCallback = DefaultAfterWork(worker, finishedCallback);
-
-        // Uses injected _settings
-        while (RunningWorkers.Count > _settings.MaxConcurrentWorkers)
-        {
-            Log.WarnFormat("{0}: Max worker concurrency reached ({1})! Waiting {2}ms...", worker, _settings.MaxConcurrentWorkers, _settings.WorkCycleTimeoutMs);
-            Thread.Sleep(_settings.WorkCycleTimeoutMs);
-        }
-
-        if (worker is BaseWorkerWithContexts withContexts)
-        {
-            // Uses injected _serviceProvider
-            RunningWorkers.TryAdd(withContexts, withContexts.DoWork(_serviceProvider.CreateScope(), afterWorkCallback));
-        }
-        else
-        {
-            RunningWorkers.TryAdd(worker, worker.DoWork(afterWorkCallback));
-        }
-    }
-
-    private Action DefaultAfterWork(BaseWorker worker, Action? callback = null) => () =>
-    {
-        Log.DebugFormat("DefaultAfterWork {0}", worker);
-        try
-        {
-            if (RunningWorkers.TryGetValue(worker, out Task<BaseWorker[]>? task))
-            {
-                if (!task.IsCompleted)
-                {
-                    Log.DebugFormat("Waiting for Children to exit {0}", worker);
-                    task.Wait();
-                }
-                if (task.IsCompletedSuccessfully)
-                {
-                    Log.DebugFormat("Children done {0}", worker);
-                    BaseWorker[] newWorkers = task.Result;
-                    Log.DebugFormat("{0} created {1} new Workers.", worker, newWorkers.Length);
-                    AddWorkers(newWorkers);
-                }else
-                    Log.WarnFormat("Children failed: {0}", worker);
-            }
-            RunningWorkers.Remove(worker, out _);
-        }
-        catch (Exception e)
-        {
-            Log.Error(e);
-        }
-        callback?.Invoke();
-    };
-
-    internal void StopWorker(BaseWorker worker)
-    {
-        Log.DebugFormat("Stopping {0}", worker);
-        if(worker is IPeriodic periodicWorker)
-            PeriodicWorkers.Remove(periodicWorker, out _);
-        worker.Cancel();
-        RunningWorkers.Remove(worker, out _);
-    }
+    internal void StopWorker(BaseWorker worker) => _workerQueue.StopWorker(worker);
 
     // 5. Removed 'this' from MangaContext. It is now just a normal method you call on Tranga.
     internal async Task<(Manga manga, MangaConnectorId<Manga> id)?> AddMangaToContext(MangaContext context, (Manga, MangaConnectorId<Manga>) addManga, CancellationToken token) =>
