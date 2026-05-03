@@ -1,21 +1,29 @@
 using System.Reflection;
 using API;
+using API.MangaConnectors;
+using API.MangaDownloadClients;
 using API.Schema.ActionsContext;
 using API.Schema.ActionsContext.Actions;
 using API.Schema.LibraryContext;
 using API.Schema.MangaContext;
+using API.Schema.MangaContext.MetadataFetchers;
 using API.Schema.NotificationsContext;
+using API.Workers;
+using API.Workers.MangaDownloadWorkers;
+using API.Workers.PeriodicWorkers;
+using API.Workers.PeriodicWorkers.MaintenanceWorkers;
 using Asp.Versioning;
 using Asp.Versioning.Builder;
 using Asp.Versioning.Conventions;
 using log4net;
 using log4net.Config;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.OpenApi;
 using Newtonsoft.Json.Converters;
 using Npgsql;
 
-string tranga =
+string trangaBanner =
     "\n\n" +
     " _______                                 v2\n" +
     "|_     _|.----..---.-..-----..-----..---.-.\n" +
@@ -27,7 +35,7 @@ string tranga =
 
 XmlConfigurator.ConfigureAndWatch(new FileInfo("Log4Net.config.xml"));
 ILog log = LogManager.GetLogger("Startup");
-log.Info(tranga);
+log.Info(trangaBanner);
 log.Info("Logger Configured.");
 
 log.Info("Starting up");
@@ -89,6 +97,36 @@ NpgsqlConnectionStringBuilder connectionStringBuilder = new()
     ApplicationName = "Tranga"
 };
 
+log.Debug("Loading Settings...");
+var settings = TrangaSettings.Load();
+builder.Services.AddSingleton(settings);
+
+// 2. Register all your MangaConnectors
+// By registering them all as the base type 'MangaConnector', DI will group them.
+builder.Services.AddSingleton<MangaConnector, Global>();
+builder.Services.AddSingleton<MangaConnector, AsuraComic>();
+builder.Services.AddSingleton<MangaConnector, MangaDex>();
+builder.Services.AddSingleton<MangaConnector, Mangaworld>();
+builder.Services.AddSingleton<MangaConnector, WeebCentral>();
+
+// 3. Register your Metadata Fetchers
+builder.Services.AddSingleton<MetadataFetcher, MyAnimeList>();
+
+// 4. Register your Workers
+builder.Services.AddSingleton<UpdateMetadataWorker>();
+builder.Services.AddSingleton<SendNotificationsWorker>();
+builder.Services.AddSingleton<UpdateChaptersDownloadedWorker>();
+builder.Services.AddSingleton<CheckForNewChaptersWorker>();
+builder.Services.AddSingleton<CleanupMangaCoversWorker>();
+builder.Services.AddSingleton<StartNewChapterDownloadsWorker>();
+builder.Services.AddSingleton<RemoveOldNotificationsWorker>();
+builder.Services.AddSingleton<UpdateCoversWorker>();
+builder.Services.AddSingleton<CleanupMangaconnectorIdsWithoutConnector>();
+
+builder.Services.AddSingleton<RateLimitHandler>();
+builder.Services.AddSingleton<IWorkerQueue, WorkerQueue>();
+builder.Services.AddSingleton<Tranga>();
+
 builder.Services.AddDbContext<MangaContext>(options =>
     options.UseNpgsql(connectionStringBuilder.ConnectionString));
 builder.Services.AddDbContext<NotificationsContext>(options =>
@@ -111,7 +149,7 @@ builder.Services.AddControllers(options =>
 });
 builder.Services.AddScoped<ILog>(_ => LogManager.GetLogger("API"));
 
-builder.WebHost.UseUrls($"http://*:{TrangaSettings.Port}");
+builder.WebHost.UseUrls($"http://*:{settings.Port}");
 
 log.Info("Starting app...");
 WebApplication app = builder.Build();
@@ -153,9 +191,9 @@ try //Connect to DB and apply migrations
 
         if (!await context.FileLibraries.AnyAsync())
         {
-            await context.FileLibraries.AddAsync(new(TrangaSettings.DefaultDownloadLocation, "Default FileLibrary"),
+            await context.FileLibraries.AddAsync(new(settings.DefaultDownloadLocation, "Default FileLibrary"),
                 CancellationToken.None);
-            
+
 
             if(await context.Sync(CancellationToken.None, reason: "Add default library") is { success: false } contextException)
                 log.ErrorFormat("Failed to save database changes: {0}", contextException.exceptionMessage);
@@ -208,9 +246,15 @@ catch (Exception e)
 }
 
 log.Info("Starting Tranga.");
-Tranga.ServiceProvider = app.Services;
-Tranga.StartupTasks();
-Tranga.AddDefaultWorkers();
+var trangaManager = app.Services.GetRequiredService<Tranga>();
+
+// Apply persisted connector enable/disable state from settings
+var trangaSettings = app.Services.GetRequiredService<TrangaSettings>();
+var mangaConnectors = app.Services.GetRequiredService<IEnumerable<MangaConnector>>();
+trangaSettings.ApplyDisabledConnectors(mangaConnectors);
+
+trangaManager.StartupTasks();
+trangaManager.AddDefaultWorkers();
 
 log.Info("Running app.");
 await app.RunAsync();

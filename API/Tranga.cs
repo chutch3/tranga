@@ -10,70 +10,80 @@ using API.Workers.PeriodicWorkers;
 using API.Workers.PeriodicWorkers.MaintenanceWorkers;
 using log4net;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection; // Required for GetRequiredService
 
 namespace API;
 
-public static class Tranga
+// 1. Removed 'static' from the class definition
+public class Tranga
 {
-    
-    internal static IServiceProvider? ServiceProvider { get; set; }
-    
     private static readonly ILog Log = LogManager.GetLogger(typeof(Tranga));
-    internal static readonly MetadataFetcher[] MetadataFetchers = [new MyAnimeList()];
-    internal static readonly MangaConnector[] MangaConnectors = [new Global(), new AsuraComic(), new MangaDex(), new Mangaworld(), new WeebCentral()];
-    internal static readonly TrangaSettings Settings = TrangaSettings.Load();
-    
-    // ReSharper disable MemberCanBePrivate.Global
-    internal static readonly UpdateMetadataWorker UpdateMetadataWorker = new ();
-    internal static readonly SendNotificationsWorker SendNotificationsWorker = new();
-    internal static readonly UpdateChaptersDownloadedWorker UpdateChaptersDownloadedWorker = new();
-    internal static readonly CheckForNewChaptersWorker CheckForNewChaptersWorker = new();
-    internal static readonly CleanupMangaCoversWorker CleanupMangaCoversWorker = new();
-    internal static readonly StartNewChapterDownloadsWorker StartNewChapterDownloadsWorker = new();
-    internal static readonly RemoveOldNotificationsWorker RemoveOldNotificationsWorker = new();
-    internal static readonly UpdateCoversWorker UpdateCoversWorker = new();
-    internal static readonly CleanupMangaconnectorIdsWithoutConnector CleanupMangaconnectorIdsWithoutConnector = new();
-    // ReSharper restore MemberCanBePrivate.Global
 
-    internal static readonly RateLimitHandler RateLimitHandler = new();
+    private readonly IServiceProvider _serviceProvider;
+    private readonly RateLimitHandler _rateLimitHandler;
+    private readonly TrangaSettings _settings;
 
-    internal static void StartupTasks()
+    public IEnumerable<MangaConnector> Connectors { get; }
+    public IEnumerable<MetadataFetcher> MetadataFetchers { get; }
+
+    // 2. State collections are now instance variables, not static
+    internal readonly ConcurrentDictionary<IPeriodic, Task> PeriodicWorkers = new();
+    private readonly HashSet<BaseWorker> KnownWorkers = new();
+    private readonly ConcurrentDictionary<BaseWorker, Task<BaseWorker[]>> RunningWorkers = new();
+
+    public Tranga(
+        IServiceProvider serviceProvider,
+        IEnumerable<MangaConnector> connectors,
+        IEnumerable<MetadataFetcher> fetchers,
+        RateLimitHandler rateLimitHandler,
+        TrangaSettings settings)
     {
-        AddWorker(SendNotificationsWorker);
-        AddWorker(CleanupMangaconnectorIdsWithoutConnector);
-        AddWorker(CleanupMangaCoversWorker);
-        
+        _serviceProvider = serviceProvider;
+        _settings = settings;
+        _rateLimitHandler = rateLimitHandler;
+        Connectors = connectors;
+        MetadataFetchers = fetchers;
+    }
+
+    // Helper to keep the startup lists clean
+    private T GetWorker<T>() where T : BaseWorker => _serviceProvider.GetRequiredService<T>();
+
+    public void StartupTasks()
+    {
+        // 3. Pulling workers directly from the DI container
+        AddWorker(GetWorker<SendNotificationsWorker>());
+        AddWorker(GetWorker<CleanupMangaconnectorIdsWithoutConnector>());
+        AddWorker(GetWorker<CleanupMangaCoversWorker>());
+
         if(Constants.UpdateChaptersDownloadedBeforeStarting)
-            AddWorker(UpdateChaptersDownloadedWorker);
-        
+            AddWorker(GetWorker<UpdateChaptersDownloadedWorker>());
+
         Log.Info("Waiting for startup to complete...");
         while (RunningWorkers.Any(w => w.Key.State < WorkerExecutionState.Completed))
             Thread.Sleep(1000);
         Log.Info("Start complete!");
     }
 
-    internal static void AddDefaultWorkers()
+    internal void AddDefaultWorkers()
     {
-        AddWorker(UpdateMetadataWorker);
-        AddWorker(CheckForNewChaptersWorker);
-        AddWorker(StartNewChapterDownloadsWorker);
-        AddWorker(RemoveOldNotificationsWorker);
-        AddWorker(UpdateCoversWorker);
-        
+        AddWorker(GetWorker<UpdateMetadataWorker>());
+        AddWorker(GetWorker<CheckForNewChaptersWorker>());
+        AddWorker(GetWorker<StartNewChapterDownloadsWorker>());
+        AddWorker(GetWorker<RemoveOldNotificationsWorker>());
+        AddWorker(GetWorker<UpdateCoversWorker>());
+
         if(Constants.UpdateChaptersDownloadedBeforeStarting)
-            AddWorker(UpdateChaptersDownloadedWorker);
+            AddWorker(GetWorker<UpdateChaptersDownloadedWorker>());
     }
 
-    internal static bool TryGetMangaConnector(string name, [NotNullWhen(true)]out MangaConnector? mangaConnector)
+    internal bool TryGetMangaConnector(string name, [NotNullWhen(true)]out MangaConnector? mangaConnector)
     {
-        mangaConnector =
-            MangaConnectors.FirstOrDefault(c => c.Name.Equals(name, StringComparison.InvariantCultureIgnoreCase));
+        mangaConnector = Connectors.FirstOrDefault(c => c.Name.Equals(name, StringComparison.InvariantCultureIgnoreCase));
         return mangaConnector != null;
     }
-    
-    internal static readonly ConcurrentDictionary<IPeriodic, Task> PeriodicWorkers = new ();
 
-    public static void AddWorker(BaseWorker worker)
+    // 4. Removed 'static' from all these operational methods
+    public void AddWorker(BaseWorker worker)
     {
         Log.DebugFormat("Adding Worker {0}", worker);
         KnownWorkers.Add(worker);
@@ -81,11 +91,12 @@ public static class Tranga
             StartWorker(worker, RemoveFromKnownWorkers(worker));
         else
             StartWorker(worker);
+
         if(worker is IPeriodic periodic)
             AddPeriodicWorker(worker, periodic);
     }
 
-    private static void AddPeriodicWorker(BaseWorker worker, IPeriodic periodic)
+    private void AddPeriodicWorker(BaseWorker worker, IPeriodic periodic)
     {
         Log.DebugFormat("Adding Periodic {0}", worker);
         Task periodicTask = RefreshedPeriodicTask(worker, periodic);
@@ -93,62 +104,62 @@ public static class Tranga
         periodicTask.Start();
     }
 
-    private static Task RefreshedPeriodicTask(BaseWorker worker, IPeriodic periodic) => new (() =>
+    private Task RefreshedPeriodicTask(BaseWorker worker, IPeriodic periodic) => new (() =>
     {
         Log.DebugFormat("Waiting {0} for next run of {1}", periodic.Interval, worker);
         Thread.Sleep(periodic.Interval);
         StartWorker(worker, RefreshTask(worker, periodic));
     });
 
-    private static Action RefreshTask(BaseWorker worker, IPeriodic periodic) => () =>
+    private Action RefreshTask(BaseWorker worker, IPeriodic periodic) => () =>
     {
         if (worker.State < WorkerExecutionState.Created) //Failed
         {
             Log.DebugFormat("Task {0} failed. Not refreshing.", worker);
             return;
-        } 
+        }
         Log.DebugFormat("Refreshing {0}", worker);
         Task periodicTask = RefreshedPeriodicTask(worker, periodic);
         PeriodicWorkers.AddOrUpdate((worker as IPeriodic)!, periodicTask, (_, _) => periodicTask);
         periodicTask.Start();
     };
 
-    private static Action RemoveFromKnownWorkers(BaseWorker worker) => () =>
+    private Action RemoveFromKnownWorkers(BaseWorker worker) => () =>
     {
         if (KnownWorkers.Contains(worker))
             KnownWorkers.Remove(worker);
     };
-    
-    public static void AddWorkers(IEnumerable<BaseWorker> workers)
+
+    public void AddWorkers(IEnumerable<BaseWorker> workers)
     {
         foreach (BaseWorker baseWorker in workers)
             AddWorker(baseWorker);
     }
 
-    private static readonly HashSet<BaseWorker> KnownWorkers = new();
-    public static BaseWorker[] GetKnownWorkers() =>  KnownWorkers.ToArray();
-    private static readonly ConcurrentDictionary<BaseWorker, Task<BaseWorker[]>> RunningWorkers = new();
-    public static BaseWorker[] GetRunningWorkers() => RunningWorkers.Keys.ToArray();
-    
-    internal static void StartWorker(BaseWorker worker, Action? finishedCallback = null)
+    public BaseWorker[] GetKnownWorkers() => KnownWorkers.ToArray();
+    public BaseWorker[] GetRunningWorkers() => RunningWorkers.Keys.ToArray();
+
+    internal void StartWorker(BaseWorker worker, Action? finishedCallback = null)
     {
         Log.DebugFormat("Starting {0}", worker);
-        if (ServiceProvider is null)
+        if (_serviceProvider is null)
         {
             Log.Fatal("ServiceProvider is null");
             return;
         }
         Action afterWorkCallback = DefaultAfterWork(worker, finishedCallback);
 
-        while (RunningWorkers.Count > Settings.MaxConcurrentWorkers)
+        // Uses injected _settings
+        while (RunningWorkers.Count > _settings.MaxConcurrentWorkers)
         {
-            Log.WarnFormat("{0}: Max worker concurrency reached ({1})! Waiting {2}ms...", worker, Settings.MaxConcurrentWorkers, Settings.WorkCycleTimeoutMs);
-            Thread.Sleep(Settings.WorkCycleTimeoutMs);
+            Log.WarnFormat("{0}: Max worker concurrency reached ({1})! Waiting {2}ms...", worker, _settings.MaxConcurrentWorkers, _settings.WorkCycleTimeoutMs);
+            Thread.Sleep(_settings.WorkCycleTimeoutMs);
         }
 
         if (worker is BaseWorkerWithContexts withContexts)
         {
-            RunningWorkers.TryAdd(withContexts, withContexts.DoWork(ServiceProvider.CreateScope(), afterWorkCallback));
+            // Uses injected _serviceProvider
+            RunningWorkers.TryAdd(withContexts, withContexts.DoWork(_serviceProvider.CreateScope(), afterWorkCallback));
         }
         else
         {
@@ -156,7 +167,7 @@ public static class Tranga
         }
     }
 
-    private static Action DefaultAfterWork(BaseWorker worker, Action? callback = null) => () =>
+    private Action DefaultAfterWork(BaseWorker worker, Action? callback = null) => () =>
     {
         Log.DebugFormat("DefaultAfterWork {0}", worker);
         try
@@ -186,7 +197,7 @@ public static class Tranga
         callback?.Invoke();
     };
 
-    internal static void StopWorker(BaseWorker worker)
+    internal void StopWorker(BaseWorker worker)
     {
         Log.DebugFormat("Stopping {0}", worker);
         if(worker is IPeriodic periodicWorker)
@@ -194,11 +205,12 @@ public static class Tranga
         worker.Cancel();
         RunningWorkers.Remove(worker, out _);
     }
-    
-    internal static async Task<(Manga manga, MangaConnectorId<Manga> id)?> AddMangaToContext(this MangaContext context, (Manga, MangaConnectorId<Manga>) addManga, CancellationToken token) =>
+
+    // 5. Removed 'this' from MangaContext. It is now just a normal method you call on Tranga.
+    internal async Task<(Manga manga, MangaConnectorId<Manga> id)?> AddMangaToContext(MangaContext context, (Manga, MangaConnectorId<Manga>) addManga, CancellationToken token) =>
         await AddMangaToContext(context, addManga.Item1, addManga.Item2, token);
 
-    internal static async Task<(Manga manga, MangaConnectorId<Manga> id)?> AddMangaToContext(this MangaContext context, Manga addManga, MangaConnectorId<Manga> addMcId, CancellationToken token)
+    internal async Task<(Manga manga, MangaConnectorId<Manga> id)?> AddMangaToContext(MangaContext context, Manga addManga, MangaConnectorId<Manga> addMcId, CancellationToken token)
     {
         context.ChangeTracker.Clear();
         Log.DebugFormat("Adding Manga to Context: {0}", addManga);
@@ -208,26 +220,22 @@ public static class Tranga
             Manga manga = await context.MangaIncludeAll().FirstAsync(m => m.Key == mangaId, token);
             Log.DebugFormat("Merging with existing Manga: {0}", manga);
 
-            // Check for existing MangaConnectorId to avoid duplicate key tracking conflict
             var existingMcId = manga.MangaConnectorIds
-                .FirstOrDefault(id => id.MangaConnectorName == addMcId.MangaConnectorName 
+                .FirstOrDefault(id => id.MangaConnectorName == addMcId.MangaConnectorName
                                       && id.IdOnConnectorSite == addMcId.IdOnConnectorSite);
 
             MangaConnectorId<Manga> mcIdToUse;
             if (existingMcId == null)
             {
-                // Create new if not exists (matches original constructor signature)
                 mcIdToUse = new MangaConnectorId<Manga>(manga, addMcId.MangaConnectorName, addMcId.IdOnConnectorSite, addMcId.WebsiteUrl, addMcId.UseForDownload);
                 manga.MangaConnectorIds.Add(mcIdToUse);
                 Log.DebugFormat("Added new MangaConnectorId for {0}", addMcId.MangaConnectorName);
             }
             else
             {
-                // Reuse existing; recreate if URL changed (init-only safe via constructor)
                 mcIdToUse = existingMcId;
                 if (existingMcId.WebsiteUrl != addMcId.WebsiteUrl)
                 {
-                    // Recreate with constructor (sets init-only WebsiteUrl)
                     var updatedMcId = new MangaConnectorId<Manga>(manga, existingMcId.MangaConnectorName, existingMcId.IdOnConnectorSite, addMcId.WebsiteUrl, existingMcId.UseForDownload);
                     manga.MangaConnectorIds.Remove(existingMcId);
                     manga.MangaConnectorIds.Add(updatedMcId);
@@ -235,7 +243,7 @@ public static class Tranga
                     Log.DebugFormat("Updated/Recreated MangaConnectorId for {0} (URL changed)", addMcId.MangaConnectorName);
                 }
             }
-            
+
             result = (manga, mcIdToUse);
         }
         else
@@ -254,17 +262,18 @@ public static class Tranga
                 return inDb ?? ma;
             });
             addManga.Authors = mergedAuthors.ToList();
-            
+
             context.Mangas.Add(addManga);
+            context.Set<MangaConnectorId<Manga>>().Add(addMcId);
             result = (addManga, addMcId);
         }
-        
+
         if (await context.Sync(token, reason: "AddMangaToContext") is { success: false })
             return null;
 
-        DownloadCoverFromMangaconnectorWorker downloadCoverWorker = new (result.Value.Item2);
+        DownloadCoverFromMangaconnectorWorker downloadCoverWorker = new (result.Value.Item2, Connectors);
         AddWorker(downloadCoverWorker);
-        
+
         return result;
     }
 }
