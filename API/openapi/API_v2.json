@@ -2098,14 +2098,7 @@
             }
           },
           "500": {
-            "description": "Error during Database Operation",
-            "content": {
-              "text/plain; x-version=2.0": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
+            "description": "Error during Database Operation"
           }
         }
       }
@@ -3151,7 +3144,7 @@
         "tags": [
           "Settings"
         ],
-        "summary": "Get all API.Tranga.Settings",
+        "summary": "Get all !:Tranga.Settings",
         "responses": {
           "200": {
             "description": "",
@@ -4791,6 +4784,15 @@
       "TrangaSettings": {
         "type": "object",
         "properties": {
+          "appData": {
+            "type": "string",
+            "nullable": true
+          },
+          "defaultDownloadLocation": {
+            "type": "string",
+            "nullable": true,
+            "readOnly": true
+          },
           "userAgent": {
             "type": "string",
             "nullable": true
@@ -4833,6 +4835,15 @@
           "refreshLibraryWhileDownloadingEveryMinutes": {
             "type": "integer",
             "format": "int32"
+          },
+          "disabledConnectors": {
+            "uniqueItems": true,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Names of API.MangaConnectors.MangaConnector instances that have been explicitly disabled.\nConnectors absent from this set are considered enabled (opt-out model).",
+            "nullable": true
           }
         },
         "additionalProperties": false
