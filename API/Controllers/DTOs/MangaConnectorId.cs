@@ -7,7 +7,7 @@ namespace API.Controllers.DTOs;
 /// <summary>
 /// <see cref="MangaConnectorId{T}"/> DTO
 /// </summary>
-public sealed record MangaConnectorId<T>(string Key, string MangaConnectorName, string ForeignKey, string? WebsiteUrl, bool UseForDownload) : Identifiable(Key) where T : class
+public sealed record MangaConnectorId<T>(string Key, string MangaConnectorName, string ForeignKey, string IdOnConnectorSite, string? WebsiteUrl, bool UseForDownload) : Identifiable(Key) where T : class
 {
     /// <summary>
     /// Name of the Connector
@@ -22,6 +22,13 @@ public sealed record MangaConnectorId<T>(string Key, string MangaConnectorName, 
     [Required]
     [Description("Key of the referenced DTO")]
     public string ForeignKey { get; init; } = ForeignKey;
+
+    /// <summary>
+    /// ID of the Object on the connector site
+    /// </summary>
+    [Required]
+    [Description("ID of the Object on the connector site")]
+    public string IdOnConnectorSite { get; init; } = IdOnConnectorSite;
     
     /// <summary>
     /// Website Link for reference, if any

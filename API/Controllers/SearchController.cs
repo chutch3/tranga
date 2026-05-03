@@ -61,7 +61,7 @@ public class SearchController(
             Schema.MangaContext.MangaConnectorId<Manga> id = kv.id;
             IEnumerable<DTOs.MangaConnectorId<DTOs.Manga>> ids =
             [
-                new DTOs.MangaConnectorId<DTOs.Manga>(id.Key, id.MangaConnectorName, id.ObjId, id.WebsiteUrl, id.UseForDownload)
+                new DTOs.MangaConnectorId<DTOs.Manga>(id.Key, id.MangaConnectorName, id.ObjId, id.IdOnConnectorSite, id.WebsiteUrl, id.UseForDownload)
             ];
             return new MinimalManga(m.Key, m.Name, m.Description, m.ReleaseStatus, ids);
         });
@@ -85,7 +85,7 @@ public class SearchController(
             return Task.FromResult<Results<Ok<DTOs.Manga>, NotFound<string>>>(TypedResults.NotFound(nameof(ConnectorMangaId)));
         IEnumerable<DTOs.MangaConnectorId<DTOs.Manga>> ids =
         [
-            new DTOs.MangaConnectorId<DTOs.Manga>(id.Key, id.MangaConnectorName, id.ObjId, id.WebsiteUrl, id.UseForDownload)
+            new DTOs.MangaConnectorId<DTOs.Manga>(id.Key, id.MangaConnectorName, id.ObjId, id.IdOnConnectorSite, id.WebsiteUrl, id.UseForDownload)
         ];
         IEnumerable<DTOs.Author> authors = manga.Authors.Select(a => new DTOs.Author(a.Key, a.AuthorName));
         IEnumerable<string> tags = manga.MangaTags.Select(t => t.Tag);
@@ -132,7 +132,7 @@ public class SearchController(
         workerQueue.AddWorker(new DownloadCoverFromMangaconnectorWorker(added.id, connectors));
 
         IEnumerable<DTOs.MangaConnectorId<DTOs.Manga>> ids = added.manga.MangaConnectorIds.Select(id =>
-            new DTOs.MangaConnectorId<DTOs.Manga>(id.Key, id.MangaConnectorName, id.ObjId, id.WebsiteUrl, id.UseForDownload));
+            new DTOs.MangaConnectorId<DTOs.Manga>(id.Key, id.MangaConnectorName, id.ObjId, id.IdOnConnectorSite, id.WebsiteUrl, id.UseForDownload));
         MinimalManga result = new(added.manga.Key, added.manga.Name, added.manga.Description, added.manga.ReleaseStatus, ids);
 
         return TypedResults.Ok(result);
