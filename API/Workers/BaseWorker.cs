@@ -24,7 +24,7 @@ public abstract class BaseWorker : Identifiable
     /// </summary>
     internal IEnumerable<BaseWorker> MissingDependencies => DependsOn.Where(d => d.State < WorkerExecutionState.Completed);
     public bool AllDependenciesFulfilled => DependsOn.All(d => d.State >= WorkerExecutionState.Completed);
-    internal WorkerExecutionState State { get; private set; }
+    protected internal virtual WorkerExecutionState State { get; protected set; }
     private CancellationTokenSource _cancellationTokenSource = new ();
     protected CancellationToken CancellationToken => _cancellationTokenSource.Token;
     protected ILog Log { get; init; }
@@ -50,6 +50,12 @@ public abstract class BaseWorker : Identifiable
     }
 
     protected BaseWorker(IEnumerable<BaseWorker>? dependsOn = null)
+    {
+        this.DependsOn = dependsOn?.ToArray() ?? [];
+        this.Log = LogManager.GetLogger(GetType());
+    }
+
+    protected BaseWorker(string key, IEnumerable<BaseWorker>? dependsOn = null) : base(key)
     {
         this.DependsOn = dependsOn?.ToArray() ?? [];
         this.Log = LogManager.GetLogger(GetType());
@@ -120,7 +126,7 @@ public abstract class BaseWorker : Identifiable
         Log.InfoFormat("Waiting for {0} Dependencies {1}:\n\t{2}", MissingDependencies.Count(), this, string.Join("\n\t", MissingDependencies.Select(d => d.ToString())));
         while (!_cancellationTokenSource.IsCancellationRequested && MissingDependencies.Any())
         {
-            Thread.Sleep(Tranga.Settings.WorkCycleTimeoutMs);  
+            Thread.Sleep(20000);
         }
         return [this];
     }
