@@ -12,6 +12,7 @@ using API.Workers;
 using API.Workers.MangaDownloadWorkers;
 using API.Workers.PeriodicWorkers;
 using API.Workers.PeriodicWorkers.MaintenanceWorkers;
+using API.Workers.MaintenanceWorkers;
 using Asp.Versioning;
 using Asp.Versioning.Builder;
 using Asp.Versioning.Conventions;
@@ -122,6 +123,7 @@ builder.Services.AddSingleton<StartNewChapterDownloadsWorker>();
 builder.Services.AddSingleton<RemoveOldNotificationsWorker>();
 builder.Services.AddSingleton<UpdateCoversWorker>();
 builder.Services.AddSingleton<CleanupMangaconnectorIdsWithoutConnector>();
+builder.Services.AddSingleton<CleanupOrphanedFilesWorker>();
 
 builder.Services.AddSingleton<RateLimitHandler>();
 builder.Services.AddSingleton<IWorkerQueue, WorkerQueue>();

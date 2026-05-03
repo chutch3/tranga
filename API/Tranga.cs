@@ -8,6 +8,7 @@ using API.Workers;
 using API.Workers.MangaDownloadWorkers;
 using API.Workers.PeriodicWorkers;
 using API.Workers.PeriodicWorkers.MaintenanceWorkers;
+using API.Workers.MaintenanceWorkers;
 using log4net;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection; // Required for GetRequiredService
@@ -71,6 +72,7 @@ public class Tranga
         AddWorker(GetWorker<StartNewChapterDownloadsWorker>());
         AddWorker(GetWorker<RemoveOldNotificationsWorker>());
         AddWorker(GetWorker<UpdateCoversWorker>());
+        AddWorker(GetWorker<CleanupOrphanedFilesWorker>());
 
         if(Constants.UpdateChaptersDownloadedBeforeStarting)
             AddWorker(GetWorker<UpdateChaptersDownloadedWorker>());

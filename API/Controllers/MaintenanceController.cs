@@ -1,6 +1,8 @@
 using API.MangaConnectors;
 using API.Schema.ActionsContext;
 using API.Schema.MangaContext;
+using API.Workers;
+using API.Workers.MaintenanceWorkers;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -47,8 +49,24 @@ public class MaintenanceController(MangaContext mangaContext, ActionsContext act
     [ProducesResponseType<int>(Status200OK, "text/plain")]
     public async Task<Ok<int>> CleanupActions()
     {
-        int rows = await actionContext.Actions.ExecuteDeleteAsync(HttpContext.RequestAborted);
-        return TypedResults.Ok(rows);
+        var actions = await actionContext.Actions.ToListAsync(HttpContext.RequestAborted);
+        int count = actions.Count;
+        actionContext.Actions.RemoveRange(actions);
+        await actionContext.Sync(HttpContext.RequestAborted, GetType(), "CleanupActions");
+        return TypedResults.Ok(count);
     }
-    
+
+    /// <summary>
+    /// Queues a <see cref="CleanupOrphanedFilesWorker"/> to remove files from the library that are not tracked in the database.
+    /// </summary>
+    /// <param name="workerQueue"></param>
+    /// <param name="dryRun">If true, only log what would be deleted without actually deleting it.</param>
+    /// <response code="202">Cleanup worker queued</response>
+    [HttpPost("CleanupOrphanedFiles")]
+    [ProducesResponseType(Status202Accepted)]
+    public Ok CleanupOrphanedFiles([FromServices] IWorkerQueue workerQueue, bool dryRun = false)
+    {
+        workerQueue.AddWorker(new CleanupOrphanedFilesWorker(dryRun));
+        return TypedResults.Ok();
+    }
 }
