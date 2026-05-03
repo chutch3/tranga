@@ -9,8 +9,8 @@
         <NoWarn>$(NoWarn);1591</NoWarn>
 
         <OpenApiDocumentsDirectory>$(MSBuildProjectDirectory)\openapi</OpenApiDocumentsDirectory>
-        <OpenApiGenerateDocuments>true</OpenApiGenerateDocuments>
-        <OpenApiGenerateDocumentsOnBuild>true</OpenApiGenerateDocumentsOnBuild>
+        <OpenApiGenerateDocuments Condition="'$(DisableOpenApiGeneration)' != 'true'">true</OpenApiGenerateDocuments>
+        <OpenApiGenerateDocumentsOnBuild Condition="'$(DisableOpenApiGeneration)' != 'true'">true</OpenApiGenerateDocumentsOnBuild>
     </PropertyGroup>
 
     <ItemGroup>
