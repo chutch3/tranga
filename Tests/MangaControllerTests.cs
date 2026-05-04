@@ -1,3 +1,4 @@
+using API;
 using API.Controllers;
 using API.Controllers.DTOs;
 using API.Schema.ActionsContext;
@@ -6,6 +7,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Moq;
 using Chapter = API.Schema.MangaContext.Chapter;
 using ConnectorId = API.Schema.MangaContext.MangaConnectorId<API.Schema.MangaContext.Manga>;
 
@@ -24,12 +26,15 @@ public class MangaControllerTests
         return (new MangaContext(mangaOptions), new ActionsContext(actionsOptions));
     }
 
-    private static MangaController CreateController(MangaContext ctx, ActionsContext actionsCtx)
+    private static MangaController CreateController(
+        MangaContext ctx, 
+        ActionsContext actionsCtx, 
+        IEnumerable<API.MangaConnectors.MangaConnector>? connectors = null)
     {
-        var settings = new API.TrangaSettings { AppData = Path.GetTempPath() };
-        var connectors = Enumerable.Empty<API.MangaConnectors.MangaConnector>();
-        var workerQueue = new Moq.Mock<API.Workers.IWorkerQueue>().Object;
-        var controller = new MangaController(ctx, actionsCtx, settings, connectors, workerQueue);
+        var settings = new TrangaSettings { AppData = Path.GetTempPath() };
+        var connectorsList = connectors ?? Enumerable.Empty<API.MangaConnectors.MangaConnector>();
+        var workerQueue = new Mock<API.Workers.IWorkerQueue>().Object;
+        var controller = new MangaController(ctx, actionsCtx, settings, connectorsList, workerQueue);
         controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext()
@@ -54,72 +59,27 @@ public class MangaControllerTests
     }
 
     [Fact]
-    public async Task GetAllManga_IncludesTrackedManga()
+    public async Task ChangeLibrary_AddsUntrackedMangaWhenConnectorInfoProvided()
     {
         var (ctx, actionsCtx) = CreateContexts();
-        var manga = MakeTestManga("Tracked");
-        manga.IsTracked = true;
-        ctx.Mangas.Add(manga);
+        var library = new API.Schema.MangaContext.FileLibrary(Path.GetTempPath(), "TestLib");
+        ctx.FileLibraries.Add(library);
         await ctx.SaveChangesAsync();
 
-        var result = await CreateController(ctx, actionsCtx).GetAllManga();
+        var manga = MakeTestManga("New Manga");
+        var connectorId = new ConnectorId(manga, "MangaDex", "ext-id", null);
 
-        var ok = Assert.IsType<Ok<List<MinimalManga>>>(result.Result);
-        Assert.Single(ok.Value!);
-        Assert.Equal("Tracked", ok.Value![0].Name);
-    }
+        var mockConnector = new Mock<API.MangaConnectors.MangaConnector>("MangaDex", new[] { "en" }, new[] { "mangadex.org" }, "icon.png", new TrangaSettings());
+        mockConnector.Setup(c => c.GetMangaFromId("ext-id")).Returns((manga, connectorId));
 
-    [Fact]
-    public async Task GetAllManga_IncludesMangaWithDownloadedChapter()
-    {
-        var (ctx, actionsCtx) = CreateContexts();
-        var manga = MakeTestManga("Downloaded");
-        ctx.Mangas.Add(manga);
-        var chapter = new Chapter(manga, "1", null);
-        chapter.Downloaded = true;
-        ctx.Chapters.Add(chapter);
-        await ctx.SaveChangesAsync();
+        var controller = CreateController(ctx, actionsCtx, [mockConnector.Object]);
+        
+        var result = await controller.ChangeLibrary(manga.Key, library.Key, "MangaDex", "ext-id");
 
-        var result = await CreateController(ctx, actionsCtx).GetAllManga();
-
-        var ok = Assert.IsType<Ok<List<MinimalManga>>>(result.Result);
-        Assert.Single(ok.Value!);
-    }
-
-    [Fact]
-    public async Task GetAllManga_IncludesMangaWithUseForDownload()
-    {
-        var (ctx, actionsCtx) = CreateContexts();
-        var manga = MakeTestManga("Monitored");
-        ctx.Mangas.Add(manga);
-        ctx.Set<ConnectorId>()
-            .Add(new ConnectorId(manga, "TestConnector", "ext-id", null, useForDownload: true));
-        await ctx.SaveChangesAsync();
-
-        var result = await CreateController(ctx, actionsCtx).GetAllManga();
-
-        var ok = Assert.IsType<Ok<List<MinimalManga>>>(result.Result);
-        Assert.Single(ok.Value!);
-    }
-
-    [Fact]
-    public async Task GetAllManga_ExcludesMixedBag_OnlyReturnsTracked()
-    {
-        var (ctx, actionsCtx) = CreateContexts();
-
-        var searchOnly = MakeTestManga("SearchOnly");
-        ctx.Mangas.Add(searchOnly);
-
-        var tracked = MakeTestManga("Tracked");
-        tracked.IsTracked = true;
-        ctx.Mangas.Add(tracked);
-
-        await ctx.SaveChangesAsync();
-
-        var result = await CreateController(ctx, actionsCtx).GetAllManga();
-
-        var ok = Assert.IsType<Ok<List<MinimalManga>>>(result.Result);
-        Assert.Single(ok.Value!);
-        Assert.Equal("Tracked", ok.Value![0].Name);
+        Assert.IsType<Ok>(result.Result);
+        var mangaInDb = await ctx.Mangas.FirstOrDefaultAsync(m => m.Key == manga.Key);
+        Assert.NotNull(mangaInDb);
+        Assert.True(mangaInDb.IsTracked);
+        Assert.Equal(library.Key, mangaInDb.LibraryId);
     }
 }

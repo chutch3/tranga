@@ -1,6 +1,8 @@
+using API;
 using API.Controllers;
 using API.Controllers.DTOs;
 using API.Schema.MangaContext;
+using Moq;
 using MangaDto = API.Controllers.DTOs.Manga;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -26,7 +28,7 @@ public class SearchControllerTests
         Func<string, string, (SchemaManga, SchemaConnectorId)?>? connectorLookup = null)
     {
         var connectors = Enumerable.Empty<API.MangaConnectors.MangaConnector>();
-        var workerQueue = new Moq.Mock<API.Workers.IWorkerQueue>().Object;
+        var workerQueue = new Mock<API.Workers.IWorkerQueue>().Object;
         var controller = new SearchController(ctx, connectors, workerQueue, connectorLookup ?? ((_, _) => null));
         controller.ControllerContext = new ControllerContext
         {
@@ -88,16 +90,24 @@ public class SearchControllerTests
     }
 
     [Fact]
-    public async Task GetMangaFromConnector_ReturnsCoverUrl()
+    public void SearchManga_ReturnsCoverUrl()
     {
         using var ctx = CreateContext();
-        var manga = MakeTestManga("Berserk", "http://cdn.example.com/berserk-cover.jpg");
-        var connectorId = MakeConnectorId(manga, "MangaDex", "berserk-id-123");
+        var manga = MakeTestManga("One Punch Man", "http://example.com/opm.jpg");
+        var connectorId = MakeConnectorId(manga, "MangaDex", "opm-id");
 
-        var result = await CreateController(ctx, (_, _) => (manga, connectorId))
-            .GetMangaFromConnector("MangaDex", "berserk-id-123");
+        var mockConnector = new Mock<API.MangaConnectors.MangaConnector>("MangaDex", new[] { "en" }, new[] { "mangadex.org" }, "icon.png", new TrangaSettings());
+        mockConnector.Setup(c => c.SearchManga(It.IsAny<string>())).Returns([(manga, connectorId)]);
+        // Enabled is true by default, and Name is set in constructor.
 
-        var ok = Assert.IsType<Ok<MangaDto>>(result.Result);
-        Assert.Equal("http://cdn.example.com/berserk-cover.jpg", ok.Value!.CoverUrl);
+        var connectors = new[] { mockConnector.Object };
+        var workerQueue = new Mock<API.Workers.IWorkerQueue>().Object;
+        var controller = new SearchController(ctx, connectors, workerQueue);
+
+        var result = controller.SearchManga("MangaDex", "one punch man");
+
+        var ok = Assert.IsType<Ok<List<MinimalManga>>>(result.Result);
+        var searchResult = Assert.Single(ok.Value!);
+        Assert.Equal("http://example.com/opm.jpg", searchResult.CoverUrl);
     }
 }

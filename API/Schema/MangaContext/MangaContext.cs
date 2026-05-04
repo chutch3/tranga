@@ -145,7 +145,6 @@ public class MangaContext(DbContextOptions<MangaContext> options) : TrangaBaseCo
     public async Task<(Manga manga, MangaConnectorId<Manga> id)?> UpsertManga(
         Manga addManga, MangaConnectorId<Manga> addMcId, CancellationToken token)
     {
-        ChangeTracker.Clear();
         Log.DebugFormat("Upserting Manga: {0}", addManga);
         (Manga, MangaConnectorId<Manga>)? result;
 

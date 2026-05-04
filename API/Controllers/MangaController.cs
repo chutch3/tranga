@@ -197,6 +197,8 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
     /// </summary>
     /// <param name="MangaId"><see cref="Manga"/>.Key</param>
     /// <param name="LibraryId"><see cref="DTOs.FileLibrary"/>.Key</param>
+    /// <param name="connectorName">(Optional) Name of the connector to fetch manga from if not in DB</param>
+    /// <param name="connectorMangaId">(Optional) ID of the manga on the connector site</param>
     /// <response code="202">Folder is going to be moved</response>
     /// <response code="404"><paramref name="MangaId"/> or <paramref name="LibraryId"/> not found</response>
     /// <response code="500">Error during Database Operation</response>
@@ -204,18 +206,40 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
     [ProducesResponseType(Status200OK)]
     [ProducesResponseType<string>(Status404NotFound, "text/plain")]
     [ProducesResponseType<string>(Status500InternalServerError,  "text/plain")]
-    public async Task<Results<Ok, NotFound<string>, InternalServerError<string>>> ChangeLibrary(string MangaId, string LibraryId)
+    public async Task<Results<Ok, NotFound<string>, InternalServerError<string>>> ChangeLibrary(string MangaId, string LibraryId, [FromQuery] string? connectorName = null, [FromQuery] string? connectorMangaId = null)
     {
-        if (await context.Mangas
-                .Include(m => m.Library)
-                .Include(m => m.Chapters)
-                .FirstOrDefaultAsync(m => m.Key == MangaId, HttpContext.RequestAborted) is not { } manga)
-            return TypedResults.NotFound(nameof(MangaId));
         if (await context.FileLibraries.FirstOrDefaultAsync(l => l.Key == LibraryId, HttpContext.RequestAborted) is not { } library)
             return TypedResults.NotFound(nameof(LibraryId));
+
+        var manga = await context.Mangas
+            .Include(m => m.Library)
+            .Include(m => m.Chapters)
+            .FirstOrDefaultAsync(m => m.Key == MangaId, HttpContext.RequestAborted);
+
+        if (manga is null)
+        {
+            if (string.IsNullOrWhiteSpace(connectorName) || string.IsNullOrWhiteSpace(connectorMangaId))
+                return TypedResults.NotFound(nameof(MangaId));
+
+            if (connectors.FirstOrDefault(c => c.Name.Equals(connectorName, StringComparison.InvariantCultureIgnoreCase)) is not { } connector)
+                return TypedResults.NotFound(nameof(connectorName));
+
+            if (connector.GetMangaFromId(connectorMangaId) is not ({ } m, { } id))
+                return TypedResults.NotFound(nameof(connectorMangaId));
+
+            if (await context.UpsertManga(m, id, HttpContext.RequestAborted) is not { } added)
+                return TypedResults.InternalServerError("Could not add Manga to context");
+            
+            manga = added.manga;
+        }
+
+        manga.IsTracked = true;
         
         if(manga.LibraryId == library.Key)
-            return TypedResults.Ok();
+        {
+             await context.Sync(HttpContext.RequestAborted, GetType(), "Track Manga");
+             return TypedResults.Ok();
+        }
 
         Dictionary<Chapter, string?> oldPaths = manga.Chapters.Where(ch => ch.Downloaded).ToDictionary(ch => ch, ch => ch.FullArchiveFilePath);
         manga.Library = library;
