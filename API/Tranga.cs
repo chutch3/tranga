@@ -50,12 +50,12 @@ public class Tranga
     public void StartupTasks()
     {
         // 3. Pulling workers directly from the DI container
-        AddWorker(GetWorker<SendNotificationsWorker>());
-        AddWorker(GetWorker<CleanupMangaconnectorIdsWithoutConnector>());
-        AddWorker(GetWorker<CleanupMangaCoversWorker>());
+        _workerQueue.AddWorker(GetWorker<SendNotificationsWorker>());
+        _workerQueue.AddWorker(GetWorker<CleanupMangaconnectorIdsWithoutConnector>());
+        _workerQueue.AddWorker(GetWorker<CleanupMangaCoversWorker>());
 
         if(Constants.UpdateChaptersDownloadedBeforeStarting)
-            AddWorker(GetWorker<UpdateChaptersDownloadedWorker>());
+            _workerQueue.AddWorker(GetWorker<UpdateChaptersDownloadedWorker>());
 
         Log.Info("Waiting for startup to complete...");
         while (_workerQueue.GetRunningWorkers().Any(w => w.State < WorkerExecutionState.Completed))
@@ -65,15 +65,15 @@ public class Tranga
 
     internal void AddDefaultWorkers()
     {
-        AddWorker(GetWorker<UpdateMetadataWorker>());
-        AddWorker(GetWorker<CheckForNewChaptersWorker>());
-        AddWorker(GetWorker<StartNewChapterDownloadsWorker>());
-        AddWorker(GetWorker<RemoveOldNotificationsWorker>());
-        AddWorker(GetWorker<UpdateCoversWorker>());
-        AddWorker(GetWorker<CleanupOrphanedFilesWorker>());
+        _workerQueue.AddWorker(GetWorker<UpdateMetadataWorker>());
+        _workerQueue.AddWorker(GetWorker<CheckForNewChaptersWorker>());
+        _workerQueue.AddWorker(GetWorker<StartNewChapterDownloadsWorker>());
+        _workerQueue.AddWorker(GetWorker<RemoveOldNotificationsWorker>());
+        _workerQueue.AddWorker(GetWorker<UpdateCoversWorker>());
+        _workerQueue.AddWorker(GetWorker<CleanupOrphanedFilesWorker>());
 
         if(Constants.UpdateChaptersDownloadedBeforeStarting)
-            AddWorker(GetWorker<UpdateChaptersDownloadedWorker>());
+            _workerQueue.AddWorker(GetWorker<UpdateChaptersDownloadedWorker>());
     }
 
     internal bool TryGetMangaConnector(string name, [NotNullWhen(true)]out MangaConnector? mangaConnector)
@@ -81,16 +81,6 @@ public class Tranga
         mangaConnector = Connectors.FirstOrDefault(c => c.Name.Equals(name, StringComparison.InvariantCultureIgnoreCase));
         return mangaConnector != null;
     }
-
-    // 4. Removed 'static' from all these operational methods
-    public void AddWorker(BaseWorker worker) => _workerQueue.AddWorker(worker);
-
-    public void AddWorkers(IEnumerable<BaseWorker> workers) => _workerQueue.AddWorkers(workers);
-
-    public BaseWorker[] GetKnownWorkers() => _workerQueue.GetKnownWorkers();
-    public BaseWorker[] GetRunningWorkers() => _workerQueue.GetRunningWorkers();
-
-    internal void StopWorker(BaseWorker worker) => _workerQueue.StopWorker(worker);
 
     // 5. Removed 'this' from MangaContext. It is now just a normal method you call on Tranga.
     internal async Task<(Manga manga, MangaConnectorId<Manga> id)?> AddMangaToContext(MangaContext context, (Manga, MangaConnectorId<Manga>) addManga, CancellationToken token) =>
@@ -158,7 +148,7 @@ public class Tranga
             return null;
 
         DownloadCoverFromMangaconnectorWorker downloadCoverWorker = new (result.Value.Item2, Connectors);
-        AddWorker(downloadCoverWorker);
+        _workerQueue.AddWorker(downloadCoverWorker);
 
         return result;
     }

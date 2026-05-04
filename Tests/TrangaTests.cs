@@ -57,7 +57,7 @@ public class TrangaTests
         services.AddTransient<RemoveOldNotificationsWorker>(_ => new RemoveOldNotificationsWorker());
         services.AddTransient<UpdateCoversWorker>(_ => new UpdateCoversWorker(emptyConnectors));
         services.AddTransient<CleanupMangaconnectorIdsWithoutConnector>(_ => new CleanupMangaconnectorIdsWithoutConnector(emptyConnectors, testSettings));
-        services.AddTransient<CleanupOrphanedFilesWorker>(_ => new CleanupOrphanedFilesWorker());
+        services.AddTransient<CleanupOrphanedFilesWorker>();
 
         // 4. Inject empty fetchers, rate limiter, worker queue, and MangaContext
         services.AddSingleton<IEnumerable<MetadataFetcher>>(emptyFetchers);
