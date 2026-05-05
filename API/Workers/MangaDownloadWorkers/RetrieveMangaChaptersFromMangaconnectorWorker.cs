@@ -62,6 +62,17 @@ public class RetrieveMangaChaptersFromMangaconnectorWorker(MangaConnectorId<Mang
             manga.Chapters.All(c => c.Key != ch.chapter.Key)).ToList();
         Log.DebugFormat("Got {0} new chapters.", newChapters.Count);
 
+        // Update existing chapters with metadata if it was missing
+        foreach(var (fetchedChapter, _) in allChapters)
+        {
+            var existingChapter = manga.Chapters.FirstOrDefault(c => c.Key == fetchedChapter.Key);
+            if (existingChapter != null && existingChapter.VolumeNumber == null && fetchedChapter.VolumeNumber != null)
+            {
+                existingChapter.VolumeNumber = fetchedChapter.VolumeNumber;
+                Log.DebugFormat("Updated volume for existing chapter {0} to {1}", existingChapter.ChapterNumber, existingChapter.VolumeNumber);
+            }
+        }
+
         // Add Chapters to Manga
         manga.Chapters = manga.Chapters.Union(newChapters.Select(ch => ch.chapter)).ToList();
         
