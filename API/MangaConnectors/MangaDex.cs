@@ -333,8 +333,8 @@ public class MangaDex : MangaConnector
 
         if(id is null || chapterStr is null)
             throw new ParsingException("jToken was not in expected format");
-        if(volumeStr is not null)
-            volumeNumber = int.Parse(volumeStr);
+        if(!string.IsNullOrWhiteSpace(volumeStr) && int.TryParse(volumeStr, out int parsedVol))
+            volumeNumber = parsedVol;
 
         string websiteUrl = $"https://mangadex.org/chapter/{id}";
         Chapter chapter = new (mcIdManga.Obj, chapterStr, volumeNumber, title);

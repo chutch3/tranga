@@ -253,13 +253,16 @@ public sealed class Mangaworld : MangaConnector
             {
                 int volumeNumber = 0;
                 string volText = volNode.SelectSingleNode(".//p[contains(@class,'volume-name')]")?.InnerText ?? "";
-                Match vm = Regex.Match(volText, @"[Vv]olume\s+([0-9]+)");
+                Match vm = Regex.Match(volText, @"(?:[Vv]olume|[Vv]ol\.?)\s*([0-9]+)");
                 if (vm.Success && int.TryParse(vm.Groups[1].Value, NumberStyles.None, CultureInfo.InvariantCulture, out int volParsed))
                     volumeNumber = volParsed;
 
-                HtmlNodeCollection chapterNodes = volNode.SelectNodes(".//div[contains(@class,'chapter')]/a[@href]") ?? new HtmlNodeCollection(null);
-                foreach (HtmlNode ch in chapterNodes)
-                    TryAddChapterNode(manga, ch, baseUri, volumeNumber, ret, seen);
+                HtmlNodeCollection? chapterNodes = volNode.SelectNodes(".//a[contains(@class,'chapter') and @href]") ?? volNode.SelectNodes(".//div[contains(@class,'chapter')]/a[@href]") ?? volNode.SelectNodes(".//a[@href]");
+                if (chapterNodes != null)
+                {
+                    foreach (HtmlNode ch in chapterNodes)
+                        TryAddChapterNode(manga, ch, baseUri, volumeNumber, ret, seen);
+                }
             }
         }
 

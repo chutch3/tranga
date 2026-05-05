@@ -300,7 +300,14 @@ public class AsuraComic : MangaConnector
                 title = string.IsNullOrEmpty(rawTitle) ? null : HtmlEntity.DeEntitize(rawTitle);
             }
 
-            Chapter ch = new(manga.Obj, chapterNumber, null, title);
+            int? volumeNumber = null;
+            Match volMatch = Regex.Match(text, @"(?:[Vv]olume|[Vv]ol\.?|[Ss]eason|[Ss]\.?)\s*([\d]+)", RegexOptions.IgnoreCase);
+            if (volMatch.Success && int.TryParse(volMatch.Groups[1].Value, out int parsedVol))
+            {
+                volumeNumber = parsedVol;
+            }
+
+            Chapter ch = new(manga.Obj, chapterNumber, volumeNumber, title);
             string coreSlug = baseSlug.Replace("-*", "");
             string uniqueChapterId = $"{coreSlug}-{chapterNumber.Replace(".", "_")}";
             MangaConnectorId<Chapter> mcId = new(ch, this, uniqueChapterId, fullUrl);
