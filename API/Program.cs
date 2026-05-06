@@ -124,6 +124,7 @@ builder.Services.AddSingleton<RemoveOldNotificationsWorker>();
 builder.Services.AddSingleton<UpdateCoversWorker>();
 builder.Services.AddSingleton<CleanupMangaconnectorIdsWithoutConnector>();
 builder.Services.AddSingleton<CleanupOrphanedFilesWorker>();
+builder.Services.AddSingleton<ResolveMissingVolumesWorker>();
 
 builder.Services.AddSingleton<RateLimitHandler>();
 builder.Services.AddSingleton<IWorkerQueue, WorkerQueue>();

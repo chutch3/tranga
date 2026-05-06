@@ -61,7 +61,6 @@ public class ResolveMissingVolumesWorkerTests : IDisposable
     [Fact]
     public async Task DoWork_WhenExactLookupFails_FallsBackToColorHeuristic()
     {
-        // Arrange
         var settings = new TrangaSettings { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactThenGuess };
         
         var library = new FileLibrary(_testRoot, "Test Library");
@@ -123,11 +122,9 @@ public class ResolveMissingVolumesWorkerTests : IDisposable
         // Mock empty connectors list
         var connectors = Enumerable.Empty<MangaConnector>();
         
-        // Act
         var worker = new ResolveMissingVolumesWorker(settings, connectors);
         await worker.DoWork(_mockScope.Object);
 
-        // Assert - We expect the test to fail compilation here until the worker is implemented
         var chapter1InDb = await _mangaContext.Chapters.FirstAsync(c => c.ChapterNumber == "1");
         var chapter2InDb = await _mangaContext.Chapters.FirstAsync(c => c.ChapterNumber == "2");
 
@@ -139,7 +136,6 @@ public class ResolveMissingVolumesWorkerTests : IDisposable
     [Fact]
     public async Task DoWork_WhenFirstChapterNotColor_AbortsHeuristic()
     {
-        // Arrange
         var settings = new TrangaSettings { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactThenGuess };
         
         var library = new FileLibrary(_testRoot, "Test Library");
@@ -185,15 +181,113 @@ public class ResolveMissingVolumesWorkerTests : IDisposable
 
         var connectors = Enumerable.Empty<MangaConnector>();
         
-        // Act
         var worker = new ResolveMissingVolumesWorker(settings, connectors);
         await worker.DoWork(_mockScope.Object);
 
-        // Assert - Heuristic should have aborted on Chapter 1, ignoring Chapter 2's color page
         var chapter1InDb = await _mangaContext.Chapters.FirstAsync(c => c.ChapterNumber == "1");
         var chapter2InDb = await _mangaContext.Chapters.FirstAsync(c => c.ChapterNumber == "2");
 
         Assert.Null(chapter1InDb.VolumeNumber);
-        Assert.Null(chapter2InDb.VolumeNumber); // This will fail because our current implementation will assign Volume 1 to Chapter 2
+        Assert.Null(chapter2InDb.VolumeNumber);
+    }
+
+    [Fact]
+    public async Task DoWork_WhenStrategyDisabled_DoesNothing()
+    {
+        var settings = new TrangaSettings { VolumeResolutionStrategy = VolumeResolutionStrategy.Disabled };
+        var library = new FileLibrary(_testRoot, "Test Library");
+        _mangaContext.FileLibraries.Add(library);
+
+        var manga = new Manga("Test Disabled", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        _mangaContext.Mangas.Add(manga);
+
+        var chapter1 = new Chapter(manga, "1", null, "Title 1") { Downloaded = true, FileName = "chap1.cbz" };
+        _mangaContext.Chapters.Add(chapter1);
+        await _mangaContext.SaveChangesAsync();
+
+        var worker = new ResolveMissingVolumesWorker(settings, Enumerable.Empty<MangaConnector>());
+        await worker.DoWork(_mockScope.Object);
+
+        var chapter1InDb = await _mangaContext.Chapters.FirstAsync(c => c.ChapterNumber == "1");
+        Assert.Null(chapter1InDb.VolumeNumber);
+    }
+
+    [Fact]
+    public async Task DoWork_WhenStrategyExactOnly_DoesNotRunHeuristic()
+    {
+        var settings = new TrangaSettings { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactOnly };
+        var library = new FileLibrary(_testRoot, "Test Library");
+        _mangaContext.FileLibraries.Add(library);
+
+        var manga = new Manga("Test Exact Only", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        _mangaContext.Mangas.Add(manga);
+
+        var chapter1 = new Chapter(manga, "1", null, "Title 1") { Downloaded = true, FileName = "chap1.cbz" };
+        _mangaContext.Chapters.Add(chapter1);
+        await _mangaContext.SaveChangesAsync();
+
+        string mangaDir = Path.Combine(_testRoot, manga.DirectoryName);
+        Directory.CreateDirectory(mangaDir);
+
+        using (var zip1 = ZipFile.Open(Path.Combine(mangaDir, "chap1.cbz"), ZipArchiveMode.Create))
+        {
+            var entry = zip1.CreateEntry("01_color.jpg");
+            using var entryStream = entry.Open();
+            using var img = new SixLabors.ImageSharp.Image<SixLabors.ImageSharp.PixelFormats.Rgb24>(10, 10);
+            for (int y = 0; y < 10; y++)
+                for (int x = 0; x < 10; x++)
+                    img[x, y] = new SixLabors.ImageSharp.PixelFormats.Rgb24(255, 0, 0);
+            img.SaveAsJpeg(entryStream);
+        }
+
+        var worker = new ResolveMissingVolumesWorker(settings, Enumerable.Empty<MangaConnector>());
+        await worker.DoWork(_mockScope.Object);
+
+        var chapter1InDb = await _mangaContext.Chapters.FirstAsync(c => c.ChapterNumber == "1");
+        Assert.Null(chapter1InDb.VolumeNumber);
+    }
+
+    [Fact]
+    public async Task DoWork_WhenFileMissing_SkipsGracefullyAndEvaluatesNext()
+    {
+        var settings = new TrangaSettings { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactThenGuess };
+        var library = new FileLibrary(_testRoot, "Test Library");
+        _mangaContext.FileLibraries.Add(library);
+
+        var manga = new Manga("Test Missing File", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        _mangaContext.Mangas.Add(manga);
+
+        var chapter1 = new Chapter(manga, "1", null, "Title 1") { Downloaded = true, FileName = "chap1.cbz" };
+        _mangaContext.Chapters.Add(chapter1);
+        
+        var chapter2 = new Chapter(manga, "2", null, "Title 2") { Downloaded = true, FileName = "chap2.cbz" };
+        _mangaContext.Chapters.Add(chapter2);
+        await _mangaContext.SaveChangesAsync();
+
+        string mangaDir = Path.Combine(_testRoot, manga.DirectoryName);
+        Directory.CreateDirectory(mangaDir);
+
+        // chap1.cbz is MISSING
+
+        // Chapter 2: Grayscale image (first processed chapter, should abort heuristic)
+        using (var zip2 = ZipFile.Open(Path.Combine(mangaDir, "chap2.cbz"), ZipArchiveMode.Create))
+        {
+            var entry = zip2.CreateEntry("01_bw.jpg");
+            using var entryStream = entry.Open();
+            using var img = new SixLabors.ImageSharp.Image<SixLabors.ImageSharp.PixelFormats.Rgb24>(10, 10);
+            for (int y = 0; y < 10; y++)
+                for (int x = 0; x < 10; x++)
+                    img[x, y] = new SixLabors.ImageSharp.PixelFormats.Rgb24(128, 128, 128);
+            img.SaveAsJpeg(entryStream);
+        }
+
+        var worker = new ResolveMissingVolumesWorker(settings, Enumerable.Empty<MangaConnector>());
+        await worker.DoWork(_mockScope.Object);
+
+        var chapter1InDb = await _mangaContext.Chapters.FirstAsync(c => c.ChapterNumber == "1");
+        var chapter2InDb = await _mangaContext.Chapters.FirstAsync(c => c.ChapterNumber == "2");
+
+        Assert.Null(chapter1InDb.VolumeNumber);
+        Assert.Null(chapter2InDb.VolumeNumber);
     }
 }

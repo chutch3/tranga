@@ -48,7 +48,6 @@ public class RetrieveMangaChaptersFromMangaconnectorWorkerTests : IDisposable
     [Fact]
     public async Task DoWork_UpdatesExistingChapterWithMissingVolume()
     {
-        // Arrange
         var manga = new Manga("Test Manga", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], []);
         _mangaContext.Mangas.Add(manga);
 
@@ -78,10 +77,8 @@ public class RetrieveMangaChaptersFromMangaconnectorWorkerTests : IDisposable
 
         var worker = new RetrieveMangaChaptersFromMangaconnectorWorker(mangaMcId, "en", new[] { mockConnector.Object });
 
-        // Act
         await worker.DoWork(_mockScope.Object);
 
-        // Assert
         var chapterInDb = await _mangaContext.Chapters.FirstAsync();
         Assert.Equal(5, chapterInDb.VolumeNumber); // This will fail until we fix the worker
     }

@@ -74,7 +74,6 @@ public class CleanupOrphanedFilesWorkerTests : IDisposable
         var worker = new CleanupOrphanedFilesWorker(dryRun: false);
         await worker.DoWork(_mockScope.Object);
 
-        // Assert
         Assert.True(File.Exists(trackedFile), "Tracked file should still exist");
         Assert.False(File.Exists(orphanedFile), "Orphaned file should be deleted");
     }
@@ -109,7 +108,6 @@ public class CleanupOrphanedFilesWorkerTests : IDisposable
         var worker = new CleanupOrphanedFilesWorker(dryRun: false);
         await worker.DoWork(_mockScope.Object);
 
-        // Assert
         Assert.True(File.Exists(trackedFile), "Tracked file in subdirectory should still exist");
         Assert.False(File.Exists(orphanedFile), "Orphaned original file in root directory should be deleted");
     }

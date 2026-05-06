@@ -9,10 +9,8 @@ public class TrangaSettingsTests
     [Fact]
     public void NewSettings_ShouldInitializeWithSmartDefaults()
     {
-        // Arrange & Act
         var settings = new TrangaSettings();
 
-        // Assert - Verify the "Safety Net" logic worked
         // If running locally on Linux, it should be /usr/share or ./debug
         Assert.NotNull(settings.AppData);
         Assert.Equal(40, settings.ImageCompression);
@@ -22,10 +20,8 @@ public class TrangaSettingsTests
     [Fact]
     public void WorkingDirectory_ShouldReflectCustomAppData()
     {
-        // Arrange
         var settings = new TrangaSettings { AppData = "/tmp/custom_manga" };
 
-        // Act & Assert
         // This confirms that changing AppData correctly flows down to the sub-paths
         Assert.Equal("/tmp/custom_manga/tranga-api", settings.WorkingDirectory);
         Assert.Equal("/tmp/custom_manga/tranga-api/settings.json", settings.SettingsFilePath);
@@ -34,14 +30,11 @@ public class TrangaSettingsTests
     [Fact]
     public void Serialization_ShouldRespectCustomPaths()
     {
-        // Arrange
         var original = new TrangaSettings { AppData = "/mnt/nas/tranga" };
 
-        // Act
         var json = JsonConvert.SerializeObject(original);
         var deserialized = JsonConvert.DeserializeObject<TrangaSettings>(json);
 
-        // Assert
         Assert.NotNull(deserialized);
         Assert.Equal("/mnt/nas/tranga", deserialized.AppData);
     }

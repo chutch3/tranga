@@ -58,6 +58,7 @@ public class TrangaTests
         services.AddTransient<UpdateCoversWorker>(_ => new UpdateCoversWorker(emptyConnectors));
         services.AddTransient<CleanupMangaconnectorIdsWithoutConnector>(_ => new CleanupMangaconnectorIdsWithoutConnector(emptyConnectors, testSettings));
         services.AddTransient<CleanupOrphanedFilesWorker>();
+        services.AddTransient<ResolveMissingVolumesWorker>(_ => new ResolveMissingVolumesWorker(testSettings, emptyConnectors));
 
         // 4. Inject empty fetchers, rate limiter, worker queue, and MangaContext
         services.AddSingleton<IEnumerable<MetadataFetcher>>(emptyFetchers);
@@ -84,7 +85,6 @@ public class TrangaTests
     [Fact]
     public void TryGetMangaConnector_GivenValidName_ReturnsConnectorCaseInsensitive()
     {
-        // Arrange (Original Behavior: Case insensitive lookup of connectors)
         var mockSettings = new TrangaSettings { AppData = "./test_data" };
 
         // We have to mock the abstract base class MangaConnector
@@ -99,12 +99,10 @@ public class TrangaTests
 
         var trangaManager = provider.GetRequiredService<Tranga>();
 
-        // Act
         bool foundMangaworld = trangaManager.TryGetMangaConnector("mangaWORLD", out var resolvedMangaworld);
         bool foundMangaDex = trangaManager.TryGetMangaConnector("mangadex", out var resolvedMangaDex);
         bool foundMissing = trangaManager.TryGetMangaConnector("FakeSite", out var resolvedMissing);
 
-        // Assert
         Assert.True(foundMangaworld);
         Assert.Equal("Mangaworld", resolvedMangaworld?.Name);
 
@@ -118,27 +116,24 @@ public class TrangaTests
     [Fact]
     public void AddDefaultWorkers_ShouldResolveAndTrackExpectedWorkers()
     {
-        // Arrange (Original Behavior: AddDefaultWorkers populates the KnownWorkers list)
         var mockQueue = new Mock<IWorkerQueue>();
         var provider = BuildMockServiceProvider(workerQueueMock: mockQueue);
         var trangaManager = provider.GetRequiredService<Tranga>();
 
-        // Act
         trangaManager.AddDefaultWorkers();
 
-        // Assert - Verify that AddWorker was called for each expected worker type
         mockQueue.Verify(x => x.AddWorker(It.IsAny<UpdateMetadataWorker>()), Times.Once);
         mockQueue.Verify(x => x.AddWorker(It.IsAny<CheckForNewChaptersWorker>()), Times.Once);
         mockQueue.Verify(x => x.AddWorker(It.IsAny<StartNewChapterDownloadsWorker>()), Times.Once);
         mockQueue.Verify(x => x.AddWorker(It.IsAny<RemoveOldNotificationsWorker>()), Times.Once);
         mockQueue.Verify(x => x.AddWorker(It.IsAny<UpdateCoversWorker>()), Times.Once);
         mockQueue.Verify(x => x.AddWorker(It.IsAny<CleanupOrphanedFilesWorker>()), Times.Once);
+        mockQueue.Verify(x => x.AddWorker(It.IsAny<ResolveMissingVolumesWorker>()), Times.Once);
     }
 
     [Fact]
     public async Task AddMangaToContext_WhenMangaIsNew_AddsToDatabaseAndSpawnsDownloadWorker()
     {
-        // Arrange (Original Behavior: A new manga gets saved to DB and triggers a cover download worker)
         var provider = BuildMockServiceProvider();
         var trangaManager = provider.GetRequiredService<Tranga>();
 
@@ -147,10 +142,8 @@ public class TrangaTests
         var newManga = new Manga("Berserk", "A dark fantasy", "cover.jpg", MangaReleaseStatus.Continuing, [], [], [], []);
         var newConnectorId = new MangaConnectorId<Manga>(newManga, "MangaDex", "12345", "https://mangadex.org/title/12345");
 
-        // Act
         var result = await trangaManager.AddMangaToContext(dbContext, newManga, newConnectorId, CancellationToken.None);
 
-        // Assert Database State
         Assert.NotNull(result);
         Assert.Equal("Berserk", result.Value.manga.Name);
 
@@ -159,7 +152,6 @@ public class TrangaTests
         Assert.Single(mangaInDb.MangaConnectorIds);
         Assert.Equal("MangaDex", mangaInDb.MangaConnectorIds.First().MangaConnectorName);
 
-        // Assert Worker State: AddMangaToContext spawns a DownloadCoverFromMangaconnectorWorker.
         // The worker may complete quickly and be removed from KnownWorkers, so we verify
         // it was tracked at some point by checking AddWorker was called (worker count >= 0 is always true).
         // Instead, we verify the manga and connectorId were persisted correctly — the worker

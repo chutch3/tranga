@@ -69,4 +69,19 @@ public class MaintenanceController(MangaContext mangaContext, ActionsContext act
         workerQueue.AddWorker(new CleanupOrphanedFilesWorker(dryRun));
         return TypedResults.Ok();
     }
+
+    /// <summary>
+    /// Queues a <see cref="ResolveMissingVolumesWorker"/> to guess or resolve volume numbers for downloaded chapters.
+    /// </summary>
+    /// <param name="workerQueue"></param>
+    /// <param name="settings"></param>
+    /// <param name="connectors"></param>
+    /// <response code="202">Resolve worker queued</response>
+    [HttpPost("ResolveMissingVolumes")]
+    [ProducesResponseType(Status202Accepted)]
+    public Ok ResolveMissingVolumes([FromServices] IWorkerQueue workerQueue, [FromServices] TrangaSettings settings, [FromServices] IEnumerable<MangaConnector> connectors)
+    {
+        workerQueue.AddWorker(new ResolveMissingVolumesWorker(settings, connectors));
+        return TypedResults.Ok();
+    }
 }
