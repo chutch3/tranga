@@ -589,7 +589,7 @@ public class ResolveMissingVolumesWorkerTests : IDisposable
         var newWorkers = await worker.DoWork(_mockScope.Object);
 
         // Should return a move worker
-        Assert.Contains(newWorkers, w => w is MoveFileOrFolderWorker);
+        Assert.Contains(newWorkers, w => w is RenameChapterFileWorker);
     }
 
     [Fact]
@@ -649,7 +649,7 @@ public class ResolveMissingVolumesWorkerTests : IDisposable
         var worker = new ResolveMissingVolumesWorker(settings, _mockMangaDexResolver.Object);
         var newWorkers = await worker.DoWork(_mockScope.Object);
 
-        Assert.DoesNotContain(newWorkers, w => w is MoveFileOrFolderWorker);
+        Assert.DoesNotContain(newWorkers, w => w is RenameChapterFileWorker);
     }
 
     [Fact]

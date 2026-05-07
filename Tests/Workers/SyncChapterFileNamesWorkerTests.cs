@@ -59,7 +59,7 @@ public class SyncChapterFileNamesWorkerTests : IDisposable
     }
 
     [Fact]
-    public async Task DoWork_WhenFileNameDoesNotMatchNamingScheme_UpdatesFileNameInDb()
+    public async Task DoWork_WhenFileNameDoesNotMatch_QueuesRenameChapterFileWorker()
     {
         var (_, manga) = SetupMangaAndLibrary();
         var chapter = new Chapter(manga, "1", 5, null) { Downloaded = true, FileName = "One-Punch Man - Ch.1.cbz" };
@@ -68,10 +68,10 @@ public class SyncChapterFileNamesWorkerTests : IDisposable
 
         var settings = new TrangaSettings { AppData = _testRoot, ChapterNamingScheme = NamingScheme };
         var worker = new SyncChapterFileNamesWorker(settings);
-        await worker.DoWork(_mockScope.Object);
+        var newWorkers = await worker.DoWork(_mockScope.Object);
 
-        var updated = await _mangaContext.Chapters.FirstAsync(c => c.Key == chapter.Key);
-        Assert.Equal("One-Punch Man Vol 5/One-Punch Man - Ch.1.cbz", updated.FileName);
+        Assert.Single(newWorkers);
+        Assert.IsType<RenameChapterFileWorker>(newWorkers[0]);
     }
 
     [Fact]
@@ -108,41 +108,19 @@ public class SyncChapterFileNamesWorkerTests : IDisposable
     }
 
     [Fact]
-    public async Task DoWork_WhenFileExistsAtOldPath_MovesFileInlineWithoutRequiringMoveWorker()
+    public async Task DoWork_WhenMultipleChaptersMismatched_QueuesOneRenameWorkerEach()
     {
         var (_, manga) = SetupMangaAndLibrary();
-        string mangaDir = Path.Combine(_testRoot, manga.DirectoryName);
-        Directory.CreateDirectory(mangaDir);
-        File.WriteAllText(Path.Combine(mangaDir, "One-Punch Man - Ch.1.cbz"), "fake content");
-
-        var chapter = new Chapter(manga, "1", 5, null) { Downloaded = true, FileName = "One-Punch Man - Ch.1.cbz" };
-        _mangaContext.Chapters.Add(chapter);
+        _mangaContext.Chapters.Add(new Chapter(manga, "1", 5, null) { Downloaded = true, FileName = "One-Punch Man - Ch.1.cbz" });
+        _mangaContext.Chapters.Add(new Chapter(manga, "2", 5, null) { Downloaded = true, FileName = "One-Punch Man - Ch.2.cbz" });
         await _mangaContext.SaveChangesAsync();
 
         var settings = new TrangaSettings { AppData = _testRoot, ChapterNamingScheme = NamingScheme };
         var worker = new SyncChapterFileNamesWorker(settings);
         var newWorkers = await worker.DoWork(_mockScope.Object);
 
-        Assert.Empty(newWorkers);
-        Assert.False(File.Exists(Path.Combine(mangaDir, "One-Punch Man - Ch.1.cbz")));
-        Assert.True(File.Exists(Path.Combine(mangaDir, "One-Punch Man Vol 5", "One-Punch Man - Ch.1.cbz")));
-    }
-
-    [Fact]
-    public async Task DoWork_WhenFileDoesNotExistAtOldPath_UpdatesDbWithoutReturningMoveWorker()
-    {
-        var (_, manga) = SetupMangaAndLibrary();
-        var chapter = new Chapter(manga, "1", 5, null) { Downloaded = true, FileName = "One-Punch Man - Ch.1.cbz" };
-        _mangaContext.Chapters.Add(chapter);
-        await _mangaContext.SaveChangesAsync();
-
-        var settings = new TrangaSettings { AppData = _testRoot, ChapterNamingScheme = NamingScheme };
-        var worker = new SyncChapterFileNamesWorker(settings);
-        var newWorkers = await worker.DoWork(_mockScope.Object);
-
-        Assert.Empty(newWorkers);
-        var updated = await _mangaContext.Chapters.FirstAsync(c => c.Key == chapter.Key);
-        Assert.Equal("One-Punch Man Vol 5/One-Punch Man - Ch.1.cbz", updated.FileName);
+        Assert.Equal(2, newWorkers.Length);
+        Assert.All(newWorkers, w => Assert.IsType<RenameChapterFileWorker>(w));
     }
 
     [Fact]

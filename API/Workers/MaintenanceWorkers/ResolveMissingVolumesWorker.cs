@@ -233,12 +233,10 @@ public class ResolveMissingVolumesWorker(TrangaSettings settings, IMangaDexVolum
 
     private void AssignVolumeAndQueueMove(Chapter chapter, int volume, List<BaseWorker> newJobs)
     {
-        string? oldPath = chapter.FullArchiveFilePath;
         chapter.VolumeNumber = volume;
-        chapter.FileName = chapter.GetArchiveFileName(_settings.ChapterNamingScheme);
-        string? newPath = chapter.FullArchiveFilePath;
-        if (oldPath != null && newPath != null && oldPath != newPath)
-            newJobs.Add(new MoveFileOrFolderWorker(newPath, oldPath));
+        string newFileName = chapter.GetArchiveFileName(_settings.ChapterNamingScheme);
+        if (chapter.FileName != newFileName)
+            newJobs.Add(new RenameChapterFileWorker(chapter.Key, newFileName, _settings));
     }
 
     public override string ToString() => $"{base.ToString()} Strategy={_settings.VolumeResolutionStrategy}";

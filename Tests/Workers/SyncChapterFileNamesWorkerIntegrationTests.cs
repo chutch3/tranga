@@ -81,8 +81,8 @@ public class SyncChapterFileNamesWorkerIntegrationTests : IAsyncLifetime
         var syncWorker = new SyncChapterFileNamesWorker(settings);
         var moveWorkers = await syncWorker.DoWork(CreateScope(workerDb));
 
-        foreach (var mover in moveWorkers.OfType<MoveFileOrFolderWorker>())
-            await mover.DoWork(CreateScope(workerDb));
+        foreach (var renamer in moveWorkers.OfType<RenameChapterFileWorker>())
+            await renamer.DoWork(CreateScope(workerDb));
 
         using var queryDb = CreateMangaContext(dbOptions);
         var result = await queryDb.Chapters.FirstAsync(c => c.ChapterNumber == "1");

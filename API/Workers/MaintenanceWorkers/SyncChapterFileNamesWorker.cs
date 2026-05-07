@@ -25,34 +25,16 @@ public class SyncChapterFileNamesWorker(TrangaSettings settings, IEnumerable<Bas
             .Where(c => c.Downloaded && c.FileName != null)
             .ToListAsync(CancellationToken);
 
-        int updatedCount = 0;
+        List<BaseWorker> newJobs = new();
 
         foreach (var chapter in chapters)
         {
             string expected = chapter.GetArchiveFileName(settings.ChapterNamingScheme);
             if (chapter.FileName == expected) continue;
-
-            string? oldPath = chapter.FullArchiveFilePath;
-            string? newPath = chapter.ParentManga.FullDirectoryPath is { } dir
-                ? Path.Join(dir, expected)
-                : null;
-
-            if (oldPath != null && newPath != null && oldPath != newPath && File.Exists(oldPath))
-            {
-                Directory.CreateDirectory(Path.GetDirectoryName(newPath)!);
-                File.Move(oldPath, newPath);
-            }
-
-            chapter.FileName = expected;
-            updatedCount++;
-        }
-
-        if (updatedCount > 0)
-        {
-            await _mangaContext.Sync(CancellationToken, GetType(), nameof(DoWorkInternal));
+            newJobs.Add(new RenameChapterFileWorker(chapter.Key, expected, settings));
         }
 
         LastExecution = DateTime.UtcNow;
-        return [];
+        return newJobs.ToArray();
     }
 }
