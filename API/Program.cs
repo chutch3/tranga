@@ -127,6 +127,7 @@ builder.Services.AddSingleton<CleanupOrphanedFilesWorker>();
 builder.Services.AddHttpClient<MangaDexVolumeResolver>();
 builder.Services.AddSingleton<IMangaDexVolumeResolver>(sp => sp.GetRequiredService<MangaDexVolumeResolver>());
 builder.Services.AddSingleton<ResolveMissingVolumesWorker>();
+builder.Services.AddSingleton<SyncChapterFileNamesWorker>();
 
 builder.Services.AddSingleton<RateLimitHandler>();
 builder.Services.AddSingleton<IWorkerQueue, WorkerQueue>();
