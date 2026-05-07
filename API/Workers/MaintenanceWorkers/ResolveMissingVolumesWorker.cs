@@ -5,7 +5,6 @@ using System.IO.Compression;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using API.MangaConnectors;
 using API.Schema.MangaContext;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,12 +14,11 @@ using SixLabors.ImageSharp.Processing;
 
 namespace API.Workers.MaintenanceWorkers;
 
-public class ResolveMissingVolumesWorker(TrangaSettings settings, IEnumerable<MangaConnector> connectors, IMangaDexVolumeResolver mangaDexVolumeResolver, IEnumerable<BaseWorker>? dependsOn = null)
+public class ResolveMissingVolumesWorker(TrangaSettings settings, IMangaDexVolumeResolver mangaDexVolumeResolver, IEnumerable<BaseWorker>? dependsOn = null)
     : BaseWorkerWithContexts(dependsOn), IPeriodic
 {
     private MangaContext _mangaContext = null!;
     private readonly IMangaDexVolumeResolver _mangaDexVolumeResolver = mangaDexVolumeResolver!;
-    private readonly IEnumerable<MangaConnector> _connectors = connectors;
     private readonly TrangaSettings _settings = settings;
 
     public DateTime LastExecution { get; set; } = DateTime.MinValue;

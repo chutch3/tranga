@@ -136,8 +136,7 @@ public class ResolveMissingVolumesWorkerIntegrationTests : IAsyncLifetime
         var settings = new TrangaSettings
             { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactThenGuess, AppData = _tempDir };
         var resolver = new MangaDexVolumeResolver(_httpClient);
-        var worker = new ResolveMissingVolumesWorker(
-            settings, Enumerable.Empty<MangaConnector>(), resolver);
+        var worker = new ResolveMissingVolumesWorker(settings, resolver);
         await worker.DoWork(CreateScope(workerDb));
 
         using var queryDb = CreateMangaContext(dbOptions);

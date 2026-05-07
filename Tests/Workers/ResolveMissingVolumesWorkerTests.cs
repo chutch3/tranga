@@ -4,7 +4,6 @@ using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
 using API;
-using API.MangaConnectors;
 using API.Schema.ActionsContext;
 using API.Schema.MangaContext;
 using API.Workers;
@@ -126,10 +125,7 @@ public class ResolveMissingVolumesWorkerTests : IDisposable
             img.SaveAsJpeg(entryStream);
         }
 
-        // Mock empty connectors list
-        var connectors = Enumerable.Empty<MangaConnector>();
-        
-        var worker = new ResolveMissingVolumesWorker(settings, connectors, _mockMangaDexResolver.Object);
+        var worker = new ResolveMissingVolumesWorker(settings, _mockMangaDexResolver.Object);
         await worker.DoWork(_mockScope.Object);
 
         var chapter1InDb = await _mangaContext.Chapters.FirstAsync(c => c.ChapterNumber == "1");
@@ -186,9 +182,7 @@ public class ResolveMissingVolumesWorkerTests : IDisposable
             img.SaveAsJpeg(entryStream);
         }
 
-        var connectors = Enumerable.Empty<MangaConnector>();
-        
-        var worker = new ResolveMissingVolumesWorker(settings, connectors, _mockMangaDexResolver.Object);
+        var worker = new ResolveMissingVolumesWorker(settings, _mockMangaDexResolver.Object);
         await worker.DoWork(_mockScope.Object);
 
         var chapter1InDb = await _mangaContext.Chapters.FirstAsync(c => c.ChapterNumber == "1");
@@ -212,7 +206,7 @@ public class ResolveMissingVolumesWorkerTests : IDisposable
         _mangaContext.Chapters.Add(chapter1);
         await _mangaContext.SaveChangesAsync();
 
-        var worker = new ResolveMissingVolumesWorker(settings, Enumerable.Empty<MangaConnector>(), _mockMangaDexResolver.Object);
+        var worker = new ResolveMissingVolumesWorker(settings, _mockMangaDexResolver.Object);
         await worker.DoWork(_mockScope.Object);
 
         var chapter1InDb = await _mangaContext.Chapters.FirstAsync(c => c.ChapterNumber == "1");
@@ -247,7 +241,7 @@ public class ResolveMissingVolumesWorkerTests : IDisposable
             img.SaveAsJpeg(entryStream);
         }
 
-        var worker = new ResolveMissingVolumesWorker(settings, Enumerable.Empty<MangaConnector>(), _mockMangaDexResolver.Object);
+        var worker = new ResolveMissingVolumesWorker(settings, _mockMangaDexResolver.Object);
         await worker.DoWork(_mockScope.Object);
 
         var chapter1InDb = await _mangaContext.Chapters.FirstAsync(c => c.ChapterNumber == "1");
@@ -288,7 +282,7 @@ public class ResolveMissingVolumesWorkerTests : IDisposable
             img.SaveAsJpeg(entryStream);
         }
 
-        var worker = new ResolveMissingVolumesWorker(settings, Enumerable.Empty<MangaConnector>(), _mockMangaDexResolver.Object);
+        var worker = new ResolveMissingVolumesWorker(settings, _mockMangaDexResolver.Object);
         await worker.DoWork(_mockScope.Object);
 
         var chapter1InDb = await _mangaContext.Chapters.FirstAsync(c => c.ChapterNumber == "1");
@@ -343,7 +337,7 @@ public class ResolveMissingVolumesWorkerTests : IDisposable
             img.SaveAsJpeg(entryStream);
         }
 
-        var worker = new ResolveMissingVolumesWorker(settings, Enumerable.Empty<MangaConnector>(), _mockMangaDexResolver.Object);
+        var worker = new ResolveMissingVolumesWorker(settings, _mockMangaDexResolver.Object);
         await worker.DoWork(mockScope.Object);
 
         var missingChapterInDb = await workerContext.Chapters.FirstAsync(c => c.ChapterNumber == "2");
@@ -372,7 +366,7 @@ public class ResolveMissingVolumesWorkerTests : IDisposable
             .Setup(r => r.GetChapterToVolumeMapAsync(It.IsAny<Manga>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Dictionary<string, int> { { "1", 3 }, { "2", 3 } });
 
-        var worker = new ResolveMissingVolumesWorker(settings, Enumerable.Empty<MangaConnector>(), mockResolver.Object);
+        var worker = new ResolveMissingVolumesWorker(settings, mockResolver.Object);
         await worker.DoWork(_mockScope.Object);
 
         var ch1 = await _mangaContext.Chapters.FirstAsync(c => c.ChapterNumber == "1");
@@ -405,7 +399,7 @@ public class ResolveMissingVolumesWorkerTests : IDisposable
             .Setup(r => r.GetChapterToVolumeMapAsync(It.IsAny<Manga>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Dictionary<string, int> { { "1", 1 }, { "2", 1 } });
 
-        var worker = new ResolveMissingVolumesWorker(settings, Enumerable.Empty<MangaConnector>(), mockResolver.Object);
+        var worker = new ResolveMissingVolumesWorker(settings, mockResolver.Object);
         await worker.DoWork(_mockScope.Object);
 
         var ch1 = await _mangaContext.Chapters.FirstAsync(c => c.ChapterNumber == "1");
@@ -456,7 +450,7 @@ public class ResolveMissingVolumesWorkerTests : IDisposable
             .Setup(r => r.GetChapterToVolumeMapAsync(It.IsAny<Manga>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Dictionary<string, int>());
 
-        var worker = new ResolveMissingVolumesWorker(settings, Enumerable.Empty<MangaConnector>(), mockResolver.Object);
+        var worker = new ResolveMissingVolumesWorker(settings, mockResolver.Object);
         await worker.DoWork(_mockScope.Object);
 
         var ch1 = await _mangaContext.Chapters.FirstAsync(c => c.ChapterNumber == "1");
@@ -500,7 +494,7 @@ public class ResolveMissingVolumesWorkerTests : IDisposable
             img.SaveAsJpeg(entryStream);
         }
 
-        var worker = new ResolveMissingVolumesWorker(settings, Enumerable.Empty<MangaConnector>(), _mockMangaDexResolver.Object);
+        var worker = new ResolveMissingVolumesWorker(settings, _mockMangaDexResolver.Object);
         await worker.DoWork(_mockScope.Object);
 
         var chapter1InDb = await _mangaContext.Chapters.FirstAsync(c => c.ChapterNumber == "1");
@@ -555,7 +549,7 @@ public class ResolveMissingVolumesWorkerTests : IDisposable
             img.SaveAsJpeg(entryStream);
         }
 
-        var worker = new ResolveMissingVolumesWorker(settings, Enumerable.Empty<MangaConnector>(), _mockMangaDexResolver.Object);
+        var worker = new ResolveMissingVolumesWorker(settings, _mockMangaDexResolver.Object);
         await worker.DoWork(mockScope.Object);
 
         var missingChapterInDb = await workerContext.Chapters.FirstAsync(c => c.ChapterNumber == "2");
@@ -591,7 +585,7 @@ public class ResolveMissingVolumesWorkerTests : IDisposable
             img.SaveAsJpeg(entryStream);
         }
 
-        var worker = new ResolveMissingVolumesWorker(settings, Enumerable.Empty<MangaConnector>(), _mockMangaDexResolver.Object);
+        var worker = new ResolveMissingVolumesWorker(settings, _mockMangaDexResolver.Object);
         var newWorkers = await worker.DoWork(_mockScope.Object);
 
         // Should return a move worker
@@ -613,7 +607,7 @@ public class ResolveMissingVolumesWorkerTests : IDisposable
         _mangaContext.Chapters.Add(chapter);
         await _mangaContext.SaveChangesAsync();
 
-        var worker = new ResolveMissingVolumesWorker(settings, Enumerable.Empty<MangaConnector>(), _mockMangaDexResolver.Object);
+        var worker = new ResolveMissingVolumesWorker(settings, _mockMangaDexResolver.Object);
         var newWorkers = await worker.DoWork(_mockScope.Object);
 
         Assert.Empty(newWorkers);
@@ -652,7 +646,7 @@ public class ResolveMissingVolumesWorkerTests : IDisposable
             img.SaveAsJpeg(entryStream);
         }
 
-        var worker = new ResolveMissingVolumesWorker(settings, Enumerable.Empty<MangaConnector>(), _mockMangaDexResolver.Object);
+        var worker = new ResolveMissingVolumesWorker(settings, _mockMangaDexResolver.Object);
         var newWorkers = await worker.DoWork(_mockScope.Object);
 
         Assert.DoesNotContain(newWorkers, w => w is MoveFileOrFolderWorker);
@@ -693,7 +687,7 @@ public class ResolveMissingVolumesWorkerTests : IDisposable
             img.SaveAsJpeg(entryStream);
         }
 
-        var worker = new ResolveMissingVolumesWorker(settings, Enumerable.Empty<MangaConnector>(), _mockMangaDexResolver.Object);
+        var worker = new ResolveMissingVolumesWorker(settings, _mockMangaDexResolver.Object);
         await worker.DoWork(_mockScope.Object);
 
         var ch1 = await _mangaContext.Chapters.FirstAsync(c => c.ChapterNumber == "1");
@@ -736,7 +730,7 @@ public class ResolveMissingVolumesWorkerTests : IDisposable
             .Setup(r => r.GetChapterToVolumeMapAsync(It.IsAny<Manga>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Dictionary<string, int>());
 
-        var worker = new ResolveMissingVolumesWorker(settings, Enumerable.Empty<MangaConnector>(), mockResolver.Object);
+        var worker = new ResolveMissingVolumesWorker(settings, mockResolver.Object);
         await worker.DoWork(_mockScope.Object);
 
         var chapterInDb = await _mangaContext.Chapters.FirstAsync(c => c.ChapterNumber == "1");
@@ -777,7 +771,7 @@ public class ResolveMissingVolumesWorkerTests : IDisposable
         // Chapter 2: corrupt file — exception handler should assign it to current volume (1)
         await File.WriteAllBytesAsync(Path.Combine(mangaDir, "chap2.cbz"), [0x00, 0x01, 0x02, 0x03]);
 
-        var worker = new ResolveMissingVolumesWorker(settings, Enumerable.Empty<MangaConnector>(), _mockMangaDexResolver.Object);
+        var worker = new ResolveMissingVolumesWorker(settings, _mockMangaDexResolver.Object);
         await worker.DoWork(_mockScope.Object);
 
         var ch1 = await _mangaContext.Chapters.FirstAsync(c => c.ChapterNumber == "1");
@@ -800,7 +794,7 @@ public class ResolveMissingVolumesWorkerTests : IDisposable
         _mangaContext.Chapters.Add(chapter);
         await _mangaContext.SaveChangesAsync();
 
-        var worker = new ResolveMissingVolumesWorker(settings, Enumerable.Empty<MangaConnector>(), _mockMangaDexResolver.Object);
+        var worker = new ResolveMissingVolumesWorker(settings, _mockMangaDexResolver.Object);
         await worker.DoWork(_mockScope.Object);
 
         var chapterInDb = await _mangaContext.Chapters.FirstAsync(c => c.ChapterNumber == "1");
@@ -840,7 +834,7 @@ public class ResolveMissingVolumesWorkerTests : IDisposable
             img.SaveAsJpeg(entryStream);
         }
 
-        var worker = new ResolveMissingVolumesWorker(settings, Enumerable.Empty<MangaConnector>(), _mockMangaDexResolver.Object);
+        var worker = new ResolveMissingVolumesWorker(settings, _mockMangaDexResolver.Object);
         await worker.DoWork(_mockScope.Object);
 
         var ch1 = await _mangaContext.Chapters.FirstAsync(c => c.ParentMangaId == manga1.Key);
@@ -892,7 +886,7 @@ public class ResolveMissingVolumesWorkerTests : IDisposable
             }
         }
 
-        var worker = new ResolveMissingVolumesWorker(settings, Enumerable.Empty<MangaConnector>(), _mockMangaDexResolver.Object);
+        var worker = new ResolveMissingVolumesWorker(settings, _mockMangaDexResolver.Object);
         await worker.DoWork(_mockScope.Object);
 
         var chapterInDb = await _mangaContext.Chapters.FirstAsync(c => c.ChapterNumber == "1");
@@ -941,7 +935,7 @@ public class ResolveMissingVolumesWorkerTests : IDisposable
             }
         }
 
-        var worker = new ResolveMissingVolumesWorker(settings, Enumerable.Empty<MangaConnector>(), _mockMangaDexResolver.Object);
+        var worker = new ResolveMissingVolumesWorker(settings, _mockMangaDexResolver.Object);
         await worker.DoWork(_mockScope.Object);
 
         var chapterInDb = await _mangaContext.Chapters.FirstAsync(c => c.ChapterNumber == "1");
