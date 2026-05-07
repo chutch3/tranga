@@ -79,9 +79,9 @@ public class MaintenanceController(MangaContext mangaContext, ActionsContext act
     /// <response code="202">Resolve worker queued</response>
     [HttpPost("ResolveMissingVolumes")]
     [ProducesResponseType(Status202Accepted)]
-    public Ok ResolveMissingVolumes([FromServices] IWorkerQueue workerQueue, [FromServices] TrangaSettings settings, [FromServices] IEnumerable<MangaConnector> connectors)
+    public Ok ResolveMissingVolumes([FromServices] IWorkerQueue workerQueue, [FromServices] TrangaSettings settings, [FromServices] IEnumerable<MangaConnector> connectors, [FromServices] IMangaDexVolumeResolver mangaDexVolumeResolver)
     {
-        workerQueue.AddWorker(new ResolveMissingVolumesWorker(settings, connectors));
+        workerQueue.AddWorker(new ResolveMissingVolumesWorker(settings, connectors, mangaDexVolumeResolver));
         return TypedResults.Ok();
     }
 }

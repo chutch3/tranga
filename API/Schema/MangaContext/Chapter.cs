@@ -151,7 +151,7 @@ public class Chapter : Identifiable, IComparable<Chapter>
     /// Returns the formatted Filename of the Archive for this chapter. Formatting is done according to <see cref="TrangaSettings.ChapterNamingScheme"/>
     /// </summary>
     /// <returns>A filename</returns>
-    internal string GetArchiveFileName(string namingScheme)
+    public string GetArchiveFileName(string namingScheme)
     {
         StringBuilder stringBuilder = new();
         foreach (Match nullable in NullableRex.Matches(namingScheme))

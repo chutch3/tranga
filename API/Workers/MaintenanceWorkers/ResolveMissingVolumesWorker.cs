@@ -3,25 +3,23 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using API.MangaConnectors;
 using API.Schema.MangaContext;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Newtonsoft.Json.Linq;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
 namespace API.Workers.MaintenanceWorkers;
 
-public class ResolveMissingVolumesWorker(TrangaSettings settings, IEnumerable<MangaConnector> connectors, IEnumerable<BaseWorker>? dependsOn = null)
+public class ResolveMissingVolumesWorker(TrangaSettings settings, IEnumerable<MangaConnector> connectors, IMangaDexVolumeResolver mangaDexVolumeResolver, IEnumerable<BaseWorker>? dependsOn = null)
     : BaseWorkerWithContexts(dependsOn), IPeriodic
 {
     private MangaContext _mangaContext = null!;
-    private readonly HttpClient _httpClient = new();
+    private readonly IMangaDexVolumeResolver _mangaDexVolumeResolver = mangaDexVolumeResolver!;
     private readonly IEnumerable<MangaConnector> _connectors = connectors;
     private readonly TrangaSettings _settings = settings;
 
@@ -60,6 +58,7 @@ public class ResolveMissingVolumesWorker(TrangaSettings settings, IEnumerable<Ma
 
         var chaptersByManga = chaptersMissingVolumes.GroupBy(c => c.ParentManga);
         int updatedCount = 0;
+        List<BaseWorker> newJobs = new();
 
         foreach (var mangaGroup in chaptersByManga)
         {
@@ -72,13 +71,18 @@ public class ResolveMissingVolumesWorker(TrangaSettings settings, IEnumerable<Ma
             if (_settings.VolumeResolutionStrategy == VolumeResolutionStrategy.ExactOnly || 
                 _settings.VolumeResolutionStrategy == VolumeResolutionStrategy.ExactThenGuess)
             {
-                resolvedExact = await TryResolveWithMangaDex(manga, chapters);
+                resolvedExact = await TryResolveWithMangaDex(manga, chapters, newJobs);
             }
 
             if (!resolvedExact && _settings.VolumeResolutionStrategy == VolumeResolutionStrategy.ExactThenGuess)
             {
                 Log.Info($"Exact resolution failed or returned no data for {manga.Name}. Falling back to Color Heuristic guess...");
-                await TryResolveWithColorHeuristic(chapters);
+                int startVolume = (await _mangaContext.Chapters
+                    .Where(c => c.ParentMangaId == manga.Key && c.VolumeNumber != null)
+                    .Select(c => c.VolumeNumber)
+                    .DefaultIfEmpty()
+                    .MaxAsync(CancellationToken)) ?? 0;
+                await TryResolveWithColorHeuristic(chapters, startVolume, newJobs);
             }
             
             // Count how many we actually updated in memory for reporting
@@ -99,100 +103,22 @@ public class ResolveMissingVolumesWorker(TrangaSettings settings, IEnumerable<Ma
         }
 
         LastExecution = DateTime.UtcNow;
-        return [];
+        return newJobs.ToArray();
     }
 
-    private async Task<bool> TryResolveWithMangaDex(Manga manga, List<Chapter> chapters)
+    private async Task<bool> TryResolveWithMangaDex(Manga manga, List<Chapter> chapters, List<BaseWorker> newJobs)
     {
         try
         {
-            string? mangadexUuid = null;
-
-            // Check if it already has a MangaDex connector
-            var mdConnector = manga.MangaConnectorIds.FirstOrDefault(c => c.MangaConnectorName.Equals("MangaDex", StringComparison.OrdinalIgnoreCase));
-            if (mdConnector != null)
-            {
-                mangadexUuid = mdConnector.IdOnConnectorSite; // Will be renamed to ObjId later, but using current DB schema prop for now if not refactored yet, assuming it's ObjId or IdOnConnectorSite based on recent refactoring. Let's use ObjId since we refactored it.
-            }
-            else
-            {
-                // Try to search MangaDex by name
-                Log.Debug($"No MangaDex connector found for {manga.Name}. Searching MangaDex API...");
-                var searchResponse = await _httpClient.GetAsync($"https://api.mangadex.org/manga?title={Uri.EscapeDataString(manga.Name)}&limit=1", CancellationToken);
-                if (searchResponse.IsSuccessStatusCode)
-                {
-                    var searchJson = JObject.Parse(await searchResponse.Content.ReadAsStringAsync(CancellationToken));
-                    var dataArray = searchJson["data"] as JArray;
-                    if (dataArray != null && dataArray.Count > 0)
-                    {
-                        mangadexUuid = dataArray[0]["id"]?.ToString();
-                        Log.Info($"Found MangaDex UUID {mangadexUuid} for {manga.Name}.");
-                    }
-                }
-            }
-
-            if (string.IsNullOrEmpty(mangadexUuid))
-            {
-                Log.Warn($"Could not find a MangaDex UUID for {manga.Name}.");
-                return false;
-            }
-
-            // Fetch aggregate data
-            var aggResponse = await _httpClient.GetAsync($"https://api.mangadex.org/manga/{mangadexUuid}/aggregate?translatedLanguage[]=en", CancellationToken);
-            if (!aggResponse.IsSuccessStatusCode)
-            {
-                 Log.Warn($"Failed to fetch aggregate data for {manga.Name} from MangaDex.");
-                 return false;
-            }
-
-            var aggJson = JObject.Parse(await aggResponse.Content.ReadAsStringAsync(CancellationToken));
-            var volumesToken = aggJson["volumes"];
-            
-            if (volumesToken == null || volumesToken.Type == JTokenType.Array)
-            {
-                // MangaDex returns an empty array if no volumes/chapters exist for the language (e.g. DMCA takedown)
-                Log.Warn($"MangaDex returned no English volume data for {manga.Name}.");
-                return false;
-            }
-
-            var volumesObj = volumesToken as JObject;
-            if (volumesObj == null) return false;
-
-            Dictionary<string, int> chapterToVolumeMap = new();
-
-            foreach (var volProp in volumesObj.Properties())
-            {
-                var volEntry = volProp.Value as JObject;
-                if (volEntry == null) continue;
-
-                string volStr = volEntry["volume"]?.ToString() ?? "";
-                if (!int.TryParse(volStr, out int volNum)) continue; // Skip non-numeric or missing volumes
-
-                var chaptersObj = volEntry["chapters"] as JObject;
-                if (chaptersObj == null) continue;
-
-                foreach (var chapProp in chaptersObj.Properties())
-                {
-                    var chapEntry = chapProp.Value as JObject;
-                    if (chapEntry == null) continue;
-
-                    string chapStr = chapEntry["chapter"]?.ToString() ?? "";
-                    if (!string.IsNullOrEmpty(chapStr))
-                    {
-                        chapterToVolumeMap[chapStr] = volNum;
-                    }
-                }
-            }
-
+            var chapterToVolumeMap = await _mangaDexVolumeResolver.GetChapterToVolumeMapAsync(manga, CancellationToken);
             if (chapterToVolumeMap.Count == 0) return false;
 
-            // Apply mapping
             int mappedCount = 0;
             foreach (var chapter in chapters)
             {
                 if (chapterToVolumeMap.TryGetValue(chapter.ChapterNumber, out int vol))
                 {
-                    chapter.VolumeNumber = vol;
+                    AssignVolumeAndQueueMove(chapter, vol, newJobs);
                     mappedCount++;
                 }
             }
@@ -207,10 +133,11 @@ public class ResolveMissingVolumesWorker(TrangaSettings settings, IEnumerable<Ma
         }
     }
 
-    private async Task TryResolveWithColorHeuristic(List<Chapter> chapters)
+    private async Task TryResolveWithColorHeuristic(List<Chapter> chapters, int startVolume, List<BaseWorker> newJobs)
     {
-        int currentVolume = 0;
+        int currentVolume = startVolume;
         bool isFirstChapter = true;
+        bool prevWasColor = false;
         
         foreach (var chapter in chapters)
         {
@@ -229,7 +156,8 @@ public class ResolveMissingVolumesWorker(TrangaSettings settings, IEnumerable<Ma
                                 e.FullName.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) ||
                                 e.FullName.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ||
                                 e.FullName.EndsWith(".webp", StringComparison.OrdinalIgnoreCase))
-                    .OrderBy(e => e.FullName) // Basic sort
+                    .OrderBy(e => Path.GetFileNameWithoutExtension(e.FullName).Equals("cover", StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+                    .ThenBy(e => e.FullName)
                     .ToList();
 
                 if (images.Count == 0) continue;
@@ -273,12 +201,19 @@ public class ResolveMissingVolumesWorker(TrangaSettings settings, IEnumerable<Ma
                 if (isFirstChapter)
                 {
                     isFirstChapter = false;
-                    if (!isColor)
+                    if (!isColor && currentVolume == 0)
                     {
                         Log.Info($"First chapter ({chapter.ChapterNumber}) does not have a color cover. Aborting color heuristic for this manga.");
                         break;
                     }
                 }
+                else if (isColor && prevWasColor)
+                {
+                    Log.Info($"Consecutive color covers detected at chapter {chapter.ChapterNumber}. Cannot determine volume structure (full-color manga, missing chapters, or single-chapter volumes), aborting heuristic.");
+                    break;
+                }
+
+                prevWasColor = isColor;
 
                 if (isColor)
                 {
@@ -287,20 +222,25 @@ public class ResolveMissingVolumesWorker(TrangaSettings settings, IEnumerable<Ma
                 }
 
                 if (currentVolume > 0)
-                {
-                    chapter.VolumeNumber = currentVolume;
-                }
+                    AssignVolumeAndQueueMove(chapter, currentVolume, newJobs);
             }
             catch (Exception ex)
             {
                 Log.Error($"Error running color heuristic on chapter {chapter.ChapterNumber} ({filePath}): {ex.Message}");
-                // If we fail to read the zip, just assign it to the current volume to keep the waterfall going
                 if (currentVolume > 0)
-                {
-                    chapter.VolumeNumber = currentVolume;
-                }
+                    AssignVolumeAndQueueMove(chapter, currentVolume, newJobs);
             }
         }
+    }
+
+    private void AssignVolumeAndQueueMove(Chapter chapter, int volume, List<BaseWorker> newJobs)
+    {
+        string? oldPath = chapter.FullArchiveFilePath;
+        chapter.VolumeNumber = volume;
+        chapter.FileName = chapter.GetArchiveFileName(_settings.ChapterNamingScheme);
+        string? newPath = chapter.FullArchiveFilePath;
+        if (oldPath != null && newPath != null && oldPath != newPath)
+            newJobs.Add(new MoveFileOrFolderWorker(newPath, oldPath));
     }
 
     public override string ToString() => $"{base.ToString()} Strategy={_settings.VolumeResolutionStrategy}";

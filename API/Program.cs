@@ -124,6 +124,8 @@ builder.Services.AddSingleton<RemoveOldNotificationsWorker>();
 builder.Services.AddSingleton<UpdateCoversWorker>();
 builder.Services.AddSingleton<CleanupMangaconnectorIdsWithoutConnector>();
 builder.Services.AddSingleton<CleanupOrphanedFilesWorker>();
+builder.Services.AddHttpClient<MangaDexVolumeResolver>();
+builder.Services.AddSingleton<IMangaDexVolumeResolver>(sp => sp.GetRequiredService<MangaDexVolumeResolver>());
 builder.Services.AddSingleton<ResolveMissingVolumesWorker>();
 
 builder.Services.AddSingleton<RateLimitHandler>();
