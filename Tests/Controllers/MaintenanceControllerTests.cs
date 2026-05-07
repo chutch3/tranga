@@ -1,4 +1,5 @@
 using API.Controllers;
+using API.MangaConnectors;
 using API.Schema.ActionsContext;
 using API.Schema.MangaContext;
 using API.Workers;
@@ -75,5 +76,44 @@ public class MaintenanceControllerTests
 
         Assert.IsType<Ok>(result);
         mockQueue.Verify(x => x.AddWorker(It.Is<CleanupOrphanedFilesWorker>(w => w.ToString().Contains("DryRun=True"))), Times.Once);
+    }
+
+    [Fact]
+    public async Task ResetAndResolveVolumes_ClearsAllVolumeNumbers()
+    {
+        var (mangaCtx, actionsCtx) = CreateContexts();
+        var library = new FileLibrary("/tmp/test", "Test Library");
+        mangaCtx.FileLibraries.Add(library);
+        var manga = new Manga("Test Manga", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        mangaCtx.Mangas.Add(manga);
+        mangaCtx.Chapters.Add(new Chapter(manga, "1", 3, null) { Downloaded = true, FileName = "test1.cbz" });
+        mangaCtx.Chapters.Add(new Chapter(manga, "2", 3, null) { Downloaded = true, FileName = "test2.cbz" });
+        await mangaCtx.SaveChangesAsync();
+
+        var controller = CreateController(mangaCtx, actionsCtx);
+        var result = await controller.ResetAndResolveVolumes(
+            new Mock<IWorkerQueue>().Object,
+            new TrangaSettings(),
+            new Mock<IMangaDexVolumeResolver>().Object);
+
+        Assert.IsType<Ok>(result.Result);
+        var chapters = await mangaCtx.Chapters.ToListAsync();
+        Assert.All(chapters, c => Assert.Null(c.VolumeNumber));
+    }
+
+    [Fact]
+    public async Task ResetAndResolveVolumes_QueuesResolveMissingVolumesWorker()
+    {
+        var (mangaCtx, actionsCtx) = CreateContexts();
+        var mockQueue = new Mock<IWorkerQueue>();
+        var controller = CreateController(mangaCtx, actionsCtx);
+
+        var result = await controller.ResetAndResolveVolumes(
+            mockQueue.Object,
+            new TrangaSettings(),
+            new Mock<IMangaDexVolumeResolver>().Object);
+
+        Assert.IsType<Ok>(result.Result);
+        mockQueue.Verify(x => x.AddWorker(It.IsAny<ResolveMissingVolumesWorker>()), Times.Once);
     }
 }

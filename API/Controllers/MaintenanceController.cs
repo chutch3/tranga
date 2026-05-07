@@ -98,4 +98,31 @@ public class MaintenanceController(MangaContext mangaContext, ActionsContext act
         workerQueue.AddWorker(new SyncChapterFileNamesWorker(settings));
         return TypedResults.Ok();
     }
+
+    /// <summary>
+    /// Clears all chapter volume numbers and queues a <see cref="ResolveMissingVolumesWorker"/> to re-resolve them from scratch.
+    /// </summary>
+    /// <param name="workerQueue"></param>
+    /// <param name="settings"></param>
+    /// <param name="mangaDexVolumeResolver"></param>
+    /// <response code="200">Volumes cleared and resolve worker queued</response>
+    /// <response code="500">Error during database operation</response>
+    [HttpPost("ResetAndResolveVolumes")]
+    [ProducesResponseType(Status200OK)]
+    [ProducesResponseType<string>(Status500InternalServerError, "text/plain")]
+    public async Task<Results<Ok, InternalServerError<string>>> ResetAndResolveVolumes(
+        [FromServices] IWorkerQueue workerQueue,
+        [FromServices] TrangaSettings settings,
+        [FromServices] IMangaDexVolumeResolver mangaDexVolumeResolver)
+    {
+        var chapters = await mangaContext.Chapters.ToListAsync(HttpContext.RequestAborted);
+        foreach (var chapter in chapters)
+            chapter.VolumeNumber = null;
+
+        if (await mangaContext.Sync(HttpContext.RequestAborted, GetType(), nameof(ResetAndResolveVolumes)) is { success: false } result)
+            return TypedResults.InternalServerError(result.exceptionMessage);
+
+        workerQueue.AddWorker(new ResolveMissingVolumesWorker(settings, mangaDexVolumeResolver));
+        return TypedResults.Ok();
+    }
 }
