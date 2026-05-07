@@ -25,7 +25,6 @@ public class SyncChapterFileNamesWorker(TrangaSettings settings, IEnumerable<Bas
             .Where(c => c.Downloaded && c.FileName != null)
             .ToListAsync(CancellationToken);
 
-        List<BaseWorker> newJobs = new();
         int updatedCount = 0;
 
         foreach (var chapter in chapters)
@@ -34,12 +33,18 @@ public class SyncChapterFileNamesWorker(TrangaSettings settings, IEnumerable<Bas
             if (chapter.FileName == expected) continue;
 
             string? oldPath = chapter.FullArchiveFilePath;
-            chapter.FileName = expected;
-            string? newPath = chapter.FullArchiveFilePath;
-            updatedCount++;
+            string? newPath = chapter.ParentManga.FullDirectoryPath is { } dir
+                ? Path.Join(dir, expected)
+                : null;
 
-            if (oldPath != null && newPath != null && oldPath != newPath)
-                newJobs.Add(new MoveFileOrFolderWorker(newPath, oldPath));
+            if (oldPath != null && newPath != null && oldPath != newPath && File.Exists(oldPath))
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(newPath)!);
+                File.Move(oldPath, newPath);
+            }
+
+            chapter.FileName = expected;
+            updatedCount++;
         }
 
         if (updatedCount > 0)
@@ -48,6 +53,6 @@ public class SyncChapterFileNamesWorker(TrangaSettings settings, IEnumerable<Bas
         }
 
         LastExecution = DateTime.UtcNow;
-        return newJobs.ToArray();
+        return [];
     }
 }

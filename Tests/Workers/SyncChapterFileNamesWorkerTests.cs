@@ -108,7 +108,28 @@ public class SyncChapterFileNamesWorkerTests : IDisposable
     }
 
     [Fact]
-    public async Task DoWork_WhenFileNameDoesNotMatch_QueuesOneMoveWorker()
+    public async Task DoWork_WhenFileExistsAtOldPath_MovesFileInlineWithoutRequiringMoveWorker()
+    {
+        var (_, manga) = SetupMangaAndLibrary();
+        string mangaDir = Path.Combine(_testRoot, manga.DirectoryName);
+        Directory.CreateDirectory(mangaDir);
+        File.WriteAllText(Path.Combine(mangaDir, "One-Punch Man - Ch.1.cbz"), "fake content");
+
+        var chapter = new Chapter(manga, "1", 5, null) { Downloaded = true, FileName = "One-Punch Man - Ch.1.cbz" };
+        _mangaContext.Chapters.Add(chapter);
+        await _mangaContext.SaveChangesAsync();
+
+        var settings = new TrangaSettings { AppData = _testRoot, ChapterNamingScheme = NamingScheme };
+        var worker = new SyncChapterFileNamesWorker(settings);
+        var newWorkers = await worker.DoWork(_mockScope.Object);
+
+        Assert.Empty(newWorkers);
+        Assert.False(File.Exists(Path.Combine(mangaDir, "One-Punch Man - Ch.1.cbz")));
+        Assert.True(File.Exists(Path.Combine(mangaDir, "One-Punch Man Vol 5", "One-Punch Man - Ch.1.cbz")));
+    }
+
+    [Fact]
+    public async Task DoWork_WhenFileDoesNotExistAtOldPath_UpdatesDbWithoutReturningMoveWorker()
     {
         var (_, manga) = SetupMangaAndLibrary();
         var chapter = new Chapter(manga, "1", 5, null) { Downloaded = true, FileName = "One-Punch Man - Ch.1.cbz" };
@@ -119,8 +140,9 @@ public class SyncChapterFileNamesWorkerTests : IDisposable
         var worker = new SyncChapterFileNamesWorker(settings);
         var newWorkers = await worker.DoWork(_mockScope.Object);
 
-        Assert.Single(newWorkers);
-        Assert.IsType<MoveFileOrFolderWorker>(newWorkers[0]);
+        Assert.Empty(newWorkers);
+        var updated = await _mangaContext.Chapters.FirstAsync(c => c.Key == chapter.Key);
+        Assert.Equal("One-Punch Man Vol 5/One-Punch Man - Ch.1.cbz", updated.FileName);
     }
 
     [Fact]
