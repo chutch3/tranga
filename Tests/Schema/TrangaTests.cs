@@ -59,6 +59,7 @@ public class TrangaTests
         services.AddTransient<CleanupMangaconnectorIdsWithoutConnector>(_ => new CleanupMangaconnectorIdsWithoutConnector(emptyConnectors, testSettings));
         services.AddTransient<CleanupOrphanedFilesWorker>();
         services.AddTransient<ResolveMissingVolumesWorker>(_ => new ResolveMissingVolumesWorker(testSettings, Mock.Of<IMangaDexVolumeResolver>()));
+        services.AddTransient<SyncChapterFileNamesWorker>(_ => new SyncChapterFileNamesWorker(testSettings));
 
         // 4. Inject empty fetchers, rate limiter, worker queue, and MangaContext
         services.AddSingleton<IEnumerable<MetadataFetcher>>(emptyFetchers);
@@ -129,6 +130,7 @@ public class TrangaTests
         mockQueue.Verify(x => x.AddWorker(It.IsAny<UpdateCoversWorker>()), Times.Once);
         mockQueue.Verify(x => x.AddWorker(It.IsAny<CleanupOrphanedFilesWorker>()), Times.Once);
         mockQueue.Verify(x => x.AddWorker(It.IsAny<ResolveMissingVolumesWorker>()), Times.Once);
+        mockQueue.Verify(x => x.AddWorker(It.IsAny<SyncChapterFileNamesWorker>()), Times.Once);
     }
 
     [Fact]

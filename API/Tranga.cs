@@ -72,6 +72,7 @@ public class Tranga
         _workerQueue.AddWorker(GetWorker<UpdateCoversWorker>());
         _workerQueue.AddWorker(GetWorker<CleanupOrphanedFilesWorker>());
         _workerQueue.AddWorker(GetWorker<ResolveMissingVolumesWorker>());
+        _workerQueue.AddWorker(GetWorker<SyncChapterFileNamesWorker>());
 
         if(Constants.UpdateChaptersDownloadedBeforeStarting)
             _workerQueue.AddWorker(GetWorker<UpdateChaptersDownloadedWorker>());

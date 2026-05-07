@@ -84,4 +84,18 @@ public class MaintenanceController(MangaContext mangaContext, ActionsContext act
         workerQueue.AddWorker(new ResolveMissingVolumesWorker(settings, mangaDexVolumeResolver));
         return TypedResults.Ok();
     }
+
+    /// <summary>
+    /// Queues a <see cref="SyncChapterFileNamesWorker"/> to rename chapter files where the stored filename no longer matches the current naming scheme.
+    /// </summary>
+    /// <param name="workerQueue"></param>
+    /// <param name="settings"></param>
+    /// <response code="200">Sync worker queued</response>
+    [HttpPost("SyncChapterFileNames")]
+    [ProducesResponseType(Status200OK)]
+    public Ok SyncChapterFileNames([FromServices] IWorkerQueue workerQueue, [FromServices] TrangaSettings settings)
+    {
+        workerQueue.AddWorker(new SyncChapterFileNamesWorker(settings));
+        return TypedResults.Ok();
+    }
 }
