@@ -2,7 +2,7 @@ using API;
 using API.Schema.MangaContext;
 using Microsoft.EntityFrameworkCore;
 
-namespace Tests;
+namespace API.Tests.Schema;
 
 public class ChapterTests : IDisposable
 {

@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using SchemaManga = API.Schema.MangaContext.Manga;
 using SchemaConnectorId = API.Schema.MangaContext.MangaConnectorId<API.Schema.MangaContext.Manga>;
 
-namespace Tests;
+namespace API.Tests.Controllers;
 
 public class SearchControllerTests
 {

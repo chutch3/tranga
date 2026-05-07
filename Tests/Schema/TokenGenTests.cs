@@ -2,7 +2,7 @@ using API;
 using API.Schema.MangaContext;
 using Xunit;
 
-namespace Tests;
+namespace API.Tests.Schema;
 
 public class TokenGenTests
 {

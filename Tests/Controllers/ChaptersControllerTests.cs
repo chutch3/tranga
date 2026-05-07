@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Moq;
 
-namespace Tests;
+namespace API.Tests.Controllers;
 
 public class ChaptersControllerTests: IDisposable
 {

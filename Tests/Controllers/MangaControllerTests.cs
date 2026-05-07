@@ -11,7 +11,7 @@ using Moq;
 using Chapter = API.Schema.MangaContext.Chapter;
 using ConnectorId = API.Schema.MangaContext.MangaConnectorId<API.Schema.MangaContext.Manga>;
 
-namespace Tests;
+namespace API.Tests.Controllers;
 
 public class MangaControllerTests
 {

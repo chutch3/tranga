@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Moq;
 using Xunit;
 
-namespace Tests;
+namespace API.Tests.Controllers;
 
 public class MaintenanceControllerTests
 {

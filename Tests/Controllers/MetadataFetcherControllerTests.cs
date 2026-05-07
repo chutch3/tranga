@@ -1,5 +1,6 @@
 using API;
 using API.Controllers;
+using API.Tests.Schema;
 using API.Schema.ActionsContext;
 using API.Schema.MangaContext;
 using API.Schema.MangaContext.MetadataFetchers;
@@ -8,7 +9,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-namespace Tests;
+namespace API.Tests.Controllers;
 
 public class MetadataFetcherControllerTests
 {

@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Tests;
+namespace API.Tests.Controllers;
 
 public class SettingsControllerTests : IDisposable
 {

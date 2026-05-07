@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Moq;
 using MangaConnectorImpl = API.MangaConnectors.MangaConnector;
 
-namespace Tests;
+namespace API.Tests.Controllers;
 
 public class MangaConnectorControllerTests
 {

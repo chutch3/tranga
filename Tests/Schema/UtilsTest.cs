@@ -1,6 +1,6 @@
 ﻿using API;
 
-namespace Tests;
+namespace API.Tests.Schema;
 
 public class UtilsTest
 {

@@ -7,7 +7,7 @@ using API.Schema.MangaContext;
 using Moq;
 using Xunit;
 
-namespace Tests.MangaConnectors;
+namespace API.Tests.MangaConnectors;
 
 public class MangaDexTests
 {

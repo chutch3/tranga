@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 
-namespace Tests;
+namespace API.Tests.Controllers;
 
 public class WorkerControllerTests
 {

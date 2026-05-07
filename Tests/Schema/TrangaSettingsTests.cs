@@ -2,7 +2,7 @@ using API;
 using Newtonsoft.Json;
 using Xunit;
 
-namespace Tests;
+namespace API.Tests.Schema;
 
 public class TrangaSettingsTests
 {

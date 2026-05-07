@@ -2,7 +2,7 @@ using API;
 using API.Workers;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Tests;
+namespace API.Tests.Workers;
 
 public class WorkerQueueTests
 {
