@@ -74,6 +74,78 @@ public class ResolveMissingVolumesWorkerIntegrationTests : IAsyncLifetime
         }
     }
 
+    // Berserk ch "1" → volume 5 per MangaDex aggregate.
+    // Exercises the full pipeline: DB query → live resolver → worker assigns volume → DB persist.
+    [Fact]
+    public async Task Berserk_ExactOnlyStrategy_WorkerPersistsVolumeToDatabase()
+    {
+        const string berserkUuid = "801513ba-a712-498c-8f57-cae55b38cc92";
+        string dbName = Guid.NewGuid().ToString();
+        var dbOptions = new DbContextOptionsBuilder<MangaContext>()
+            .UseInMemoryDatabase(dbName).Options;
+
+        using (var setupDb = CreateMangaContext(dbOptions))
+        {
+            var library = new FileLibrary(_tempDir, "Integration Library");
+            setupDb.FileLibraries.Add(library);
+            var manga = new Manga("Berserk", "Dark fantasy", "url", MangaReleaseStatus.Continuing,
+                [], [], [], [], library);
+            manga.MangaConnectorIds.Add(
+                new MangaConnectorId<Manga>(manga, "MangaDex", berserkUuid, null));
+            setupDb.Mangas.Add(manga);
+            setupDb.Chapters.Add(new Chapter(manga, "1", null, "Black Swordsman")
+                { Downloaded = true, FileName = "berserk_ch1.cbz" });
+            await setupDb.SaveChangesAsync();
+        }
+
+        using var workerDb = CreateMangaContext(dbOptions);
+        var settings = new TrangaSettings
+            { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactOnly, AppData = _tempDir };
+        var worker = new ResolveMissingVolumesWorker(settings, new MangaDexVolumeResolver(_httpClient));
+        await worker.DoWork(CreateScope(workerDb));
+
+        using var queryDb = CreateMangaContext(dbOptions);
+        var result = await queryDb.Chapters.FirstAsync(c => c.ChapterNumber == "1");
+        Assert.Equal(5, result.VolumeNumber);
+    }
+
+    // Berserk ch "0.01" on MangaDex → stored as "0.1" by Chapter constructor (int.Parse strips leading zeros).
+    // The resolver must normalize its keys the same way so TryGetValue succeeds.
+    // MangaDex aggregate: Berserk "0.01" is in volume 1.
+    [Fact]
+    public async Task Berserk_ChapterWithLeadingZeroDecimal_NormalizationPipelineResolvesVolume()
+    {
+        const string berserkUuid = "801513ba-a712-498c-8f57-cae55b38cc92";
+        string dbName = Guid.NewGuid().ToString();
+        var dbOptions = new DbContextOptionsBuilder<MangaContext>()
+            .UseInMemoryDatabase(dbName).Options;
+
+        using (var setupDb = CreateMangaContext(dbOptions))
+        {
+            var library = new FileLibrary(_tempDir, "Integration Library");
+            setupDb.FileLibraries.Add(library);
+            var manga = new Manga("Berserk", "Dark fantasy", "url", MangaReleaseStatus.Continuing,
+                [], [], [], [], library);
+            manga.MangaConnectorIds.Add(
+                new MangaConnectorId<Manga>(manga, "MangaDex", berserkUuid, null));
+            setupDb.Mangas.Add(manga);
+            // Constructor normalizes "0.01" → "0.1"
+            setupDb.Chapters.Add(new Chapter(manga, "0.01", null, "The Black Swordsman")
+                { Downloaded = true, FileName = "berserk_ch001.cbz" });
+            await setupDb.SaveChangesAsync();
+        }
+
+        using var workerDb = CreateMangaContext(dbOptions);
+        var settings = new TrangaSettings
+            { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactOnly, AppData = _tempDir };
+        var worker = new ResolveMissingVolumesWorker(settings, new MangaDexVolumeResolver(_httpClient));
+        await worker.DoWork(CreateScope(workerDb));
+
+        using var queryDb = CreateMangaContext(dbOptions);
+        var result = await queryDb.Chapters.FirstAsync(c => c.ChapterNumber == "0.1");
+        Assert.Equal(1, result.VolumeNumber);
+    }
+
     // Berserk: the real MangaDex API has full volume data.
     // This test verifies the live resolver returns the correct chapter→volume mapping
     // without involving the worker or a database — the resolver is the thing being integration-tested.
