@@ -61,10 +61,17 @@ public class MangaDexVolumeResolver(HttpClient httpClient) : IMangaDexVolumeReso
                 if (chapProp.Value is not JObject chapEntry) continue;
                 string chapStr = chapEntry["chapter"]?.ToString() ?? "";
                 if (!string.IsNullOrEmpty(chapStr))
-                    chapterToVolumeMap[chapStr] = volNum;
+                    chapterToVolumeMap[NormalizeChapterNumber(chapStr)] = volNum;
             }
         }
 
         return chapterToVolumeMap;
+    }
+
+    private static string NormalizeChapterNumber(string chapter)
+    {
+        var parts = chapter.Split('.');
+        var normalized = parts.Select(p => int.TryParse(p, out int n) ? n.ToString() : p);
+        return string.Join('.', normalized);
     }
 }

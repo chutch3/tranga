@@ -202,4 +202,27 @@ public class MangaDexVolumeResolverTests
         Assert.Equal(2, map["4"]);
         Assert.Equal(3, map["5"]);
     }
+
+    [Fact]
+    public async Task GetChapterToVolumeMap_WhenChapterHasLeadingZeroDecimal_NormalizesKeyToMatchChapterConstructor()
+    {
+        // Chapter constructor normalizes "0.01" → "0.1" via int.Parse.
+        // The resolver must apply the same normalization so TryGetValue succeeds.
+        var manga = new Manga("Test Manga", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], Library);
+        manga.MangaConnectorIds.Add(new MangaConnectorId<Manga>(manga, "MangaDex", "some-uuid", null));
+
+        var handler = new FakeHttpMessageHandler(_ => Json("""
+            {
+              "volumes": {
+                "1": { "volume": "1", "chapters": { "0.01": { "chapter": "0.01" } } }
+              }
+            }
+            """));
+
+        var resolver = new MangaDexVolumeResolver(new HttpClient(handler));
+        var map = await resolver.GetChapterToVolumeMapAsync(manga);
+
+        Assert.True(map.ContainsKey("0.1"), "key must be normalized from '0.01' to '0.1'");
+        Assert.False(map.ContainsKey("0.01"), "un-normalized key must not be present");
+    }
 }
