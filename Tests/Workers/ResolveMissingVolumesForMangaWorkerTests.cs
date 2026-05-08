@@ -340,7 +340,33 @@ public class ResolveMissingVolumesForMangaWorkerTests : IDisposable
 
         var result = await MakeWorker(settings, manga.Key).DoWork(_mockScope.Object);
 
-        Assert.Contains(result, w => w is RenameChapterFileWorker);
+        // Resolution workers must NEVER queue file moves
+        Assert.DoesNotContain(result, w => w is RenameChapterFileWorker);
+        // But the DB update MUST still happen
+        Assert.NotNull((await _mangaContext.Chapters.FirstAsync(c => c.ChapterNumber == "1")).VolumeNumber);
+    }
+
+    [Fact]
+    public async Task DoWork_NeverQueuesRenameWorker_WhenVolumeAssigned()
+    {
+        var settings = new TrangaSettings { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactThenGuess };
+        var library = new FileLibrary(_testRoot, "Test Library");
+        _mangaContext.FileLibraries.Add(library);
+        var manga = new Manga("Test No Rename", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        _mangaContext.Mangas.Add(manga);
+        _mangaContext.Chapters.Add(new Chapter(manga, "1", null, "Title 1") { Downloaded = true, FileName = "chap1.cbz" });
+        await _mangaContext.SaveChangesAsync();
+
+        string mangaDir = Path.Combine(_testRoot, manga.DirectoryName);
+        Directory.CreateDirectory(mangaDir);
+        CreateColorCbz(Path.Combine(mangaDir, "chap1.cbz"));
+
+        var result = await MakeWorker(settings, manga.Key).DoWork(_mockScope.Object);
+
+        // Resolution workers must NEVER queue file moves
+        Assert.DoesNotContain(result, w => w is RenameChapterFileWorker);
+        // But the DB update MUST still happen
+        Assert.NotNull((await _mangaContext.Chapters.FirstAsync(c => c.ChapterNumber == "1")).VolumeNumber);
     }
 
     [Fact]

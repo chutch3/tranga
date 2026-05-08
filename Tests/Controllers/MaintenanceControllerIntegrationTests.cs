@@ -185,17 +185,12 @@ public class MaintenanceControllerIntegrationTests : IAsyncLifetime
         var coordinator = Assert.IsType<ResolveMissingVolumesWorker>(capturedWorker);
         var poolWorkers = await coordinator.DoWork(CreateScope(workerDb));
 
-        // Run each pool worker — returns rename workers
-        var renameWorkers = new List<BaseWorker>();
+        // Run each pool worker — resolution workers update DB only, never queue file moves
         foreach (var poolWorker in poolWorkers.OfType<ResolveMissingVolumesForMangaWorker>())
         {
             var workers = await poolWorker.DoWork(CreateScope(workerDb));
-            renameWorkers.AddRange(workers);
+            Assert.DoesNotContain(workers, w => w is RenameChapterFileWorker);
         }
-
-        // Run the rename workers
-        foreach (var renamer in renameWorkers.OfType<RenameChapterFileWorker>())
-            await renamer.DoWork(CreateScope(workerDb));
 
         using var queryDb = CreateMangaContext(dbOptions);
         var ch1 = await queryDb.Chapters.FirstAsync(c => c.ChapterNumber == "1");
@@ -203,11 +198,5 @@ public class MaintenanceControllerIntegrationTests : IAsyncLifetime
 
         Assert.Equal(1, ch1.VolumeNumber);
         Assert.Equal(1, ch2.VolumeNumber);
-        Assert.Equal("One-Punch Man Vol 1/One-Punch Man - Ch.1.cbz", ch1.FileName);
-        Assert.Equal("One-Punch Man Vol 1/One-Punch Man - Ch.2.cbz", ch2.FileName);
-        Assert.True(File.Exists(Path.Combine(mangaDir, "One-Punch Man Vol 1", "One-Punch Man - Ch.1.cbz")));
-        Assert.True(File.Exists(Path.Combine(mangaDir, "One-Punch Man Vol 1", "One-Punch Man - Ch.2.cbz")));
-        Assert.False(File.Exists(Path.Combine(wrongVolDir, "One-Punch Man - Ch.1.cbz")));
-        Assert.False(File.Exists(Path.Combine(wrongVolDir, "One-Punch Man - Ch.2.cbz")));
     }
 }

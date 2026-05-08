@@ -49,13 +49,12 @@ public class ResolveMissingVolumesForMangaWorker(
         chapters = chapters.OrderBy(c => c, new Chapter.ChapterComparer()).ToList();
         Log.Info($"Resolving volumes for {manga.Name} ({chapters.Count} chapters missing volume)...");
 
-        List<BaseWorker> newJobs = new();
         bool resolvedExact = false;
 
         if (settings.VolumeResolutionStrategy == VolumeResolutionStrategy.ExactOnly ||
             settings.VolumeResolutionStrategy == VolumeResolutionStrategy.ExactThenGuess)
         {
-            resolvedExact = await TryResolveWithMangaDex(manga, chapters, newJobs);
+            resolvedExact = await TryResolveWithMangaDex(manga, chapters);
         }
 
         if (!resolvedExact && settings.VolumeResolutionStrategy == VolumeResolutionStrategy.ExactThenGuess)
@@ -66,7 +65,7 @@ public class ResolveMissingVolumesForMangaWorker(
                 .Select(c => c.VolumeNumber)
                 .DefaultIfEmpty()
                 .MaxAsync(CancellationToken)) ?? 0;
-            await TryResolveWithColorHeuristic(chapters, startVolume, newJobs);
+            await TryResolveWithColorHeuristic(chapters, startVolume);
         }
 
         int updatedCount = chapters.Count(c => c.VolumeNumber != null);
@@ -78,10 +77,10 @@ public class ResolveMissingVolumesForMangaWorker(
                 Log.Info($"Saved {updatedCount} volume updates for {manga.Name}.");
         }
 
-        return newJobs;
+        return [];
     }
 
-    private async Task<bool> TryResolveWithMangaDex(Manga manga, List<Chapter> chapters, List<BaseWorker> newJobs)
+    private async Task<bool> TryResolveWithMangaDex(Manga manga, List<Chapter> chapters)
     {
         try
         {
@@ -93,7 +92,7 @@ public class ResolveMissingVolumesForMangaWorker(
             {
                 if (map.TryGetValue(chapter.ChapterNumber, out int vol))
                 {
-                    AssignVolumeAndQueueMove(chapter, vol, newJobs);
+                    AssignVolume(chapter, vol);
                     mapped++;
                 }
             }
@@ -108,7 +107,7 @@ public class ResolveMissingVolumesForMangaWorker(
         }
     }
 
-    private async Task TryResolveWithColorHeuristic(List<Chapter> chapters, int startVolume, List<BaseWorker> newJobs)
+    private async Task TryResolveWithColorHeuristic(List<Chapter> chapters, int startVolume)
     {
         int currentVolume = startVolume;
         bool isFirstChapter = true;
@@ -185,22 +184,19 @@ public class ResolveMissingVolumesForMangaWorker(
                 }
 
                 if (currentVolume > 0)
-                    AssignVolumeAndQueueMove(chapter, currentVolume, newJobs);
+                    AssignVolume(chapter, currentVolume);
             }
             catch (Exception ex)
             {
                 Log.Error($"Error in color heuristic for chapter {chapter.ChapterNumber}: {ex.Message}");
                 if (currentVolume > 0)
-                    AssignVolumeAndQueueMove(chapter, currentVolume, newJobs);
+                    AssignVolume(chapter, currentVolume);
             }
         }
     }
 
-    private void AssignVolumeAndQueueMove(Chapter chapter, int volume, List<BaseWorker> newJobs)
+    private void AssignVolume(Chapter chapter, int volume)
     {
         chapter.VolumeNumber = volume;
-        string newFileName = chapter.GetArchiveFileName(settings.ChapterNamingScheme);
-        if (chapter.FileName != newFileName)
-            newJobs.Add(new RenameChapterFileWorker(chapter.Key, newFileName, settings));
     }
 }
