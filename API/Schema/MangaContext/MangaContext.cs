@@ -18,6 +18,7 @@ public class MangaContext(DbContextOptions<MangaContext> options) : TrangaBaseCo
     public DbSet<MangaConnectorId<Chapter>> MangaConnectorToChapter { get; set; }
     public DbSet<MetadataEntry> MetadataEntries { get; set; }
     public DbSet<MetadataSource> MetadataSources { get; set; }
+    public DbSet<VolumeMetadata> VolumeMetadata { get; set; }
 
     public IQueryable<Manga> GetTrackedMangas() =>
         Mangas
@@ -108,6 +109,13 @@ public class MangaContext(DbContextOptions<MangaContext> options) : TrangaBaseCo
             .HasOne<MetadataSource>(m => m.MetadataSource)
             .WithOne(ms => ms.Manga)
             .HasForeignKey<MetadataSource>(ms => ms.MangaId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Manga has many VolumeMetadata
+        modelBuilder.Entity<VolumeMetadata>()
+            .HasOne<Manga>(v => v.Manga)
+            .WithMany()
+            .HasForeignKey(v => v.MangaId)
             .OnDelete(DeleteBehavior.Cascade);
     }
 
