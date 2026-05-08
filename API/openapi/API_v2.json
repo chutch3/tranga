@@ -1031,6 +1031,26 @@
         }
       }
     },
+    "/v2/Library/unresolved": {
+      "get": {
+        "tags": [
+          "Library"
+        ],
+        "summary": "Returns a dashboard of manga with unresolved chapters or missing files.\nUnresolved: Downloaded == true && VolumeNumber == null.\nMissing: Downloaded == true && FileName == null.\nOnly manga with FileLibraryId != null are included.",
+        "responses": {
+          "200": {
+            "description": "Dashboard result; manga list may be empty",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnresolvedDashboardResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/LibraryConnector": {
       "get": {
         "tags": [
@@ -2891,7 +2911,7 @@
         "tags": [
           "MetadataSource"
         ],
-        "summary": "Searches MangaDex for candidates matching a Manga's title, scored by similarity.",
+        "summary": "Searches for candidates matching a Manga's title, scored by similarity.",
         "parameters": [
           {
             "name": "MangaId",
@@ -2908,6 +2928,15 @@
             "description": "Title to search for",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "description": "Metadata source to search: \"mangadex\" (default) or \"anilist\"",
+            "schema": {
+              "type": "string",
+              "default": "mangadex"
             }
           }
         ],
@@ -4160,6 +4189,192 @@
         }
       }
     },
+    "/v2/Manga/{MangaId}/volumes/assignments": {
+      "post": {
+        "tags": [
+          "Volume"
+        ],
+        "summary": "Bulk-assigns chapter numbers to volume numbers for a manga.\nChapters not found are listed in the response; the request is not failed.\nAlso marks MetadataSource as Manual/Confirmed on the manga.",
+        "parameters": [
+          {
+            "name": "MangaId",
+            "in": "path",
+            "description": "API.Schema.MangaContext.Manga.Key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Map of ChapterNumber to VolumeNumber",
+          "content": {
+            "application/json-patch+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkAssignmentRecord"
+              }
+            },
+            "application/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkAssignmentRecord"
+              }
+            },
+            "text/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkAssignmentRecord"
+              }
+            },
+            "application/*+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkAssignmentRecord"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Assignment applied; returns count of applied and list of not-found chapter numbers",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkAssignmentResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Manga not found",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/Manga/{MangaId}/volumes/{VolumeNumber}/bundle": {
+      "post": {
+        "tags": [
+          "Volume"
+        ],
+        "summary": "Queues a BundleVolumeWorker to merge all unbundled chapters into a single CBZ.",
+        "parameters": [
+          {
+            "name": "MangaId",
+            "in": "path",
+            "description": "API.Schema.MangaContext.Manga.Key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "VolumeNumber",
+            "in": "path",
+            "description": "Volume number to bundle",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Worker queued; returns job ID",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "$ref": "#/components/schemas/BundleJobResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Manga or VolumeMetadata not found",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "No unbundled chapters with files to bundle",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Volume"
+        ],
+        "summary": "Queues an UnbundleVolumeWorker to split the bundle CBZ back into individual chapter CBZs.",
+        "parameters": [
+          {
+            "name": "MangaId",
+            "in": "path",
+            "description": "API.Schema.MangaContext.Manga.Key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "VolumeNumber",
+            "in": "path",
+            "description": "Volume number to unbundle",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Worker queued; returns job ID (may include warning if no map exists)",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnbundleJobResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Manga or VolumeMetadata not found",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Volume is not bundled",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/Worker": {
       "get": {
         "tags": [
@@ -4488,6 +4703,50 @@
         },
         "additionalProperties": false,
         "description": "The API.Schema.MangaContext.Author DTO"
+      },
+      "BulkAssignmentRecord": {
+        "type": "object",
+        "properties": {
+          "assignments": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Request body for POST /Manga/{MangaId}/volumes/assignments"
+      },
+      "BulkAssignmentResult": {
+        "type": "object",
+        "properties": {
+          "applied": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "notFound": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Result of POST /Manga/{MangaId}/volumes/assignments"
+      },
+      "BundleJobResult": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Result returned when a bundle/unbundle job is queued."
       },
       "Chapter": {
         "required": [
@@ -5328,10 +5587,14 @@
               "type": "string"
             },
             "nullable": true
+          },
+          "externalId": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false,
-        "description": "A scored MangaDex candidate for linking to a local Manga."
+        "description": "A scored metadata candidate for linking to a local Manga."
       },
       "MetadataSourceResult": {
         "type": "object",
@@ -5724,6 +5987,58 @@
         },
         "additionalProperties": false
       },
+      "UnbundleJobResult": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "nullable": true
+          },
+          "warning": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Result returned when an unbundle job is queued."
+      },
+      "UnresolvedDashboardResult": {
+        "type": "object",
+        "properties": {
+          "manga": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UnresolvedMangaEntry"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Result of GET /v2/Library/unresolved"
+      },
+      "UnresolvedMangaEntry": {
+        "type": "object",
+        "properties": {
+          "mangaId": {
+            "type": "string",
+            "nullable": true
+          },
+          "mangaName": {
+            "type": "string",
+            "nullable": true
+          },
+          "unresolvedChapterCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "missingFileCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Entry for a manga with unresolved chapters or missing files."
+      },
       "VolumeEntry": {
         "type": "object",
         "properties": {
@@ -5856,6 +6171,9 @@
     },
     {
       "name": "FileLibrary"
+    },
+    {
+      "name": "Library"
     },
     {
       "name": "LibraryConnector"
