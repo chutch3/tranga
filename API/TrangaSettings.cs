@@ -8,9 +8,10 @@ namespace API;
 public class TrangaSettings
 {
     private static string ComputeDefaultAppData() =>
-        RuntimeInformation.IsOSPlatform(OSPlatform.Linux)
+        Environment.GetEnvironmentVariable("APP_DATA") ??
+        (RuntimeInformation.IsOSPlatform(OSPlatform.Linux)
             ? (bool.Parse(Environment.GetEnvironmentVariable("DEBUG") ?? "false") ? "./debug" : "/usr/share")
-            : Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            : Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData));
 
     // This property will be saved to and loaded from settings.json
     public string AppData { get; set; } = ComputeDefaultAppData();

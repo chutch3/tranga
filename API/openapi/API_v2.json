@@ -690,6 +690,116 @@
         }
       }
     },
+    "/v2/Chapters/{ChapterId}/volume": {
+      "put": {
+        "tags": [
+          "Chapters"
+        ],
+        "summary": "Manually assigns a volume number to a API.Schema.MangaContext.Chapter.\nPassing null clears the volume assignment and confidence.",
+        "parameters": [
+          {
+            "name": "ChapterId",
+            "in": "path",
+            "description": "API.Schema.MangaContext.Chapter.Key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Volume number to assign (null to clear)",
+          "content": {
+            "application/json-patch+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchChapterVolumeRecord"
+              }
+            },
+            "application/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchChapterVolumeRecord"
+              }
+            },
+            "text/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchChapterVolumeRecord"
+              }
+            },
+            "application/*+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchChapterVolumeRecord"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Volume number updated",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChapterVolumeAssignmentResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "API.Schema.MangaContext.Chapter with ChapterId not found",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error during Database Operation",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/Chapters/{ChapterId}/preview": {
+      "get": {
+        "tags": [
+          "Chapters"
+        ],
+        "summary": "Returns a 200×300 JPEG preview thumbnail of the first page of the chapter archive.\nThe thumbnail is generated lazily and cached at `{AppData}/previews/{chapter.Key}.jpg`.",
+        "parameters": [
+          {
+            "name": "ChapterId",
+            "in": "path",
+            "description": "API.Schema.MangaContext.Chapter.Key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Chapter not found, archive unreadable, no images in archive, or chapter is bundled",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "JPEG thumbnail, 200×300 pixels"
+          }
+        }
+      }
+    },
     "/v2/FileLibrary": {
       "get": {
         "tags": [
@@ -1185,7 +1295,7 @@
         "tags": [
           "Maintenance"
         ],
-        "summary": "Removes all API.Schema.MangaContext.Manga not marked for Download on any API.MangaConnectors.MangaConnector",
+        "summary": "Removes all API.Schema.MangaContext.Manga not marked for Download on any !:MangaConnector",
         "responses": {
           "200": {
             "description": ""
@@ -1217,6 +1327,85 @@
                 "schema": {
                   "type": "integer",
                   "format": "int32"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/Maintenance/CleanupOrphanedFiles": {
+      "post": {
+        "tags": [
+          "Maintenance"
+        ],
+        "summary": "Queues a API.Workers.MaintenanceWorkers.CleanupOrphanedFilesWorker to remove files from the library that are not tracked in the database.",
+        "parameters": [
+          {
+            "name": "dryRun",
+            "in": "query",
+            "description": "If true, only log what would be deleted without actually deleting it.",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "202": {
+            "description": "Cleanup worker queued"
+          }
+        }
+      }
+    },
+    "/v2/Maintenance/ResolveMissingVolumes": {
+      "post": {
+        "tags": [
+          "Maintenance"
+        ],
+        "summary": "Queues a API.Workers.MaintenanceWorkers.ResolveMissingVolumesWorker to guess or resolve volume numbers for downloaded chapters.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "202": {
+            "description": "Resolve worker queued"
+          }
+        }
+      }
+    },
+    "/v2/Maintenance/SyncChapterFileNames": {
+      "post": {
+        "tags": [
+          "Maintenance"
+        ],
+        "summary": "Queues a API.Workers.MaintenanceWorkers.SyncChapterFileNamesWorker to rename chapter files where the stored filename no longer matches the current naming scheme.",
+        "responses": {
+          "200": {
+            "description": "Sync worker queued"
+          }
+        }
+      }
+    },
+    "/v2/Maintenance/ResetAndResolveVolumes": {
+      "post": {
+        "tags": [
+          "Maintenance"
+        ],
+        "summary": "Clears all chapter volume numbers and queues a API.Workers.MaintenanceWorkers.ResolveMissingVolumesWorker to re-resolve them from scratch.",
+        "responses": {
+          "200": {
+            "description": "Volumes cleared and resolve worker queued"
+          },
+          "500": {
+            "description": "Error during database operation",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -1500,6 +1689,22 @@
             "in": "path",
             "description": "API.Controllers.DTOs.FileLibrary.Key",
             "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "connectorName",
+            "in": "query",
+            "description": "(Optional) Name of the connector to fetch manga from if not in DB",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "connectorMangaId",
+            "in": "query",
+            "description": "(Optional) ID of the manga on the connector site",
             "schema": {
               "type": "string"
             }
@@ -2563,6 +2768,225 @@
         }
       }
     },
+    "/v2/Manga/{MangaId}/metadataSource": {
+      "get": {
+        "tags": [
+          "MetadataSource"
+        ],
+        "summary": "Returns the API.Schema.MangaContext.MetadataSource for a given API.Schema.MangaContext.Manga.",
+        "parameters": [
+          {
+            "name": "MangaId",
+            "in": "path",
+            "description": "API.Schema.MangaContext.Manga.Key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "MetadataSource data",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataSourceResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Manga not found",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "MetadataSource"
+        ],
+        "summary": "Sets the API.Schema.MangaContext.MetadataSource for a API.Schema.MangaContext.Manga, marking it as Confirmed.",
+        "parameters": [
+          {
+            "name": "MangaId",
+            "in": "path",
+            "description": "API.Schema.MangaContext.Manga.Key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Source type and external ID",
+          "content": {
+            "application/json-patch+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchMetadataSourceRecord"
+              }
+            },
+            "application/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchMetadataSourceRecord"
+              }
+            },
+            "text/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchMetadataSourceRecord"
+              }
+            },
+            "application/*+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchMetadataSourceRecord"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Updated successfully"
+          },
+          "400": {
+            "description": "ExternalId is null or empty",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Manga not found",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/Manga/{MangaId}/metadataSource/candidates": {
+      "get": {
+        "tags": [
+          "MetadataSource"
+        ],
+        "summary": "Searches MangaDex for candidates matching a Manga's title, scored by similarity.",
+        "parameters": [
+          {
+            "name": "MangaId",
+            "in": "path",
+            "description": "API.Schema.MangaContext.Manga.Key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Title to search for",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Top 10 scored candidates",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MetadataSourceCandidate"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Manga not found",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/Manga/{MangaId}/metadataSource/refresh": {
+      "post": {
+        "tags": [
+          "MetadataSource"
+        ],
+        "summary": "Queues a background worker to refresh chapter volumes for a Manga from its confirmed MangaDex ExternalId.",
+        "parameters": [
+          {
+            "name": "MangaId",
+            "in": "path",
+            "description": "API.Schema.MangaContext.Manga.Key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Job queued. Returns jobId.",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": { }
+              }
+            }
+          },
+          "400": {
+            "description": "MetadataSource is Unlinked (no ExternalId set)",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Manga not found",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/NotificationConnector": {
       "get": {
         "tags": [
@@ -3537,6 +3961,205 @@
         }
       }
     },
+    "/v2/Manga/{MangaId}/volumes": {
+      "get": {
+        "tags": [
+          "Volume"
+        ],
+        "summary": "Returns volumes and chapters for a manga, grouped by volume number.",
+        "parameters": [
+          {
+            "name": "MangaId",
+            "in": "path",
+            "description": "API.Controllers.DTOs.Manga.Key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Volume listing with chapter file status",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "$ref": "#/components/schemas/VolumeListResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Manga not found",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/Manga/{MangaId}/reorganize/preview": {
+      "get": {
+        "tags": [
+          "Volume"
+        ],
+        "summary": "Returns a dry-run preview of all file moves needed to bring files in line with current metadata.",
+        "parameters": [
+          {
+            "name": "MangaId",
+            "in": "path",
+            "description": "API.Controllers.DTOs.Manga.Key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Preview with moves, directories to create, and empty directories to delete",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReorganizePreviewResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Manga not found",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/Manga/{MangaId}/reorganize": {
+      "post": {
+        "tags": [
+          "Volume"
+        ],
+        "summary": "Queues RenameChapterFileWorker instances for each file that needs moving.",
+        "parameters": [
+          {
+            "name": "MangaId",
+            "in": "path",
+            "description": "API.Controllers.DTOs.Manga.Key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Workers queued; returns first worker key as jobId",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReorganizeJobResult"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Nothing to reorganize",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReorganizeJobResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Manga not found",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/Manga/{MangaId}/libraryLayout": {
+      "put": {
+        "tags": [
+          "Volume"
+        ],
+        "summary": "Stores the layout preference and returns a reorganize preview using the new layout.\nDoes NOT execute any file moves.",
+        "parameters": [
+          {
+            "name": "MangaId",
+            "in": "path",
+            "description": "API.Schema.MangaContext.Manga.Key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "New layout preference",
+          "content": {
+            "application/json-patch+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/PutLibraryLayoutRecord"
+              }
+            },
+            "application/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/PutLibraryLayoutRecord"
+              }
+            },
+            "text/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/PutLibraryLayoutRecord"
+              }
+            },
+            "application/*+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/PutLibraryLayoutRecord"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Layout stored; response includes reorganize preview with new layout paths",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryLayoutResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Manga not found",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/Worker": {
       "get": {
         "tags": [
@@ -3924,6 +4547,35 @@
         "additionalProperties": false,
         "description": "API.Schema.MangaContext.Chapter DTO"
       },
+      "ChapterFileEntry": {
+        "type": "object",
+        "properties": {
+          "chapterId": {
+            "type": "string",
+            "nullable": true
+          },
+          "chapterNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "fileName": {
+            "type": "string",
+            "nullable": true
+          },
+          "fileExistsOnDisk": {
+            "type": "boolean"
+          },
+          "isBundled": {
+            "type": "boolean"
+          },
+          "metadataConfidence": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Per-chapter entry in a volume listing."
+      },
       "ChapterFilterRecord": {
         "type": "object",
         "properties": {
@@ -3952,6 +4604,7 @@
           "foreignKey",
           "key",
           "mangaConnectorName",
+          "objId",
           "useForDownload"
         ],
         "type": "object",
@@ -3965,6 +4618,11 @@
             "minLength": 1,
             "type": "string",
             "description": "Key of the referenced DTO"
+          },
+          "objId": {
+            "minLength": 1,
+            "type": "string",
+            "description": "ID of the Object on the connector site"
           },
           "websiteUrl": {
             "type": "string",
@@ -4018,6 +4676,30 @@
           }
         },
         "additionalProperties": false
+      },
+      "ChapterVolumeAssignmentResult": {
+        "type": "object",
+        "properties": {
+          "chapterId": {
+            "type": "string",
+            "nullable": true
+          },
+          "chapterNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "volumeNumber": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "metadataConfidence": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Result of a PUT /Chapter/{id}/volume operation."
       },
       "CoverSize": {
         "enum": [
@@ -4262,6 +4944,21 @@
         },
         "additionalProperties": false
       },
+      "FileMove": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "nullable": true
+          },
+          "to": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Represents a single file move operation in a reorganize preview."
+      },
       "LibraryConnector": {
         "required": [
           "baseUrl",
@@ -4287,6 +4984,28 @@
           }
         },
         "additionalProperties": false
+      },
+      "LibraryLayout": {
+        "enum": [
+          "Flat",
+          "VolumeFolder",
+          "VolumeCBZ"
+        ],
+        "type": "string"
+      },
+      "LibraryLayoutResult": {
+        "type": "object",
+        "properties": {
+          "layout": {
+            "type": "string",
+            "nullable": true
+          },
+          "reorganizePreview": {
+            "$ref": "#/components/schemas/ReorganizePreviewResult"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Response body for PUT /api/v2/Manga/{mangaId}/libraryLayout."
       },
       "LibraryRefreshSetting": {
         "enum": [
@@ -4397,11 +5116,6 @@
             "type": "string",
             "description": "Id of the Library the Manga gets downloaded to"
           },
-          "coverUrl": {
-            "type": "string",
-            "description": "External cover image URL from the connector",
-            "nullable": true
-          },
           "name": {
             "minLength": 1,
             "type": "string",
@@ -4421,6 +5135,11 @@
               "$ref": "#/components/schemas/MangaMangaConnectorId"
             },
             "description": "Ids of the Manga on MangaConnectors"
+          },
+          "coverUrl": {
+            "type": "string",
+            "description": "External cover image URL from the connector",
+            "nullable": true
           },
           "key": {
             "maxLength": 64,
@@ -4475,6 +5194,7 @@
           "foreignKey",
           "key",
           "mangaConnectorName",
+          "objId",
           "useForDownload"
         ],
         "type": "object",
@@ -4488,6 +5208,11 @@
             "minLength": 1,
             "type": "string",
             "description": "Key of the referenced DTO"
+          },
+          "objId": {
+            "minLength": 1,
+            "type": "string",
+            "description": "ID of the Object on the connector site"
           },
           "websiteUrl": {
             "type": "string",
@@ -4574,6 +5299,69 @@
         },
         "additionalProperties": false
       },
+      "MetadataSourceCandidate": {
+        "type": "object",
+        "properties": {
+          "mangaDexId": {
+            "type": "string",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "author": {
+            "type": "string",
+            "nullable": true
+          },
+          "chapterCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "score": {
+            "type": "number",
+            "format": "float"
+          },
+          "matchReasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "A scored MangaDex candidate for linking to a local Manga."
+      },
+      "MetadataSourceResult": {
+        "type": "object",
+        "properties": {
+          "sourceType": {
+            "type": "string",
+            "nullable": true
+          },
+          "externalId": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastSyncedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "matchScore": {
+            "type": "number",
+            "format": "float",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "DTO for a Manga's MetadataSource."
+      },
       "MinimalManga": {
         "required": [
           "description",
@@ -4603,6 +5391,11 @@
               "$ref": "#/components/schemas/MangaMangaConnectorId"
             },
             "description": "Ids of the Manga on MangaConnectors"
+          },
+          "coverUrl": {
+            "type": "string",
+            "description": "External cover image URL from the connector",
+            "nullable": true
           },
           "key": {
             "maxLength": 64,
@@ -4678,6 +5471,18 @@
         "additionalProperties": false,
         "description": "Request body for updating mutable metadata on a Chapter"
       },
+      "PatchChapterVolumeRecord": {
+        "type": "object",
+        "properties": {
+          "volumeNumber": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Request body for PUT /Chapter/{id}/volume"
+      },
       "PatchFileLibraryRecord": {
         "required": [
           "name",
@@ -4716,6 +5521,21 @@
         },
         "additionalProperties": false
       },
+      "PatchMetadataSourceRecord": {
+        "type": "object",
+        "properties": {
+          "sourceType": {
+            "type": "string",
+            "nullable": true
+          },
+          "externalId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Request body for PUT /Manga/{id}/metadataSource"
+      },
       "ProblemDetails": {
         "type": "object",
         "properties": {
@@ -4742,6 +5562,55 @@
           }
         },
         "additionalProperties": { }
+      },
+      "PutLibraryLayoutRecord": {
+        "type": "object",
+        "properties": {
+          "layout": {
+            "$ref": "#/components/schemas/LibraryLayout"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Request body for PUT /api/v2/Manga/{mangaId}/libraryLayout."
+      },
+      "ReorganizeJobResult": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Result returned after queuing a reorganize job."
+      },
+      "ReorganizePreviewResult": {
+        "type": "object",
+        "properties": {
+          "moves": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FileMove"
+            },
+            "nullable": true
+          },
+          "creates": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "deletes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Dry-run diff for a reorganize operation."
       },
       "Stats": {
         "type": "object",
@@ -4829,6 +5698,13 @@
             "type": "integer",
             "format": "int32"
           },
+          "volumeResolutionStrategy": {
+            "$ref": "#/components/schemas/VolumeResolutionStrategy"
+          },
+          "volumeResolutionParallelism": {
+            "type": "integer",
+            "format": "int32"
+          },
           "libraryRefreshSetting": {
             "$ref": "#/components/schemas/LibraryRefreshSetting"
           },
@@ -4847,6 +5723,75 @@
           }
         },
         "additionalProperties": false
+      },
+      "VolumeEntry": {
+        "type": "object",
+        "properties": {
+          "volumeNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "isBundled": {
+            "type": "boolean"
+          },
+          "archiveFileName": {
+            "type": "string",
+            "nullable": true
+          },
+          "chapterCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "chapters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChapterFileEntry"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "One volume with its chapter list."
+      },
+      "VolumeListResult": {
+        "type": "object",
+        "properties": {
+          "filesNeedReorganizing": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "layout": {
+            "$ref": "#/components/schemas/LibraryLayout"
+          },
+          "volumes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VolumeEntry"
+            },
+            "nullable": true
+          },
+          "unassigned": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChapterFileEntry"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Top-level response for GET /api/v2/Manga/{mangaId}/volumes."
+      },
+      "VolumeResolutionStrategy": {
+        "enum": [
+          "Disabled",
+          "ExactOnly",
+          "ExactThenGuess"
+        ],
+        "type": "string"
       },
       "Worker": {
         "required": [
@@ -4928,6 +5873,9 @@
       "name": "MetadataFetcher"
     },
     {
+      "name": "MetadataSource"
+    },
+    {
       "name": "NotificationConnector"
     },
     {
@@ -4938,6 +5886,9 @@
     },
     {
       "name": "Settings"
+    },
+    {
+      "name": "Volume"
     },
     {
       "name": "Worker"
