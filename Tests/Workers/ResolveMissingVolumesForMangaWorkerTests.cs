@@ -3,6 +3,7 @@ using System.IO.Compression;
 using API;
 using API.Schema.ActionsContext;
 using API.Schema.MangaContext;
+using API.Services;
 using API.Workers;
 using API.Workers.MaintenanceWorkers;
 using Microsoft.EntityFrameworkCore;
@@ -20,6 +21,7 @@ public class ResolveMissingVolumesForMangaWorkerTests : IDisposable
     private readonly MangaContext _mangaContext;
     private readonly ActionsContext _actionsContext;
     private readonly Mock<IMangaDexVolumeResolver> _mockMangaDexResolver;
+    private readonly Mock<IMangaDexSearchService> _mockSearchService;
 
     public ResolveMissingVolumesForMangaWorkerTests()
     {
@@ -47,6 +49,14 @@ public class ResolveMissingVolumesForMangaWorkerTests : IDisposable
         _mockMangaDexResolver
             .Setup(r => r.GetChapterToVolumeMapAsync(It.IsAny<Manga>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Dictionary<string, int>());
+
+        _mockSearchService = new Mock<IMangaDexSearchService>();
+        _mockSearchService
+            .Setup(s => s.SearchAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<MangaDexSearchResult>());
+        _mockSearchService
+            .Setup(s => s.GetChapterToVolumeMapAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<string, int>());
     }
 
     public void Dispose()
@@ -58,13 +68,13 @@ public class ResolveMissingVolumesForMangaWorkerTests : IDisposable
     }
 
     private ResolveMissingVolumesForMangaWorker MakeWorker(TrangaSettings settings, string mangaKey) =>
-        new(new ConcurrentQueue<string>([mangaKey]), settings, _mockMangaDexResolver.Object);
+        new(new ConcurrentQueue<string>([mangaKey]), settings, _mockMangaDexResolver.Object, _mockSearchService.Object);
 
     private ResolveMissingVolumesForMangaWorker MakeWorker(TrangaSettings settings, string mangaKey, IMangaDexVolumeResolver resolver) =>
-        new(new ConcurrentQueue<string>([mangaKey]), settings, resolver);
+        new(new ConcurrentQueue<string>([mangaKey]), settings, resolver, _mockSearchService.Object);
 
     private ResolveMissingVolumesForMangaWorker MakeWorker(TrangaSettings settings, IEnumerable<string> mangaKeys) =>
-        new(new ConcurrentQueue<string>(mangaKeys), settings, _mockMangaDexResolver.Object);
+        new(new ConcurrentQueue<string>(mangaKeys), settings, _mockMangaDexResolver.Object, _mockSearchService.Object);
 
     [Fact]
     public async Task DoWork_WhenExactLookupFails_FallsBackToColorHeuristic()
@@ -187,7 +197,7 @@ public class ResolveMissingVolumesForMangaWorkerTests : IDisposable
         CreateColorCbz(Path.Combine(mangaDir, "chap2.cbz"));
 
         await new ResolveMissingVolumesForMangaWorker(
-            new ConcurrentQueue<string>([manga.Key]), settings, _mockMangaDexResolver.Object)
+            new ConcurrentQueue<string>([manga.Key]), settings, _mockMangaDexResolver.Object, _mockSearchService.Object)
             .DoWork(scope.Object);
 
         Assert.Equal(11, (await workerContext.Chapters.FirstAsync(c => c.ChapterNumber == "2")).VolumeNumber);
@@ -317,7 +327,7 @@ public class ResolveMissingVolumesForMangaWorkerTests : IDisposable
         CreateGrayscaleCbz(Path.Combine(mangaDir, "chap2.cbz"));
 
         await new ResolveMissingVolumesForMangaWorker(
-            new ConcurrentQueue<string>([manga.Key]), settings, _mockMangaDexResolver.Object)
+            new ConcurrentQueue<string>([manga.Key]), settings, _mockMangaDexResolver.Object, _mockSearchService.Object)
             .DoWork(scope.Object);
 
         Assert.Equal(10, (await workerContext.Chapters.FirstAsync(c => c.ChapterNumber == "2")).VolumeNumber);
@@ -581,6 +591,196 @@ public class ResolveMissingVolumesForMangaWorkerTests : IDisposable
         // Mapped=0 → resolvedExact=false → heuristic runs → color cover assigns vol 1
         Assert.Equal(1, (await _mangaContext.Chapters.FirstAsync(c => c.ChapterNumber == "50")).VolumeNumber);
         Assert.Equal(1, (await _mangaContext.Chapters.FirstAsync(c => c.ChapterNumber == "51")).VolumeNumber);
+    }
+
+    // ─── MetadataConfidence tests ────────────────────────────────────────────
+
+    [Fact]
+    public async Task DoWork_WhenStatusConfirmed_AssignsExactConfidenceToChapters()
+    {
+        var settings = new TrangaSettings { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactOnly };
+        var library = new FileLibrary(_testRoot, "Test Library");
+        _mangaContext.FileLibraries.Add(library);
+        var manga = new Manga("Test Exact Confidence", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        manga.MetadataSource!.ExternalId = "confirmed-uuid";
+        manga.MetadataSource.Status = MetadataSourceStatus.Confirmed;
+        _mangaContext.Mangas.Add(manga);
+        _mangaContext.Chapters.Add(new Chapter(manga, "1", null, "Title 1") { Downloaded = true, FileName = "chap1.cbz" });
+        _mangaContext.Chapters.Add(new Chapter(manga, "2", null, "Title 2") { Downloaded = true, FileName = "chap2.cbz" });
+        await _mangaContext.SaveChangesAsync();
+
+        var resolver = new Mock<IMangaDexVolumeResolver>();
+        resolver.Setup(r => r.GetChapterToVolumeMapAsync(It.IsAny<Manga>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<string, int> { { "1", 1 }, { "2", 1 } });
+
+        await new ResolveMissingVolumesForMangaWorker(
+            new ConcurrentQueue<string>([manga.Key]), settings, resolver.Object, _mockSearchService.Object)
+            .DoWork(_mockScope.Object);
+
+        var ch1 = await _mangaContext.Chapters.FirstAsync(c => c.ChapterNumber == "1");
+        var ch2 = await _mangaContext.Chapters.FirstAsync(c => c.ChapterNumber == "2");
+        Assert.Equal(MetadataConfidence.Exact, ch1.MetadataConfidence);
+        Assert.Equal(MetadataConfidence.Exact, ch2.MetadataConfidence);
+    }
+
+    [Fact]
+    public async Task DoWork_WhenHeuristicUsed_AssignsHeuristicConfidenceToChapters()
+    {
+        var settings = new TrangaSettings { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactThenGuess };
+        var library = new FileLibrary(_testRoot, "Test Library");
+        _mangaContext.FileLibraries.Add(library);
+        var manga = new Manga("Test Heuristic Confidence", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        // Status remains Unlinked but search returns nothing → heuristic fallback
+        _mockSearchService
+            .Setup(s => s.SearchAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<MangaDexSearchResult>());
+        _mangaContext.Mangas.Add(manga);
+        _mangaContext.Chapters.Add(new Chapter(manga, "1", null, "Title 1") { Downloaded = true, FileName = "chap1.cbz" });
+        _mangaContext.Chapters.Add(new Chapter(manga, "2", null, "Title 2") { Downloaded = true, FileName = "chap2.cbz" });
+        await _mangaContext.SaveChangesAsync();
+
+        string mangaDir = Path.Combine(_testRoot, manga.DirectoryName);
+        Directory.CreateDirectory(mangaDir);
+        CreateColorCbz(Path.Combine(mangaDir, "chap1.cbz"));
+        CreateGrayscaleCbz(Path.Combine(mangaDir, "chap2.cbz"));
+
+        await MakeWorker(settings, manga.Key).DoWork(_mockScope.Object);
+
+        var ch1 = await _mangaContext.Chapters.FirstAsync(c => c.ChapterNumber == "1");
+        var ch2 = await _mangaContext.Chapters.FirstAsync(c => c.ChapterNumber == "2");
+        Assert.Equal(MetadataConfidence.Heuristic, ch1.MetadataConfidence);
+        Assert.Equal(MetadataConfidence.Heuristic, ch2.MetadataConfidence);
+    }
+
+    // ─── Auto-match tests ────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task DoWork_WhenStatusUnlinked_AttemptsAutoMatch_AndSetsAutoMatchedOnStrongCandidate()
+    {
+        var settings = new TrangaSettings { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactOnly };
+        var library = new FileLibrary(_testRoot, "Test Library");
+        _mangaContext.FileLibraries.Add(library);
+        // Manga with 2 chapters — chapter count matches the search result
+        var manga = new Manga("Berserk", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        manga.MetadataSource!.Status = MetadataSourceStatus.Unlinked;
+        _mangaContext.Mangas.Add(manga);
+        _mangaContext.Chapters.Add(new Chapter(manga, "1", null, "Title 1") { Downloaded = true, FileName = "chap1.cbz" });
+        _mangaContext.Chapters.Add(new Chapter(manga, "2", null, "Title 2") { Downloaded = true, FileName = "chap2.cbz" });
+        await _mangaContext.SaveChangesAsync();
+
+        // Strong candidate: high title similarity, chapter count matches
+        _mockSearchService
+            .Setup(s => s.SearchAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<MangaDexSearchResult>
+            {
+                new() { MangaDexId = "berserk-uuid", Title = "Berserk", Author = null, ChapterCount = 2 }
+            });
+        _mockSearchService
+            .Setup(s => s.GetChapterToVolumeMapAsync("berserk-uuid", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<string, int> { { "1", 1 }, { "2", 1 } });
+
+        await MakeWorker(settings, manga.Key).DoWork(_mockScope.Object);
+
+        var updatedSource = await _mangaContext.Set<MetadataSource>().FirstAsync(s => s.MangaId == manga.Key);
+        Assert.Equal(MetadataSourceStatus.AutoMatched, updatedSource.Status);
+        Assert.Equal("berserk-uuid", updatedSource.ExternalId);
+        Assert.NotNull(updatedSource.MatchScore);
+
+        var ch1 = await _mangaContext.Chapters.FirstAsync(c => c.ChapterNumber == "1");
+        Assert.Equal(1, ch1.VolumeNumber);
+        Assert.Equal(MetadataConfidence.Exact, ch1.MetadataConfidence);
+    }
+
+    [Fact]
+    public async Task DoWork_WhenAutoMatchScoreBelowThreshold_SetsNoMatch()
+    {
+        var settings = new TrangaSettings { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactOnly };
+        var library = new FileLibrary(_testRoot, "Test Library");
+        _mangaContext.FileLibraries.Add(library);
+        var manga = new Manga("XYZ Manga", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        manga.MetadataSource!.Status = MetadataSourceStatus.Unlinked;
+        _mangaContext.Mangas.Add(manga);
+        _mangaContext.Chapters.Add(new Chapter(manga, "1", null, "Title 1") { Downloaded = true, FileName = "chap1.cbz" });
+        await _mangaContext.SaveChangesAsync();
+
+        // Return a candidate with very low title similarity
+        _mockSearchService
+            .Setup(s => s.SearchAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<MangaDexSearchResult>
+            {
+                new() { MangaDexId = "some-uuid", Title = "Completely Different Title ABCDEF", Author = null, ChapterCount = 999 }
+            });
+
+        await MakeWorker(settings, manga.Key).DoWork(_mockScope.Object);
+
+        var updatedSource = await _mangaContext.Set<MetadataSource>().FirstAsync(s => s.MangaId == manga.Key);
+        Assert.Equal(MetadataSourceStatus.NoMatch, updatedSource.Status);
+        Assert.Null(updatedSource.ExternalId);
+
+        // No volumes should be assigned
+        Assert.Null((await _mangaContext.Chapters.FirstAsync(c => c.ChapterNumber == "1")).VolumeNumber);
+    }
+
+    [Fact]
+    public async Task DoWork_WhenAutoMatchAmbiguous_SetsAmbiguous()
+    {
+        var settings = new TrangaSettings { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactOnly };
+        var library = new FileLibrary(_testRoot, "Test Library");
+        _mangaContext.FileLibraries.Add(library);
+        // Use a title that produces similar scores for two candidates
+        var manga = new Manga("Berserk", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        manga.MetadataSource!.Status = MetadataSourceStatus.Unlinked;
+        _mangaContext.Mangas.Add(manga);
+        _mangaContext.Chapters.Add(new Chapter(manga, "1", null, "Title 1") { Downloaded = true, FileName = "chap1.cbz" });
+        await _mangaContext.SaveChangesAsync();
+
+        // Two candidates with very close scores (both identical title, same chapter count)
+        _mockSearchService
+            .Setup(s => s.SearchAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<MangaDexSearchResult>
+            {
+                new() { MangaDexId = "candidate-a", Title = "Berserk", Author = null, ChapterCount = 1 },
+                new() { MangaDexId = "candidate-b", Title = "Berserk", Author = null, ChapterCount = 1 }
+            });
+
+        await MakeWorker(settings, manga.Key).DoWork(_mockScope.Object);
+
+        var updatedSource = await _mangaContext.Set<MetadataSource>().FirstAsync(s => s.MangaId == manga.Key);
+        Assert.Equal(MetadataSourceStatus.Ambiguous, updatedSource.Status);
+        Assert.Null(updatedSource.ExternalId);
+        Assert.Null((await _mangaContext.Chapters.FirstAsync(c => c.ChapterNumber == "1")).VolumeNumber);
+    }
+
+    [Fact]
+    public async Task DoWork_WhenAutoMatchSucceedsButVolumeFetchFails_RollsBackToUnlinked()
+    {
+        var settings = new TrangaSettings { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactOnly };
+        var library = new FileLibrary(_testRoot, "Test Library");
+        _mangaContext.FileLibraries.Add(library);
+        var manga = new Manga("Berserk", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        manga.MetadataSource!.Status = MetadataSourceStatus.Unlinked;
+        _mangaContext.Mangas.Add(manga);
+        _mangaContext.Chapters.Add(new Chapter(manga, "1", null, "Title 1") { Downloaded = true, FileName = "chap1.cbz" });
+        await _mangaContext.SaveChangesAsync();
+
+        // Strong match candidate
+        _mockSearchService
+            .Setup(s => s.SearchAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<MangaDexSearchResult>
+            {
+                new() { MangaDexId = "berserk-uuid", Title = "Berserk", Author = null, ChapterCount = 1 }
+            });
+        // But volume fetch returns empty
+        _mockSearchService
+            .Setup(s => s.GetChapterToVolumeMapAsync("berserk-uuid", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<string, int>());
+
+        await MakeWorker(settings, manga.Key).DoWork(_mockScope.Object);
+
+        var updatedSource = await _mangaContext.Set<MetadataSource>().FirstAsync(s => s.MangaId == manga.Key);
+        Assert.Equal(MetadataSourceStatus.Unlinked, updatedSource.Status);
+        Assert.Null(updatedSource.ExternalId);
+        Assert.Null((await _mangaContext.Chapters.FirstAsync(c => c.ChapterNumber == "1")).VolumeNumber);
     }
 
     private static void CreateColorCbz(string path)

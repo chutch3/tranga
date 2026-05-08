@@ -225,4 +225,126 @@ public class MangaDexVolumeResolverTests
         Assert.True(map.ContainsKey("0.1"), "key must be normalized from '0.01' to '0.1'");
         Assert.False(map.ContainsKey("0.01"), "un-normalized key must not be present");
     }
+
+    [Fact]
+    public async Task GetChapterToVolumeMapAsync_WhenExternalIdConfirmed_UsesExternalIdDirectly()
+    {
+        // Manga has a Confirmed MetadataSource with ExternalId — resolver must use that UUID directly
+        // and never call the connector-ID walk or title search.
+        var manga = new Manga("Test Manga", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], Library);
+        // Set ExternalId and Confirmed status on the MetadataSource
+        manga.MetadataSource!.ExternalId = "confirmed-external-uuid";
+        manga.MetadataSource.Status = MetadataSourceStatus.Confirmed;
+        // Also add a connector ID to verify it's NOT used
+        manga.MangaConnectorIds.Add(new MangaConnectorId<Manga>(manga, "MangaDex", "connector-uuid", null));
+
+        var requestedUrls = new List<string>();
+        var handler = new FakeHttpMessageHandler(req =>
+        {
+            requestedUrls.Add(req.RequestUri!.ToString());
+            return Json("""
+                {
+                  "volumes": {
+                    "1": { "volume": "1", "chapters": { "1": { "chapter": "1" }, "2": { "chapter": "2" } } }
+                  }
+                }
+                """);
+        });
+
+        var resolver = new MangaDexVolumeResolver(new HttpClient(handler));
+        var map = await resolver.GetChapterToVolumeMapAsync(manga);
+
+        // Must use confirmed-external-uuid, not connector-uuid
+        Assert.Contains(requestedUrls, url => url.Contains("confirmed-external-uuid/aggregate"));
+        Assert.DoesNotContain(requestedUrls, url => url.Contains("connector-uuid"));
+        Assert.DoesNotContain(requestedUrls, url => url.Contains("?title="));
+        Assert.Equal(1, map["1"]);
+        Assert.Equal(1, map["2"]);
+    }
+
+    [Fact]
+    public async Task GetChapterToVolumeMapAsync_WhenExternalIdAutoMatched_UsesExternalIdDirectly()
+    {
+        var manga = new Manga("Test Manga", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], Library);
+        manga.MetadataSource!.ExternalId = "auto-matched-uuid";
+        manga.MetadataSource.Status = MetadataSourceStatus.AutoMatched;
+
+        var requestedUrls = new List<string>();
+        var handler = new FakeHttpMessageHandler(req =>
+        {
+            requestedUrls.Add(req.RequestUri!.ToString());
+            return Json("""
+                {
+                  "volumes": {
+                    "2": { "volume": "2", "chapters": { "5": { "chapter": "5" } } }
+                  }
+                }
+                """);
+        });
+
+        var resolver = new MangaDexVolumeResolver(new HttpClient(handler));
+        var map = await resolver.GetChapterToVolumeMapAsync(manga);
+
+        Assert.Contains(requestedUrls, url => url.Contains("auto-matched-uuid/aggregate"));
+        Assert.DoesNotContain(requestedUrls, url => url.Contains("?title="));
+        Assert.Equal(2, map["5"]);
+    }
+
+    [Fact]
+    public async Task GetChapterToVolumeMapAsync_WhenExternalIdNull_FallsBackToConnectorId()
+    {
+        // ExternalId is null → resolver must fall through to connector-ID walk
+        var manga = new Manga("Test Manga", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], Library);
+        // MetadataSource starts Unlinked with null ExternalId (default from constructor)
+        manga.MangaConnectorIds.Add(new MangaConnectorId<Manga>(manga, "MangaDex", "fallback-uuid", null));
+
+        var requestedUrls = new List<string>();
+        var handler = new FakeHttpMessageHandler(req =>
+        {
+            requestedUrls.Add(req.RequestUri!.ToString());
+            return Json("""
+                {
+                  "volumes": {
+                    "1": { "volume": "1", "chapters": { "3": { "chapter": "3" } } }
+                  }
+                }
+                """);
+        });
+
+        var resolver = new MangaDexVolumeResolver(new HttpClient(handler));
+        var map = await resolver.GetChapterToVolumeMapAsync(manga);
+
+        Assert.Contains(requestedUrls, url => url.Contains("fallback-uuid/aggregate"));
+        Assert.DoesNotContain(requestedUrls, url => url.Contains("?title="));
+        Assert.Equal(1, map["3"]);
+    }
+
+    [Fact]
+    public async Task GetChapterToVolumeMapAsync_WhenExternalIdUnlinked_FallsBackToConnectorId()
+    {
+        // Status is Unlinked (even if ExternalId was somehow set) → fall back to connector walk
+        var manga = new Manga("Test Manga", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], Library);
+        manga.MetadataSource!.Status = MetadataSourceStatus.Unlinked;
+        manga.MetadataSource.ExternalId = null;
+        manga.MangaConnectorIds.Add(new MangaConnectorId<Manga>(manga, "MangaDex", "connector-only-uuid", null));
+
+        var requestedUrls = new List<string>();
+        var handler = new FakeHttpMessageHandler(req =>
+        {
+            requestedUrls.Add(req.RequestUri!.ToString());
+            return Json("""
+                {
+                  "volumes": {
+                    "1": { "volume": "1", "chapters": { "7": { "chapter": "7" } } }
+                  }
+                }
+                """);
+        });
+
+        var resolver = new MangaDexVolumeResolver(new HttpClient(handler));
+        var map = await resolver.GetChapterToVolumeMapAsync(manga);
+
+        Assert.Contains(requestedUrls, url => url.Contains("connector-only-uuid/aggregate"));
+        Assert.Equal(1, map["7"]);
+    }
 }

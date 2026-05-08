@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using API.Controllers;
 using API.Schema.ActionsContext;
 using API.Schema.MangaContext;
+using API.Services;
 using API.Workers;
 using API.Workers.MaintenanceWorkers;
 using Microsoft.AspNetCore.Http;
@@ -51,6 +52,16 @@ public class MaintenanceControllerIntegrationTests : IAsyncLifetime
         return scope.Object;
     }
 
+    private static Mock<IMangaDexSearchService> MakeEmptySearchService()
+    {
+        var mock = new Mock<IMangaDexSearchService>();
+        mock.Setup(s => s.SearchAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<MangaDexSearchResult>());
+        mock.Setup(s => s.GetChapterToVolumeMapAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<string, int>());
+        return mock;
+    }
+
     // Three manga are in the DB with chapters missing volumes. Parallelism is set to 2,
     // so only 2 pool workers are spawned — but they share one queue of 3 items and together
     // drain it completely. All 3 manga must have their volumes resolved.
@@ -89,7 +100,7 @@ public class MaintenanceControllerIntegrationTests : IAsyncLifetime
             VolumeResolutionParallelism = 2,
             AppData = _tempDir
         };
-        var factory = new ResolveMissingVolumesForMangaWorkerFactory(settings, mockResolver.Object);
+        var factory = new ResolveMissingVolumesForMangaWorkerFactory(settings, mockResolver.Object, MakeEmptySearchService().Object);
 
         // Build the coordinator directly (skip the endpoint for this test)
         using var coordinatorDb = CreateMangaContext(dbOptions);
@@ -157,7 +168,7 @@ public class MaintenanceControllerIntegrationTests : IAsyncLifetime
             ChapterNamingScheme = NamingScheme,
             AppData = _tempDir
         };
-        var factory = new ResolveMissingVolumesForMangaWorkerFactory(settings, mockResolver.Object);
+        var factory = new ResolveMissingVolumesForMangaWorkerFactory(settings, mockResolver.Object, MakeEmptySearchService().Object);
 
         // Call the endpoint — captures the queued ResolveMissingVolumesWorker (coordinator)
         BaseWorker? capturedWorker = null;

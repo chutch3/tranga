@@ -4,6 +4,7 @@ using API;
 using API.MangaConnectors;
 using API.Schema.ActionsContext;
 using API.Schema.MangaContext;
+using API.Services;
 using API.Workers;
 using API.Workers.MaintenanceWorkers;
 using Microsoft.EntityFrameworkCore;
@@ -53,8 +54,20 @@ public class ResolveMissingVolumesWorkerIntegrationTests : IAsyncLifetime
         return scope.Object;
     }
 
+    private static readonly Mock<IMangaDexSearchService> MockSearchService = new();
+
+    static ResolveMissingVolumesWorkerIntegrationTests()
+    {
+        MockSearchService
+            .Setup(s => s.SearchAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<MangaDexSearchResult>());
+        MockSearchService
+            .Setup(s => s.GetChapterToVolumeMapAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<string, int>());
+    }
+
     private ResolveMissingVolumesForMangaWorker MakePoolWorker(string mangaKey, TrangaSettings settings, IMangaDexVolumeResolver resolver) =>
-        new(new ConcurrentQueue<string>([mangaKey]), settings, resolver);
+        new(new ConcurrentQueue<string>([mangaKey]), settings, resolver, MockSearchService.Object);
 
     // Downloads the first two pages of a MangaDex chapter into a cbz at destPath.
     private async Task DownloadMangaDexChapterAsCbz(string mangadexChapterId, string destPath)

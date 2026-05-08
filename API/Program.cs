@@ -1,6 +1,7 @@
 using System.Reflection;
 using API;
 using API.MangaConnectors;
+using API.Services;
 using API.MangaDownloadClients;
 using API.Schema.ActionsContext;
 using API.Schema.ActionsContext.Actions;
@@ -126,6 +127,8 @@ builder.Services.AddSingleton<CleanupMangaconnectorIdsWithoutConnector>();
 builder.Services.AddSingleton<CleanupOrphanedFilesWorker>();
 builder.Services.AddHttpClient<MangaDexVolumeResolver>();
 builder.Services.AddSingleton<IMangaDexVolumeResolver>(sp => sp.GetRequiredService<MangaDexVolumeResolver>());
+builder.Services.AddHttpClient<MangaDexSearchService>();
+builder.Services.AddSingleton<IMangaDexSearchService>(sp => sp.GetRequiredService<MangaDexSearchService>());
 builder.Services.AddSingleton<IBatchWorkerFactory<string>, ResolveMissingVolumesForMangaWorkerFactory>();
 builder.Services.AddSingleton<ResolveMissingVolumesWorker>();
 builder.Services.AddSingleton<SyncChapterFileNamesWorker>();

@@ -16,19 +16,30 @@ public class MangaDexVolumeResolver(HttpClient httpClient) : IMangaDexVolumeReso
     {
         string? mangadexUuid = null;
 
-        var mdConnector = manga.MangaConnectorIds.FirstOrDefault(c => c.MangaConnectorName.Equals("MangaDex", StringComparison.OrdinalIgnoreCase));
-        if (mdConnector != null)
+        // 1. Prefer a confirmed or auto-matched ExternalId from MetadataSource
+        if (manga.MetadataSource?.ExternalId is { Length: > 0 } externalId &&
+            manga.MetadataSource.Status is MetadataSourceStatus.Confirmed or MetadataSourceStatus.AutoMatched)
         {
-            mangadexUuid = mdConnector.IdOnConnectorSite;
+            mangadexUuid = externalId;
         }
         else
         {
-            var searchResponse = await _httpClient.GetAsync($"https://api.mangadex.org/manga?title={Uri.EscapeDataString(manga.Name)}&limit=1", cancellationToken);
-            if (searchResponse.IsSuccessStatusCode)
+            // 2. Fall back to connector-ID walk
+            var mdConnector = manga.MangaConnectorIds.FirstOrDefault(c => c.MangaConnectorName.Equals("MangaDex", StringComparison.OrdinalIgnoreCase));
+            if (mdConnector != null)
             {
-                var searchJson = JObject.Parse(await searchResponse.Content.ReadAsStringAsync(cancellationToken));
-                if (searchJson["data"] is JArray dataArray && dataArray.Count > 0)
-                    mangadexUuid = dataArray[0]["id"]?.ToString();
+                mangadexUuid = mdConnector.IdOnConnectorSite;
+            }
+            else
+            {
+                // 3. Last resort: title search
+                var searchResponse = await _httpClient.GetAsync($"https://api.mangadex.org/manga?title={Uri.EscapeDataString(manga.Name)}&limit=1", cancellationToken);
+                if (searchResponse.IsSuccessStatusCode)
+                {
+                    var searchJson = JObject.Parse(await searchResponse.Content.ReadAsStringAsync(cancellationToken));
+                    if (searchJson["data"] is JArray dataArray && dataArray.Count > 0)
+                        mangadexUuid = dataArray[0]["id"]?.ToString();
+                }
             }
         }
 
