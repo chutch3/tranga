@@ -19,6 +19,7 @@ public class MangaContext(DbContextOptions<MangaContext> options) : TrangaBaseCo
     public DbSet<MetadataEntry> MetadataEntries { get; set; }
     public DbSet<MetadataSource> MetadataSources { get; set; }
     public DbSet<VolumeMetadata> VolumeMetadata { get; set; }
+    public DbSet<BundleChapterMap> BundleChapterMaps { get; set; }
 
     public IQueryable<Manga> GetTrackedMangas() =>
         Mangas
@@ -116,6 +117,20 @@ public class MangaContext(DbContextOptions<MangaContext> options) : TrangaBaseCo
             .HasOne<Manga>(v => v.Manga)
             .WithMany()
             .HasForeignKey(v => v.MangaId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // BundleChapterMap composite PK and FKs
+        modelBuilder.Entity<BundleChapterMap>()
+            .HasKey(b => new { b.VolumeKey, b.ChapterKey });
+        modelBuilder.Entity<BundleChapterMap>()
+            .HasOne(b => b.Volume)
+            .WithMany()
+            .HasForeignKey(b => b.VolumeKey)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<BundleChapterMap>()
+            .HasOne(b => b.Chapter)
+            .WithMany()
+            .HasForeignKey(b => b.ChapterKey)
             .OnDelete(DeleteBehavior.Cascade);
     }
 
