@@ -237,6 +237,84 @@ public class VolumeController(MangaContext context, TrangaSettings settings, IWo
         return TypedResults.Ok(result);
     }
 
+    /// <summary>
+    /// Queues a BundleVolumeWorker to merge all unbundled chapters into a single CBZ.
+    /// </summary>
+    /// <param name="MangaId"><see cref="SchemaManga"/>.Key</param>
+    /// <param name="VolumeNumber">Volume number to bundle</param>
+    /// <response code="202">Worker queued; returns job ID</response>
+    /// <response code="404">Manga or VolumeMetadata not found</response>
+    /// <response code="409">No unbundled chapters with files to bundle</response>
+    [HttpPost("volumes/{VolumeNumber}/bundle")]
+    [ProducesResponseType<BundleJobResult>(Status202Accepted, "application/json")]
+    [ProducesResponseType<string>(Status404NotFound, "text/plain")]
+    [ProducesResponseType<string>(Status409Conflict, "text/plain")]
+    public async Task<Results<Accepted<BundleJobResult>, NotFound<string>, Conflict<string>>> PostBundle(string MangaId, int VolumeNumber)
+    {
+        var manga = await context.Mangas
+            .Include(m => m.Library)
+            .FirstOrDefaultAsync(m => m.Key == MangaId, HttpContext.RequestAborted);
+        if (manga is null)
+            return TypedResults.NotFound(nameof(MangaId));
+
+        var volumeMetadata = await context.VolumeMetadata
+            .FirstOrDefaultAsync(v => v.MangaId == MangaId && v.VolumeNumber == VolumeNumber, HttpContext.RequestAborted);
+        if (volumeMetadata is null)
+            return TypedResults.NotFound(nameof(VolumeNumber));
+
+        bool hasUnbundledChapters = await context.Chapters
+            .AnyAsync(c => c.ParentMangaId == MangaId
+                           && c.VolumeNumber == VolumeNumber
+                           && !c.IsBundled
+                           && c.FileName != null, HttpContext.RequestAborted);
+        if (!hasUnbundledChapters)
+            return TypedResults.Conflict("No unbundled chapters with files exist for this volume");
+
+        var worker = new BundleVolumeWorker(MangaId, VolumeNumber, settings);
+        workerQueue.AddWorker(worker);
+        return TypedResults.Accepted<BundleJobResult>((string?)null, new BundleJobResult(worker.Key));
+    }
+
+    /// <summary>
+    /// Queues an UnbundleVolumeWorker to split the bundle CBZ back into individual chapter CBZs.
+    /// </summary>
+    /// <param name="MangaId"><see cref="SchemaManga"/>.Key</param>
+    /// <param name="VolumeNumber">Volume number to unbundle</param>
+    /// <response code="202">Worker queued; returns job ID (may include warning if no map exists)</response>
+    /// <response code="404">Manga or VolumeMetadata not found</response>
+    /// <response code="409">Volume is not bundled</response>
+    [HttpDelete("volumes/{VolumeNumber}/bundle")]
+    [ProducesResponseType<UnbundleJobResult>(Status202Accepted, "application/json")]
+    [ProducesResponseType<string>(Status404NotFound, "text/plain")]
+    [ProducesResponseType<string>(Status409Conflict, "text/plain")]
+    public async Task<Results<Accepted<UnbundleJobResult>, NotFound<string>, Conflict<string>>> DeleteBundle(string MangaId, int VolumeNumber)
+    {
+        var manga = await context.Mangas
+            .Include(m => m.Library)
+            .FirstOrDefaultAsync(m => m.Key == MangaId, HttpContext.RequestAborted);
+        if (manga is null)
+            return TypedResults.NotFound(nameof(MangaId));
+
+        var volumeMetadata = await context.VolumeMetadata
+            .FirstOrDefaultAsync(v => v.MangaId == MangaId && v.VolumeNumber == VolumeNumber, HttpContext.RequestAborted);
+        if (volumeMetadata is null)
+            return TypedResults.NotFound(nameof(VolumeNumber));
+
+        if (volumeMetadata.ArchiveFileName is null)
+            return TypedResults.Conflict("Volume is not bundled");
+
+        bool hasMaps = await context.BundleChapterMaps
+            .AnyAsync(m => m.VolumeKey == volumeMetadata.Key, HttpContext.RequestAborted);
+
+        string? warning = hasMaps
+            ? null
+            : "No chapter map found; unbundle may be incomplete";
+
+        var worker = new UnbundleVolumeWorker(MangaId, VolumeNumber, settings);
+        workerQueue.AddWorker(worker);
+        return TypedResults.Accepted<UnbundleJobResult>((string?)null, new UnbundleJobResult(worker.Key, warning));
+    }
+
     // ─── Private helpers ──────────────────────────────────────────────────────
 
     private static string ComputeTargetPath(SchemaManga manga, Schema.MangaContext.Chapter chapter, TrangaSettings settings)
