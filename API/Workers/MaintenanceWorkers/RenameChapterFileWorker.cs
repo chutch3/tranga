@@ -31,7 +31,14 @@ public class RenameChapterFileWorker(string chapterKey, string newFileName, Tran
         if (oldPath != null && newPath != null && oldPath != newPath && File.Exists(oldPath))
         {
             Directory.CreateDirectory(Path.GetDirectoryName(newPath)!);
-            File.Move(oldPath, newPath);
+            try
+            {
+                File.Move(oldPath, newPath);
+            }
+            catch (IOException ex)
+            {
+                Log.Warn($"Could not move '{oldPath}' to '{newPath}': {ex.Message}. Updating DB filename anyway.");
+            }
         }
 
         chapter.FileName = newFileName;

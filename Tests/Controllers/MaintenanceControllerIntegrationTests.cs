@@ -1,6 +1,6 @@
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using API.Controllers;
-using API.MangaConnectors;
 using API.Schema.ActionsContext;
 using API.Schema.MangaContext;
 using API.Workers;
@@ -51,6 +51,66 @@ public class MaintenanceControllerIntegrationTests : IAsyncLifetime
         return scope.Object;
     }
 
+    // Three manga are in the DB with chapters missing volumes. Parallelism is set to 2,
+    // so only 2 pool workers are spawned — but they share one queue of 3 items and together
+    // drain it completely. All 3 manga must have their volumes resolved.
+    [Fact]
+    public async Task ThreeMangaWithParallelism2_AllMangaGetVolumesResolved()
+    {
+        string dbName = Guid.NewGuid().ToString();
+        var dbOptions = new DbContextOptionsBuilder<MangaContext>()
+            .UseInMemoryDatabase(dbName).Options;
+
+        var mangaKeys = new List<string>();
+        using (var setupDb = new MangaContext(dbOptions))
+        {
+            var library = new FileLibrary(_tempDir, "Integration Library");
+            setupDb.FileLibraries.Add(library);
+            for (int i = 1; i <= 3; i++)
+            {
+                var manga = new Manga($"Manga {i}", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+                manga.MangaConnectorIds.Add(new MangaConnectorId<Manga>(manga, "MangaDex", $"uuid-{i}", null));
+                setupDb.Mangas.Add(manga);
+                setupDb.Chapters.Add(new Chapter(manga, "1", null, null)
+                    { Downloaded = true, FileName = $"manga{i}_ch1.cbz" });
+                mangaKeys.Add(manga.Key);
+            }
+            await setupDb.SaveChangesAsync();
+        }
+
+        var mockResolver = new Mock<IMangaDexVolumeResolver>();
+        mockResolver
+            .Setup(r => r.GetChapterToVolumeMapAsync(It.IsAny<Manga>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<string, int> { ["1"] = 1 });
+
+        var settings = new TrangaSettings
+        {
+            VolumeResolutionStrategy = VolumeResolutionStrategy.ExactOnly,
+            VolumeResolutionParallelism = 2,
+            AppData = _tempDir
+        };
+        var factory = new ResolveMissingVolumesForMangaWorkerFactory(settings, mockResolver.Object);
+
+        // Build the coordinator directly (skip the endpoint for this test)
+        using var coordinatorDb = CreateMangaContext(dbOptions);
+        var coordinator = new ResolveMissingVolumesWorker(settings, factory);
+        var poolWorkers = await coordinator.DoWork(CreateScope(coordinatorDb));
+
+        // Should spawn min(parallelism=2, manga=3) = 2 workers
+        Assert.Equal(2, poolWorkers.Length);
+
+        // Run both pool workers — together they drain the 3-item queue
+        using var workerDb = CreateMangaContext(dbOptions);
+        foreach (var worker in poolWorkers.OfType<ResolveMissingVolumesForMangaWorker>())
+            await worker.DoWork(CreateScope(workerDb));
+
+        // All 3 manga must have been processed despite fewer workers than manga
+        using var queryDb = CreateMangaContext(dbOptions);
+        var chapters = await queryDb.Chapters.ToListAsync();
+        Assert.Equal(3, chapters.Count);
+        Assert.All(chapters, c => Assert.Equal(1, c.VolumeNumber));
+    }
+
     // Chapters had wrong volumes (5) from a previous buggy run. Files sit in the wrong
     // volume subdirectory on disk. After ResetAndResolveVolumes:
     //   - All volumes are cleared then re-resolved via the MangaDex map (1 for both chapters)
@@ -97,8 +157,9 @@ public class MaintenanceControllerIntegrationTests : IAsyncLifetime
             ChapterNamingScheme = NamingScheme,
             AppData = _tempDir
         };
+        var factory = new ResolveMissingVolumesForMangaWorkerFactory(settings, mockResolver.Object);
 
-        // Call the endpoint — captures the queued ResolveMissingVolumesWorker
+        // Call the endpoint — captures the queued ResolveMissingVolumesWorker (coordinator)
         BaseWorker? capturedWorker = null;
         var mockQueue = new Mock<IWorkerQueue>();
         mockQueue.Setup(q => q.AddWorker(It.IsAny<BaseWorker>()))
@@ -110,7 +171,7 @@ public class MaintenanceControllerIntegrationTests : IAsyncLifetime
                 .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
         var controller = new MaintenanceController(controllerDb, actionsCtx);
         controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
-        await controller.ResetAndResolveVolumes(mockQueue.Object, settings, mockResolver.Object);
+        await controller.ResetAndResolveVolumes(mockQueue.Object, settings, factory);
 
         // Verify volumes were cleared before the resolver ran
         using (var checkDb = CreateMangaContext(dbOptions))
@@ -119,12 +180,20 @@ public class MaintenanceControllerIntegrationTests : IAsyncLifetime
             Assert.All(cleared, c => Assert.Null(c.VolumeNumber));
         }
 
-        // Run the ResolveMissingVolumesWorker
+        // Run the coordinator — returns pool workers
         using var workerDb = CreateMangaContext(dbOptions);
-        var resolveWorker = Assert.IsType<ResolveMissingVolumesWorker>(capturedWorker);
-        var renameWorkers = await resolveWorker.DoWork(CreateScope(workerDb));
+        var coordinator = Assert.IsType<ResolveMissingVolumesWorker>(capturedWorker);
+        var poolWorkers = await coordinator.DoWork(CreateScope(workerDb));
 
-        // Run the RenameChapterFileWorkers it queued
+        // Run each pool worker — returns rename workers
+        var renameWorkers = new List<BaseWorker>();
+        foreach (var poolWorker in poolWorkers.OfType<ResolveMissingVolumesForMangaWorker>())
+        {
+            var workers = await poolWorker.DoWork(CreateScope(workerDb));
+            renameWorkers.AddRange(workers);
+        }
+
+        // Run the rename workers
         foreach (var renamer in renameWorkers.OfType<RenameChapterFileWorker>())
             await renamer.DoWork(CreateScope(workerDb));
 

@@ -98,6 +98,34 @@ public class RenameChapterFileWorkerTests : IDisposable
     }
 
     [Fact]
+    public async Task DoWork_WhenDestinationAlreadyExists_DoesNotThrowAndUpdatesDatabaseFileName()
+    {
+        var (manga, chapter) = await SetupAsync(fileName: "One-Punch Man - Ch.1.cbz");
+        string mangaDir = Path.Combine(_testRoot, manga.DirectoryName);
+        Directory.CreateDirectory(mangaDir);
+
+        // Source file exists at old path
+        File.WriteAllText(Path.Combine(mangaDir, "One-Punch Man - Ch.1.cbz"), "fake content");
+
+        // A file already exists at the destination path (simulating a partial previous run or collision)
+        string destDir = Path.Combine(mangaDir, "One-Punch Man Vol 5");
+        Directory.CreateDirectory(destDir);
+        File.WriteAllText(Path.Combine(destDir, "One-Punch Man - Ch.1.cbz"), "existing content");
+
+        const string newFileName = "One-Punch Man Vol 5/One-Punch Man - Ch.1.cbz";
+        var settings = new TrangaSettings { AppData = _testRoot, ChapterNamingScheme = NamingScheme };
+        var worker = new RenameChapterFileWorker(chapter.Key, newFileName, settings);
+
+        var ex = await Record.ExceptionAsync(() => worker.DoWork(_mockScope.Object));
+
+        // Should not throw even though destination exists
+        Assert.Null(ex);
+        // DB is still updated to the intended filename
+        var updated = await _mangaContext.Chapters.FirstAsync(c => c.Key == chapter.Key);
+        Assert.Equal(newFileName, updated.FileName);
+    }
+
+    [Fact]
     public async Task DoWork_WhenChapterKeyNotFound_CompletesWithoutError()
     {
         var settings = new TrangaSettings { AppData = _testRoot, ChapterNamingScheme = NamingScheme };

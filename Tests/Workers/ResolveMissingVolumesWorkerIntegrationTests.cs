@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.IO.Compression;
 using API;
 using API.MangaConnectors;
@@ -52,8 +53,10 @@ public class ResolveMissingVolumesWorkerIntegrationTests : IAsyncLifetime
         return scope.Object;
     }
 
-    // Downloads the first two pages of a MangaDex chapter into a cbz at destPath,
-    // mirroring how DownloadChapterFromMangaconnectorWorker names pages (0.jpg, 1.jpg, ...).
+    private ResolveMissingVolumesForMangaWorker MakePoolWorker(string mangaKey, TrangaSettings settings, IMangaDexVolumeResolver resolver) =>
+        new(new ConcurrentQueue<string>([mangaKey]), settings, resolver);
+
+    // Downloads the first two pages of a MangaDex chapter into a cbz at destPath.
     private async Task DownloadMangaDexChapterAsCbz(string mangadexChapterId, string destPath)
     {
         var serverJson = JObject.Parse(
@@ -75,7 +78,6 @@ public class ResolveMissingVolumesWorkerIntegrationTests : IAsyncLifetime
     }
 
     // Berserk ch "1" → volume 5 per MangaDex aggregate.
-    // Exercises the full pipeline: DB query → live resolver → worker assigns volume → DB persist.
     [Fact]
     public async Task Berserk_ExactOnlyStrategy_WorkerPersistsVolumeToDatabase()
     {
@@ -84,6 +86,7 @@ public class ResolveMissingVolumesWorkerIntegrationTests : IAsyncLifetime
         var dbOptions = new DbContextOptionsBuilder<MangaContext>()
             .UseInMemoryDatabase(dbName).Options;
 
+        string mangaKey;
         using (var setupDb = CreateMangaContext(dbOptions))
         {
             var library = new FileLibrary(_tempDir, "Integration Library");
@@ -96,22 +99,22 @@ public class ResolveMissingVolumesWorkerIntegrationTests : IAsyncLifetime
             setupDb.Chapters.Add(new Chapter(manga, "1", null, "Black Swordsman")
                 { Downloaded = true, FileName = "berserk_ch1.cbz" });
             await setupDb.SaveChangesAsync();
+            mangaKey = manga.Key;
         }
 
         using var workerDb = CreateMangaContext(dbOptions);
         var settings = new TrangaSettings
             { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactOnly, AppData = _tempDir };
-        var worker = new ResolveMissingVolumesWorker(settings, new MangaDexVolumeResolver(_httpClient));
-        await worker.DoWork(CreateScope(workerDb));
+        await MakePoolWorker(mangaKey, settings, new MangaDexVolumeResolver(_httpClient))
+            .DoWork(CreateScope(workerDb));
 
         using var queryDb = CreateMangaContext(dbOptions);
         var result = await queryDb.Chapters.FirstAsync(c => c.ChapterNumber == "1");
         Assert.Equal(5, result.VolumeNumber);
     }
 
-    // Berserk ch "0.01" on MangaDex → stored as "0.1" by Chapter constructor (int.Parse strips leading zeros).
+    // Berserk ch "0.01" on MangaDex → stored as "0.1" by Chapter constructor.
     // The resolver must normalize its keys the same way so TryGetValue succeeds.
-    // MangaDex aggregate: Berserk "0.01" is in volume 1.
     [Fact]
     public async Task Berserk_ChapterWithLeadingZeroDecimal_NormalizationPipelineResolvesVolume()
     {
@@ -120,6 +123,7 @@ public class ResolveMissingVolumesWorkerIntegrationTests : IAsyncLifetime
         var dbOptions = new DbContextOptionsBuilder<MangaContext>()
             .UseInMemoryDatabase(dbName).Options;
 
+        string mangaKey;
         using (var setupDb = CreateMangaContext(dbOptions))
         {
             var library = new FileLibrary(_tempDir, "Integration Library");
@@ -133,22 +137,21 @@ public class ResolveMissingVolumesWorkerIntegrationTests : IAsyncLifetime
             setupDb.Chapters.Add(new Chapter(manga, "0.01", null, "The Black Swordsman")
                 { Downloaded = true, FileName = "berserk_ch001.cbz" });
             await setupDb.SaveChangesAsync();
+            mangaKey = manga.Key;
         }
 
         using var workerDb = CreateMangaContext(dbOptions);
         var settings = new TrangaSettings
             { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactOnly, AppData = _tempDir };
-        var worker = new ResolveMissingVolumesWorker(settings, new MangaDexVolumeResolver(_httpClient));
-        await worker.DoWork(CreateScope(workerDb));
+        await MakePoolWorker(mangaKey, settings, new MangaDexVolumeResolver(_httpClient))
+            .DoWork(CreateScope(workerDb));
 
         using var queryDb = CreateMangaContext(dbOptions);
         var result = await queryDb.Chapters.FirstAsync(c => c.ChapterNumber == "0.1");
         Assert.Equal(1, result.VolumeNumber);
     }
 
-    // Berserk: the real MangaDex API has full volume data.
-    // This test verifies the live resolver returns the correct chapter→volume mapping
-    // without involving the worker or a database — the resolver is the thing being integration-tested.
+    // Verify the live resolver returns the correct chapter→volume mapping without involving the worker.
     [Fact]
     public async Task Berserk_MangaDexResolver_ReturnsCorrectVolumeMapping()
     {
@@ -167,10 +170,7 @@ public class ResolveMissingVolumesWorkerIntegrationTests : IAsyncLifetime
         Assert.Equal(5, vol);
     }
 
-    // One Punch-Man is DMCA'd on MangaDex — the resolver returns an empty map.
-    // The color heuristic must take over. We download Chainsaw Man chapter 1 images
-    // (UUID: 73af4d8d-1532-4a72-b1b9-8f4e5cd295c9) as stand-in content: its first page
-    // is a color splash (avgDiff ≈ 131) so the heuristic fires and assigns volume 1.
+    // One Punch-Man is DMCA'd on MangaDex — resolver returns empty, color heuristic takes over.
     [Fact]
     public async Task OnePunchMan_DmcaOnMangaDex_ColorHeuristicAssignsVolume()
     {
@@ -199,7 +199,6 @@ public class ResolveMissingVolumesWorkerIntegrationTests : IAsyncLifetime
             await setupDb.SaveChangesAsync();
         }
 
-
         string mangaDir = Path.Combine(_tempDir, manga.DirectoryName);
         Directory.CreateDirectory(mangaDir);
         await DownloadMangaDexChapterAsCbz(chainmanChapter1Uuid, Path.Combine(mangaDir, "chap1.cbz"));
@@ -207,9 +206,8 @@ public class ResolveMissingVolumesWorkerIntegrationTests : IAsyncLifetime
         using var workerDb = CreateMangaContext(dbOptions);
         var settings = new TrangaSettings
             { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactThenGuess, AppData = _tempDir };
-        var resolver = new MangaDexVolumeResolver(_httpClient);
-        var worker = new ResolveMissingVolumesWorker(settings, resolver);
-        await worker.DoWork(CreateScope(workerDb));
+        await MakePoolWorker(manga.Key, settings, new MangaDexVolumeResolver(_httpClient))
+            .DoWork(CreateScope(workerDb));
 
         using var queryDb = CreateMangaContext(dbOptions);
         var result = await queryDb.Chapters.FirstAsync(c => c.ChapterNumber == "1");

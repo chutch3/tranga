@@ -1,4 +1,3 @@
-using API.MangaConnectors;
 using API.Schema.ActionsContext;
 using API.Schema.MangaContext;
 using API.Workers;
@@ -79,9 +78,9 @@ public class MaintenanceController(MangaContext mangaContext, ActionsContext act
     /// <response code="202">Resolve worker queued</response>
     [HttpPost("ResolveMissingVolumes")]
     [ProducesResponseType(Status202Accepted)]
-    public Ok ResolveMissingVolumes([FromServices] IWorkerQueue workerQueue, [FromServices] TrangaSettings settings, [FromServices] IMangaDexVolumeResolver mangaDexVolumeResolver)
+    public Ok ResolveMissingVolumes([FromServices] IWorkerQueue workerQueue, [FromServices] TrangaSettings settings, [FromServices] IBatchWorkerFactory<string> factory)
     {
-        workerQueue.AddWorker(new ResolveMissingVolumesWorker(settings, mangaDexVolumeResolver));
+        workerQueue.AddWorker(new ResolveMissingVolumesWorker(settings, factory));
         return TypedResults.Ok();
     }
 
@@ -113,7 +112,7 @@ public class MaintenanceController(MangaContext mangaContext, ActionsContext act
     public async Task<Results<Ok, InternalServerError<string>>> ResetAndResolveVolumes(
         [FromServices] IWorkerQueue workerQueue,
         [FromServices] TrangaSettings settings,
-        [FromServices] IMangaDexVolumeResolver mangaDexVolumeResolver)
+        [FromServices] IBatchWorkerFactory<string> factory)
     {
         var chapters = await mangaContext.Chapters.ToListAsync(HttpContext.RequestAborted);
         foreach (var chapter in chapters)
@@ -122,7 +121,7 @@ public class MaintenanceController(MangaContext mangaContext, ActionsContext act
         if (await mangaContext.Sync(HttpContext.RequestAborted, GetType(), nameof(ResetAndResolveVolumes)) is { success: false } result)
             return TypedResults.InternalServerError(result.exceptionMessage);
 
-        workerQueue.AddWorker(new ResolveMissingVolumesWorker(settings, mangaDexVolumeResolver));
+        workerQueue.AddWorker(new ResolveMissingVolumesWorker(settings, factory));
         return TypedResults.Ok();
     }
 }

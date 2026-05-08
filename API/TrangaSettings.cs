@@ -57,6 +57,8 @@ public class TrangaSettings
 
     public VolumeResolutionStrategy VolumeResolutionStrategy { get; set; } = VolumeResolutionStrategy.ExactThenGuess;
 
+    public int VolumeResolutionParallelism { get; set; } = 3;
+
     public LibraryRefreshSetting LibraryRefreshSetting { get; set; } = LibraryRefreshSetting.AfterMangaFinished;
 
     public int RefreshLibraryWhileDownloadingEveryMinutes { get; set; } = 10;

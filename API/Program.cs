@@ -126,6 +126,7 @@ builder.Services.AddSingleton<CleanupMangaconnectorIdsWithoutConnector>();
 builder.Services.AddSingleton<CleanupOrphanedFilesWorker>();
 builder.Services.AddHttpClient<MangaDexVolumeResolver>();
 builder.Services.AddSingleton<IMangaDexVolumeResolver>(sp => sp.GetRequiredService<MangaDexVolumeResolver>());
+builder.Services.AddSingleton<IBatchWorkerFactory<string>, ResolveMissingVolumesForMangaWorkerFactory>();
 builder.Services.AddSingleton<ResolveMissingVolumesWorker>();
 builder.Services.AddSingleton<SyncChapterFileNamesWorker>();
 

@@ -1,5 +1,4 @@
 using API.Controllers;
-using API.MangaConnectors;
 using API.Schema.ActionsContext;
 using API.Schema.MangaContext;
 using API.Workers;
@@ -94,9 +93,60 @@ public class MaintenanceControllerTests
         var result = await controller.ResetAndResolveVolumes(
             new Mock<IWorkerQueue>().Object,
             new TrangaSettings(),
-            new Mock<IMangaDexVolumeResolver>().Object);
+            new Mock<IBatchWorkerFactory<string>>().Object);
 
         Assert.IsType<Ok>(result.Result);
+        var chapters = await mangaCtx.Chapters.ToListAsync();
+        Assert.All(chapters, c => Assert.Null(c.VolumeNumber));
+    }
+
+    [Fact]
+    public async Task ResetAndResolveVolumes_WhenStrategyDisabled_StillClearsVolumesAndQueuesWorker()
+    {
+        // Documents the current behavior: endpoint clears volumes regardless of strategy,
+        // then queues a worker that will immediately exit (Disabled check is in the worker, not the endpoint).
+        // The worker being queued is intentional — the endpoint is a repair tool and always queues.
+        var (mangaCtx, actionsCtx) = CreateContexts();
+        var library = new FileLibrary("/tmp/test", "Test Library");
+        mangaCtx.FileLibraries.Add(library);
+        var manga = new Manga("Test", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        mangaCtx.Mangas.Add(manga);
+        mangaCtx.Chapters.Add(new Chapter(manga, "1", 3, null) { Downloaded = true, FileName = "test1.cbz" });
+        await mangaCtx.SaveChangesAsync();
+
+        var mockQueue = new Mock<IWorkerQueue>();
+        var controller = CreateController(mangaCtx, actionsCtx);
+        var result = await controller.ResetAndResolveVolumes(
+            mockQueue.Object,
+            new TrangaSettings { VolumeResolutionStrategy = VolumeResolutionStrategy.Disabled },
+            new Mock<IBatchWorkerFactory<string>>().Object);
+
+        Assert.IsType<Ok>(result.Result);
+        Assert.All(await mangaCtx.Chapters.ToListAsync(), c => Assert.Null(c.VolumeNumber));
+        mockQueue.Verify(x => x.AddWorker(It.IsAny<ResolveMissingVolumesWorker>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ResetAndResolveVolumes_AlsoClearsVolumesOnNonDownloadedChapters()
+    {
+        // The clear is a bulk operation on all chapters — even undownloaded ones.
+        // The resolver only re-populates downloaded chapters, so non-downloaded chapters
+        // permanently lose their volume metadata after a reset.
+        var (mangaCtx, actionsCtx) = CreateContexts();
+        var library = new FileLibrary("/tmp/test", "Test Library");
+        mangaCtx.FileLibraries.Add(library);
+        var manga = new Manga("Test", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        mangaCtx.Mangas.Add(manga);
+        mangaCtx.Chapters.Add(new Chapter(manga, "1", 2, null) { Downloaded = true, FileName = "test1.cbz" });
+        mangaCtx.Chapters.Add(new Chapter(manga, "2", 2, null) { Downloaded = false, FileName = null });
+        await mangaCtx.SaveChangesAsync();
+
+        var controller = CreateController(mangaCtx, actionsCtx);
+        await controller.ResetAndResolveVolumes(
+            new Mock<IWorkerQueue>().Object,
+            new TrangaSettings(),
+            new Mock<IBatchWorkerFactory<string>>().Object);
+
         var chapters = await mangaCtx.Chapters.ToListAsync();
         Assert.All(chapters, c => Assert.Null(c.VolumeNumber));
     }
@@ -111,7 +161,7 @@ public class MaintenanceControllerTests
         var result = await controller.ResetAndResolveVolumes(
             mockQueue.Object,
             new TrangaSettings(),
-            new Mock<IMangaDexVolumeResolver>().Object);
+            new Mock<IBatchWorkerFactory<string>>().Object);
 
         Assert.IsType<Ok>(result.Result);
         mockQueue.Verify(x => x.AddWorker(It.IsAny<ResolveMissingVolumesWorker>()), Times.Once);
