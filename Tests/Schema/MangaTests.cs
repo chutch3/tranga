@@ -89,4 +89,11 @@ public class MangaTests
 
         Assert.Empty(result);
     }
+
+    [Fact]
+    public void Manga_DefaultLibraryLayout_IsFlat()
+    {
+        var manga = MakeTestManga();
+        Assert.Equal(LibraryLayout.Flat, manga.LibraryLayout);
+    }
 }

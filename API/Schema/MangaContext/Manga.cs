@@ -29,6 +29,9 @@ public class Manga : Identifiable
     [StringLength(8)] public string? OriginalLanguage { get; internal init; }
     public bool IsTracked { get; internal set; }
 
+    /// <summary>File layout preference for this manga's chapters on disk.</summary>
+    public LibraryLayout LibraryLayout { get; internal set; } = LibraryLayout.Flat;
+
     /// <summary>Optional metadata source linkage for this manga.</summary>
     public MetadataSource? MetadataSource { get; internal set; }
 
@@ -78,7 +81,8 @@ public class Manga : Identifiable
     /// </summary>
     public Manga(string key, string name, string description, string coverUrl,
         MangaReleaseStatus releaseStatus,
-        string directoryName, float ignoreChaptersBefore, string? libraryId, uint? year, string? originalLanguage)
+        string directoryName, float ignoreChaptersBefore, string? libraryId, uint? year, string? originalLanguage,
+        LibraryLayout libraryLayout = LibraryLayout.Flat)
         : base(key)
     {
         this.Name = name;
@@ -90,6 +94,7 @@ public class Manga : Identifiable
         this.IgnoreChaptersBefore = ignoreChaptersBefore;
         this.Year = year;
         this.OriginalLanguage = originalLanguage;
+        this.LibraryLayout = libraryLayout;
     }
     
     /// <exception cref="DirectoryNotFoundException">Library not loaded</exception>

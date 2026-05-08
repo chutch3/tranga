@@ -1,4 +1,5 @@
 using API.Controllers.DTOs;
+using API.Controllers.Requests;
 using API.Schema.MangaContext;
 using API.Workers;
 using API.Workers.MaintenanceWorkers;
@@ -111,6 +112,7 @@ public class VolumeController(MangaContext context, TrangaSettings settings, IWo
 
         var result = new VolumeListResult(
             FilesNeedReorganizing: filesNeedReorganizing,
+            Layout: manga.LibraryLayout,
             Volumes: volumes,
             Unassigned: unassigned
         );
@@ -199,11 +201,61 @@ public class VolumeController(MangaContext context, TrangaSettings settings, IWo
         return TypedResults.Accepted<ReorganizeJobResult>((string?)null, new ReorganizeJobResult(jobId));
     }
 
+    /// <summary>
+    /// Stores the layout preference and returns a reorganize preview using the new layout.
+    /// Does NOT execute any file moves.
+    /// </summary>
+    /// <param name="MangaId"><see cref="SchemaManga"/>.Key</param>
+    /// <param name="request">New layout preference</param>
+    /// <response code="200">Layout stored; response includes reorganize preview with new layout paths</response>
+    /// <response code="404">Manga not found</response>
+    [HttpPut("libraryLayout")]
+    [ProducesResponseType<LibraryLayoutResult>(Status200OK, "application/json")]
+    [ProducesResponseType<string>(Status404NotFound, "text/plain")]
+    public async Task<Results<Ok<LibraryLayoutResult>, NotFound<string>>> PutLibraryLayout(string MangaId, [FromBody] PutLibraryLayoutRecord request)
+    {
+        var manga = await context.Mangas
+            .Include(m => m.Library)
+            .Include(m => m.Chapters)
+            .FirstOrDefaultAsync(m => m.Key == MangaId, HttpContext.RequestAborted);
+
+        if (manga is null)
+            return TypedResults.NotFound(nameof(MangaId));
+
+        manga.LibraryLayout = request.Layout;
+        await context.Sync(HttpContext.RequestAborted, GetType(), nameof(PutLibraryLayout));
+
+        foreach (var chapter in manga.Chapters)
+            chapter.ParentManga = manga;
+
+        var preview = ComputeReorganizePreview(manga);
+        var result = new LibraryLayoutResult(
+            Layout: manga.LibraryLayout.ToString(),
+            ReorganizePreview: preview
+        );
+
+        return TypedResults.Ok(result);
+    }
+
     // ─── Private helpers ──────────────────────────────────────────────────────
+
+    private static string ComputeTargetPath(SchemaManga manga, Schema.MangaContext.Chapter chapter, TrangaSettings settings)
+    {
+        string fileName = chapter.GetArchiveFileName(settings.ChapterNamingScheme);
+        return manga.LibraryLayout switch
+        {
+            LibraryLayout.Flat => Path.Join(manga.FullDirectoryPath, fileName),
+            LibraryLayout.VolumeFolder when chapter.VolumeNumber is not null =>
+                Path.Join(manga.FullDirectoryPath, $"Vol {chapter.VolumeNumber}", fileName),
+            LibraryLayout.VolumeFolder => Path.Join(manga.FullDirectoryPath, fileName), // null VolumeNumber stays flat
+            LibraryLayout.VolumeCBZ when chapter.VolumeNumber is not null =>
+                Path.Join(manga.FullDirectoryPath, $"Vol {chapter.VolumeNumber}", fileName), // unbundled chapters use VolumeFolder-like path
+            _ => Path.Join(manga.FullDirectoryPath, fileName)
+        };
+    }
 
     private ReorganizePreviewResult ComputeReorganizePreview(SchemaManga manga)
     {
-        string namingScheme = settings.ChapterNamingScheme;
         string mangaDir = manga.FullDirectoryPath;
 
         var moves = new List<FileMove>();
@@ -217,8 +269,7 @@ public class VolumeController(MangaContext context, TrangaSettings settings, IWo
             if (currentPath is null)
                 continue;
 
-            string targetFileName = chapter.GetArchiveFileName(namingScheme);
-            string targetPath = Path.Join(mangaDir, targetFileName);
+            string targetPath = ComputeTargetPath(manga, chapter, settings);
 
             if (currentPath != targetPath)
                 moves.Add(new FileMove(From: currentPath, To: targetPath));

@@ -359,4 +359,164 @@ public class VolumeControllerTests : IDisposable
         Assert.NotNull(ok.Value);
         workerQueueMock.Verify(q => q.AddWorkers(It.IsAny<IEnumerable<BaseWorker>>()), Times.Never);
     }
+
+    // ──────────────────────────────────────────────────────
+    // PUT /libraryLayout
+    // ──────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task PutLibraryLayout_WhenMangaNotFound_Returns404()
+    {
+        using var ctx = CreateContext();
+        var (controller, _) = CreateController(ctx);
+
+        var result = await controller.PutLibraryLayout("nonexistent-id", new API.Controllers.Requests.PutLibraryLayoutRecord(API.Schema.MangaContext.LibraryLayout.VolumeFolder));
+
+        Assert.IsType<NotFound<string>>(result.Result);
+    }
+
+    [Fact]
+    public async Task PutLibraryLayout_StoresPreferenceInDb()
+    {
+        using var ctx = CreateContext();
+        var library = MakeLibrary();
+        ctx.FileLibraries.Add(library);
+        var manga = MakeTestManga("Naruto", library);
+        ctx.Mangas.Add(manga);
+        await ctx.SaveChangesAsync();
+
+        var (controller, _) = CreateController(ctx);
+        var result = await controller.PutLibraryLayout(manga.Key, new API.Controllers.Requests.PutLibraryLayoutRecord(API.Schema.MangaContext.LibraryLayout.VolumeFolder));
+
+        Assert.IsType<Ok<API.Controllers.DTOs.LibraryLayoutResult>>(result.Result);
+
+        // Verify DB state persisted
+        var updated = await ctx.Mangas.FindAsync(manga.Key);
+        Assert.NotNull(updated);
+        Assert.Equal(API.Schema.MangaContext.LibraryLayout.VolumeFolder, updated!.LibraryLayout);
+    }
+
+    [Fact]
+    public async Task PutLibraryLayout_ReturnsPreviewWithNewLayout()
+    {
+        using var ctx = CreateContext();
+        var library = MakeLibrary();
+        ctx.FileLibraries.Add(library);
+        var manga = MakeTestManga("Bleach", library);
+        ctx.Mangas.Add(manga);
+
+        // Chapter with volume 1 — under VolumeFolder layout, target path should contain "Vol 1"
+        var ch = new SchemaChapter(manga, "1", 1);
+        ch.FileName = ch.GetArchiveFileName(new TrangaSettings().ChapterNamingScheme); // flat path
+        ctx.Chapters.Add(ch);
+        await ctx.SaveChangesAsync();
+
+        var (controller, _) = CreateController(ctx);
+        var result = await controller.PutLibraryLayout(manga.Key, new API.Controllers.Requests.PutLibraryLayoutRecord(API.Schema.MangaContext.LibraryLayout.VolumeFolder));
+
+        var ok = Assert.IsType<Ok<API.Controllers.DTOs.LibraryLayoutResult>>(result.Result);
+        Assert.NotNull(ok.Value);
+        // The layout field in the response should reflect what was set
+        Assert.Equal("VolumeFolder", ok.Value!.Layout);
+        // The preview should show moves (flat → Vol 1 subdir)
+        Assert.NotNull(ok.Value.ReorganizePreview);
+        Assert.Single(ok.Value.ReorganizePreview.Moves);
+        Assert.Contains("Vol 1", ok.Value.ReorganizePreview.Moves[0].To);
+    }
+
+    [Fact]
+    public async Task PutLibraryLayout_DoesNotMoveFiles()
+    {
+        using var ctx = CreateContext();
+        var library = MakeLibrary();
+        ctx.FileLibraries.Add(library);
+        var manga = MakeTestManga("One Piece", library);
+        ctx.Mangas.Add(manga);
+
+        var ch = new SchemaChapter(manga, "1", 1);
+        ch.FileName = "wrong.cbz";
+        ctx.Chapters.Add(ch);
+        await ctx.SaveChangesAsync();
+
+        var (controller, workerQueueMock) = CreateController(ctx);
+        await controller.PutLibraryLayout(manga.Key, new API.Controllers.Requests.PutLibraryLayoutRecord(API.Schema.MangaContext.LibraryLayout.VolumeFolder));
+
+        // No workers should be queued
+        workerQueueMock.Verify(q => q.AddWorkers(It.IsAny<IEnumerable<BaseWorker>>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task GetReorganizePreview_WithVolumeFolderLayout_UsesSubdirectoryPaths()
+    {
+        using var ctx = CreateContext();
+        var library = MakeLibrary();
+        ctx.FileLibraries.Add(library);
+        var manga = MakeTestManga("Dragon Ball Z", library);
+        manga.LibraryLayout = API.Schema.MangaContext.LibraryLayout.VolumeFolder;
+        ctx.Mangas.Add(manga);
+
+        var ch = new SchemaChapter(manga, "1", 3);
+        ch.FileName = "wrong.cbz"; // current flat path, triggers a move
+        ctx.Chapters.Add(ch);
+        await ctx.SaveChangesAsync();
+
+        var (controller, _) = CreateController(ctx);
+        var result = await controller.GetReorganizePreview(manga.Key);
+
+        var ok = Assert.IsType<Ok<ReorganizePreviewResult>>(result.Result);
+        Assert.Single(ok.Value!.Moves);
+        // Target path should go into a "Vol 3" subdirectory
+        Assert.Contains("Vol 3", ok.Value.Moves[0].To);
+    }
+
+    [Fact]
+    public async Task GetReorganizePreview_WithNullVolumeNumber_AlwaysFlatRegardlessOfLayout()
+    {
+        using var ctx = CreateContext();
+        var library = MakeLibrary();
+        ctx.FileLibraries.Add(library);
+        var manga = MakeTestManga("Vinland Saga", library);
+        manga.LibraryLayout = API.Schema.MangaContext.LibraryLayout.VolumeFolder;
+        ctx.Mangas.Add(manga);
+
+        // Chapter with null volume number — must not go into a volume subfolder
+        var ch = new SchemaChapter(manga, "1", null);
+        ch.FileName = "wrong.cbz";
+        ctx.Chapters.Add(ch);
+        await ctx.SaveChangesAsync();
+
+        var (controller, _) = CreateController(ctx);
+        var result = await controller.GetReorganizePreview(manga.Key);
+
+        var ok = Assert.IsType<Ok<ReorganizePreviewResult>>(result.Result);
+        Assert.Single(ok.Value!.Moves);
+        // Target path should be directly under manga dir, NOT in a Vol subfolder
+        string toPath = ok.Value.Moves[0].To;
+        string mangaDir = manga.FullDirectoryPath;
+        string relative = Path.GetRelativePath(mangaDir, toPath);
+        // relative path must have no directory separator (i.e., it's flat)
+        Assert.DoesNotContain(Path.DirectorySeparatorChar.ToString(), relative);
+    }
+
+    // ──────────────────────────────────────────────────────
+    // GET /volumes — LibraryLayout in response
+    // ──────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetVolumes_IncludesLibraryLayoutInResponse()
+    {
+        using var ctx = CreateContext();
+        var library = MakeLibrary();
+        ctx.FileLibraries.Add(library);
+        var manga = MakeTestManga("Berserk", library);
+        manga.LibraryLayout = API.Schema.MangaContext.LibraryLayout.VolumeFolder;
+        ctx.Mangas.Add(manga);
+        await ctx.SaveChangesAsync();
+
+        var (controller, _) = CreateController(ctx);
+        var result = await controller.GetVolumes(manga.Key);
+
+        var ok = Assert.IsType<Ok<VolumeListResult>>(result.Result);
+        Assert.Equal(API.Schema.MangaContext.LibraryLayout.VolumeFolder, ok.Value!.Layout);
+    }
 }
