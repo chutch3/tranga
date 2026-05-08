@@ -238,6 +238,59 @@ public class VolumeController(MangaContext context, TrangaSettings settings, IWo
     }
 
     /// <summary>
+    /// Bulk-assigns chapter numbers to volume numbers for a manga.
+    /// Chapters not found are listed in the response; the request is not failed.
+    /// Also marks MetadataSource as Manual/Confirmed on the manga.
+    /// </summary>
+    /// <param name="MangaId"><see cref="SchemaManga"/>.Key</param>
+    /// <param name="request">Map of ChapterNumber to VolumeNumber</param>
+    /// <response code="200">Assignment applied; returns count of applied and list of not-found chapter numbers</response>
+    /// <response code="404">Manga not found</response>
+    [HttpPost("volumes/assignments")]
+    [ProducesResponseType<BulkAssignmentResult>(Status200OK, "application/json")]
+    [ProducesResponseType<string>(Status404NotFound, "text/plain")]
+    public async Task<Results<Ok<BulkAssignmentResult>, NotFound<string>>> PostBulkAssignment(
+        string MangaId, [FromBody] BulkAssignmentRecord request)
+    {
+        var manga = await context.Mangas
+            .Include(m => m.Chapters)
+            .Include(m => m.MetadataSource)
+            .FirstOrDefaultAsync(m => m.Key == MangaId, HttpContext.RequestAborted);
+
+        if (manga is null)
+            return TypedResults.NotFound(nameof(MangaId));
+
+        var notFound = new List<string>();
+        int applied = 0;
+
+        foreach (var (chapterNumber, volumeNumber) in request.Assignments)
+        {
+            var chapter = manga.Chapters
+                .FirstOrDefault(c => string.Equals(c.ChapterNumber, chapterNumber, StringComparison.OrdinalIgnoreCase));
+
+            if (chapter is null)
+            {
+                notFound.Add(chapterNumber);
+                continue;
+            }
+
+            chapter.VolumeNumber = volumeNumber;
+            chapter.MetadataConfidence = Schema.MangaContext.MetadataConfidence.Manual;
+            applied++;
+        }
+
+        if (manga.MetadataSource is not null)
+        {
+            manga.MetadataSource.SourceType = MetadataSourceType.Manual;
+            manga.MetadataSource.Status = MetadataSourceStatus.Confirmed;
+        }
+
+        await context.Sync(HttpContext.RequestAborted, GetType(), nameof(PostBulkAssignment));
+
+        return TypedResults.Ok(new BulkAssignmentResult(applied, notFound));
+    }
+
+    /// <summary>
     /// Queues a BundleVolumeWorker to merge all unbundled chapters into a single CBZ.
     /// </summary>
     /// <param name="MangaId"><see cref="SchemaManga"/>.Key</param>
