@@ -17,11 +17,46 @@ namespace API.Controllers;
 [ApiVersion(2)]
 [ApiController]
 [Route("v{v:apiVersion}/Manga")]
-public class MetadataSourceController(
-    MangaContext context,
-    IMangaDexSearchService mangaDexSearchService,
-    IWorkerQueue workerQueue) : ControllerBase
+public class MetadataSourceController : ControllerBase
 {
+    private readonly MangaContext context;
+    private readonly IMangaDexSearchService mangaDexSearchService;
+    private readonly IAniListSearchService aniListSearchService;
+    private readonly IWorkerQueue workerQueue;
+
+    public MetadataSourceController(
+        MangaContext context,
+        IMangaDexSearchService mangaDexSearchService,
+        IAniListSearchService aniListSearchService,
+        IWorkerQueue workerQueue)
+    {
+        this.context = context;
+        this.mangaDexSearchService = mangaDexSearchService;
+        this.aniListSearchService = aniListSearchService;
+        this.workerQueue = workerQueue;
+    }
+
+    /// <summary>
+    /// Backward-compatible constructor for tests that do not inject <see cref="IAniListSearchService"/>.
+    /// </summary>
+    public MetadataSourceController(
+        MangaContext context,
+        IMangaDexSearchService mangaDexSearchService,
+        IWorkerQueue workerQueue)
+        : this(context, mangaDexSearchService, new NullAniListSearchService(), workerQueue)
+    {
+    }
+
+    /// <summary>
+    /// No-op AniList service used when none is registered (test compat shim).
+    /// </summary>
+    private sealed class NullAniListSearchService : IAniListSearchService
+    {
+        public Task<List<AniListSearchResult>> SearchAsync(string title, CancellationToken cancellationToken = default)
+            => Task.FromResult(new List<AniListSearchResult>());
+    }
+
+
     /// <summary>
     /// Returns the <see cref="MetadataSource"/> for a given <see cref="Schema.MangaContext.Manga"/>.
     /// </summary>
@@ -95,17 +130,18 @@ public class MetadataSourceController(
     }
 
     /// <summary>
-    /// Searches MangaDex for candidates matching a Manga's title, scored by similarity.
+    /// Searches for candidates matching a Manga's title, scored by similarity.
     /// </summary>
     /// <param name="MangaId"><see cref="Schema.MangaContext.Manga"/>.Key</param>
     /// <param name="q">Title to search for</param>
+    /// <param name="source">Metadata source to search: "mangadex" (default) or "anilist"</param>
     /// <response code="200">Top 10 scored candidates</response>
     /// <response code="404">Manga not found</response>
     [HttpGet("{MangaId}/metadataSource/candidates")]
     [ProducesResponseType<List<MetadataSourceCandidate>>(Status200OK, "application/json")]
     [ProducesResponseType<string>(Status404NotFound, "text/plain")]
     public async Task<Results<Ok<List<MetadataSourceCandidate>>, NotFound<string>>> GetMetadataSourceCandidates(
-        string MangaId, [FromQuery] string q)
+        string MangaId, [FromQuery] string q, [FromQuery] string source = "mangadex")
     {
         if (await context.Mangas
                 .Include(m => m.Authors)
@@ -113,21 +149,39 @@ public class MetadataSourceController(
                 .FirstOrDefaultAsync(m => m.Key == MangaId, HttpContext.RequestAborted) is not { } manga)
             return TypedResults.NotFound(nameof(MangaId));
 
-        var searchResults = await mangaDexSearchService.SearchAsync(q, HttpContext.RequestAborted);
-
         int ourChapterCount = manga.Chapters.Count;
         string? ourAuthor = manga.Authors.FirstOrDefault()?.AuthorName;
         bool hasAuthor = !string.IsNullOrEmpty(ourAuthor);
 
-        var candidates = searchResults.Select(r =>
+        List<MetadataSourceCandidate> candidates;
+
+        if (string.Equals(source, "anilist", StringComparison.OrdinalIgnoreCase))
         {
-            float score = ScoreCandidate(q, r, ourChapterCount, ourAuthor, hasAuthor);
-            var reasons = BuildMatchReasons(q, r, ourChapterCount, ourAuthor, hasAuthor);
-            return new MetadataSourceCandidate(r.MangaDexId, r.Title, r.Author, r.ChapterCount, score, reasons);
-        })
-        .OrderByDescending(c => c.Score)
-        .Take(10)
-        .ToList();
+            var aniListResults = await aniListSearchService.SearchAsync(q, HttpContext.RequestAborted);
+            candidates = aniListResults.Select(r =>
+            {
+                float score = ScoreAniListCandidate(q, r, ourChapterCount, ourAuthor, hasAuthor);
+                var reasons = BuildAniListMatchReasons(q, r, ourChapterCount, ourAuthor, hasAuthor);
+                string externalId = r.AniListId.ToString();
+                return new MetadataSourceCandidate(externalId, r.Title, r.Author, r.ChapterCount ?? 0, score, reasons, externalId);
+            })
+            .OrderByDescending(c => c.Score)
+            .Take(10)
+            .ToList();
+        }
+        else
+        {
+            var searchResults = await mangaDexSearchService.SearchAsync(q, HttpContext.RequestAborted);
+            candidates = searchResults.Select(r =>
+            {
+                float score = ScoreCandidate(q, r, ourChapterCount, ourAuthor, hasAuthor);
+                var reasons = BuildMatchReasons(q, r, ourChapterCount, ourAuthor, hasAuthor);
+                return new MetadataSourceCandidate(r.MangaDexId, r.Title, r.Author, r.ChapterCount, score, reasons, r.MangaDexId);
+            })
+            .OrderByDescending(c => c.Score)
+            .Take(10)
+            .ToList();
+        }
 
         return TypedResults.Ok(candidates);
     }
@@ -187,6 +241,41 @@ public class MetadataSourceController(
         else if (titleSim > 0.7f) reasons.Add("Title is somewhat similar");
 
         float countProx = ChapterCountProximity(ourChapterCount, candidate.ChapterCount);
+        if (countProx > 0.9f) reasons.Add("Chapter count matches closely");
+        else if (countProx > 0.7f) reasons.Add("Chapter count is similar");
+
+        if (hasAuthor && !string.IsNullOrEmpty(candidate.Author))
+        {
+            bool match = Normalize(candidate.Author!).Contains(Normalize(ourAuthor!))
+                || Normalize(ourAuthor!).Contains(Normalize(candidate.Author!));
+            if (match) reasons.Add("Author matches");
+        }
+
+        return reasons;
+    }
+
+    private static float ScoreAniListCandidate(string query, AniListSearchResult candidate, int ourChapterCount, string? ourAuthor, bool hasAuthor)
+    {
+        float titleSim = JaroWinkler(Normalize(query), Normalize(candidate.Title));
+        float countProx = ChapterCountProximity(ourChapterCount, candidate.ChapterCount ?? 0);
+        float authorMatch = hasAuthor && !string.IsNullOrEmpty(candidate.Author)
+            ? (Normalize(candidate.Author!).Contains(Normalize(ourAuthor!)) || Normalize(ourAuthor!).Contains(Normalize(candidate.Author!)) ? 1f : 0f)
+            : float.NaN;
+
+        if (float.IsNaN(authorMatch))
+            return titleSim * 0.65f + countProx * 0.35f;
+
+        return titleSim * 0.6f + countProx * 0.3f + authorMatch * 0.1f;
+    }
+
+    private static List<string> BuildAniListMatchReasons(string query, AniListSearchResult candidate, int ourChapterCount, string? ourAuthor, bool hasAuthor)
+    {
+        var reasons = new List<string>();
+        float titleSim = JaroWinkler(Normalize(query), Normalize(candidate.Title));
+        if (titleSim > 0.9f) reasons.Add("Title is very similar");
+        else if (titleSim > 0.7f) reasons.Add("Title is somewhat similar");
+
+        float countProx = ChapterCountProximity(ourChapterCount, candidate.ChapterCount ?? 0);
         if (countProx > 0.9f) reasons.Add("Chapter count matches closely");
         else if (countProx > 0.7f) reasons.Add("Chapter count is similar");
 

@@ -129,6 +129,8 @@ builder.Services.AddHttpClient<MangaDexVolumeResolver>();
 builder.Services.AddSingleton<IMangaDexVolumeResolver>(sp => sp.GetRequiredService<MangaDexVolumeResolver>());
 builder.Services.AddHttpClient<MangaDexSearchService>();
 builder.Services.AddSingleton<IMangaDexSearchService>(sp => sp.GetRequiredService<MangaDexSearchService>());
+builder.Services.AddHttpClient<AniListSearchService>();
+builder.Services.AddSingleton<IAniListSearchService>(sp => sp.GetRequiredService<AniListSearchService>());
 builder.Services.AddSingleton<IBatchWorkerFactory<string>, ResolveMissingVolumesForMangaWorkerFactory>();
 builder.Services.AddSingleton<ResolveMissingVolumesWorker>();
 builder.Services.AddSingleton<SyncChapterFileNamesWorker>();
