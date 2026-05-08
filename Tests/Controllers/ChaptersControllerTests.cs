@@ -37,8 +37,9 @@ public class ChaptersControllerTests: IDisposable
 
         var mockWorkerQueue = new Mock<IWorkerQueue>();
         var connectors = Enumerable.Empty<API.MangaConnectors.MangaConnector>();
+        var mockThumbnailService = new Mock<API.Services.IChapterThumbnailService>();
 
-        var controller = new ChaptersController(ctx, testSettings, connectors, mockWorkerQueue.Object);
+        var controller = new ChaptersController(ctx, testSettings, connectors, mockWorkerQueue.Object, mockThumbnailService.Object);
         controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext()

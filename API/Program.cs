@@ -132,6 +132,7 @@ builder.Services.AddSingleton<IMangaDexSearchService>(sp => sp.GetRequiredServic
 builder.Services.AddSingleton<IBatchWorkerFactory<string>, ResolveMissingVolumesForMangaWorkerFactory>();
 builder.Services.AddSingleton<ResolveMissingVolumesWorker>();
 builder.Services.AddSingleton<SyncChapterFileNamesWorker>();
+builder.Services.AddSingleton<IChapterThumbnailService, ChapterThumbnailService>();
 
 builder.Services.AddSingleton<RateLimitHandler>();
 builder.Services.AddSingleton<IWorkerQueue, WorkerQueue>();

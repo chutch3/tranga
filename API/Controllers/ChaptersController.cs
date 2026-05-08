@@ -2,6 +2,7 @@ using API.Controllers.DTOs;
 using API.Controllers.Requests;
 using API.MangaConnectors;
 using API.Schema.MangaContext;
+using API.Services;
 using API.Workers.MangaDownloadWorkers;
 using API.Workers;
 using Asp.Versioning;
@@ -21,7 +22,7 @@ namespace API.Controllers;
 [ApiVersion(2)]
 [ApiController]
 [Route("v{v:apiVersion}/[controller]")]
-public class ChaptersController(MangaContext context, TrangaSettings settings, IEnumerable<MangaConnectorImpl> connectors, IWorkerQueue workerQueue) : ControllerBase
+public class ChaptersController(MangaContext context, TrangaSettings settings, IEnumerable<MangaConnectorImpl> connectors, IWorkerQueue workerQueue, IChapterThumbnailService chapterThumbnailService) : ControllerBase
 {
     /// <summary>
     /// Returns all <see cref="Schema.MangaContext.Chapter"/> of <see cref="Schema.MangaContext.Manga"/> with <paramref name="MangaId"/>
@@ -348,5 +349,43 @@ public class ChaptersController(MangaContext context, TrangaSettings settings, I
             chapter.VolumeNumber,
             chapter.MetadataConfidence?.ToString()
         ));
+    }
+
+    /// <summary>
+    /// Returns a 200×300 JPEG preview thumbnail of the first page of the chapter archive.
+    /// The thumbnail is generated lazily and cached at <c>{AppData}/previews/{chapter.Key}.jpg</c>.
+    /// </summary>
+    /// <param name="ChapterId"><see cref="Schema.MangaContext.Chapter"/>.Key</param>
+    /// <response code="200">JPEG thumbnail, 200×300 pixels</response>
+    /// <response code="404">Chapter not found, archive unreadable, no images in archive, or chapter is bundled</response>
+    [HttpGet("{ChapterId}/preview")]
+    [ProducesResponseType(Status200OK)]
+    [ProducesResponseType<string>(Status404NotFound, "text/plain")]
+    public async Task<Results<FileStreamHttpResult, NotFound<string>>> GetChapterPreview(string ChapterId)
+    {
+        if (await context.Chapters.FirstOrDefaultAsync(c => c.Key == ChapterId, HttpContext.RequestAborted) is not { } chapter)
+            return TypedResults.NotFound("Chapter not found");
+
+        if (chapter.IsBundled)
+            return TypedResults.NotFound("bundled chapter thumbnails not yet supported");
+
+        string cachePath = Path.Combine(settings.AppData, "previews", $"{chapter.Key}.jpg");
+
+        if (System.IO.File.Exists(cachePath))
+        {
+            var cachedStream = new FileStream(cachePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            return TypedResults.Stream(cachedStream, "image/jpeg");
+        }
+
+        string? archivePath = chapter.FullArchiveFilePath;
+        if (string.IsNullOrEmpty(archivePath))
+            return TypedResults.NotFound("Chapter archive path could not be resolved");
+
+        bool generated = await chapterThumbnailService.GenerateThumbnailAsync(archivePath, cachePath, HttpContext.RequestAborted);
+        if (!generated)
+            return TypedResults.NotFound("Could not generate thumbnail: archive unreadable or contains no images");
+
+        var thumbnailStream = new FileStream(cachePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        return TypedResults.Stream(thumbnailStream, "image/jpeg");
     }
 }

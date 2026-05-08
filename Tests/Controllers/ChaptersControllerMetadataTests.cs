@@ -30,7 +30,8 @@ public class ChaptersControllerMetadataTests
         var testSettings = new API.TrangaSettings { AppData = Path.GetTempPath() };
         var mockWorkerQueue = new Mock<IWorkerQueue>();
         var connectors = Enumerable.Empty<API.MangaConnectors.MangaConnector>();
-        var controller = new ChaptersController(ctx, testSettings, connectors, mockWorkerQueue.Object);
+        var mockThumbnailService = new Mock<API.Services.IChapterThumbnailService>();
+        var controller = new ChaptersController(ctx, testSettings, connectors, mockWorkerQueue.Object, mockThumbnailService.Object);
         controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext()
