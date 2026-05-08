@@ -28,8 +28,11 @@ public class Manga : Identifiable
     public uint? Year { get; internal init; }
     [StringLength(8)] public string? OriginalLanguage { get; internal init; }
     public bool IsTracked { get; internal set; }
-    
-    
+
+    /// <summary>Optional metadata source linkage for this manga.</summary>
+    public MetadataSource? MetadataSource { get; internal set; }
+
+
     /// <exception cref="DirectoryNotFoundException">Library not loaded</exception>
     [NotMapped]
     [JsonIgnore]
@@ -67,6 +70,7 @@ public class Manga : Identifiable
         this.OriginalLanguage = originalLanguage;
         this.Chapters = [];
         this.MangaConnectorIds = [];
+        this.MetadataSource = new MetadataSource(this.Key, MetadataSourceType.Connector, MetadataSourceStatus.Unlinked);
     }
 
     /// <summary>

@@ -27,6 +27,10 @@ public class Chapter : Identifiable, IComparable<Chapter>
 
     public bool Downloaded { get; internal set; }
 
+    public MetadataConfidence? MetadataConfidence { get; internal set; }
+
+    public bool IsBundled { get; internal set; }
+
     /// <exception cref="DirectoryNotFoundException">Library for Manga not loaded</exception>
     [NotMapped]
     public string? FullArchiveFilePath => GetFullFilepath(null);
@@ -51,7 +55,7 @@ public class Chapter : Identifiable, IComparable<Chapter>
     /// <summary>
     /// EF ONLY!!!
     /// </summary>
-    internal Chapter(string key, int? volumeNumber, string chapterNumber, string? title, string? fileName, bool downloaded)
+    internal Chapter(string key, int? volumeNumber, string chapterNumber, string? title, string? fileName, bool downloaded, MetadataConfidence? metadataConfidence = null, bool isBundled = false)
         : base(key)
     {
         this.VolumeNumber = volumeNumber;
@@ -59,6 +63,8 @@ public class Chapter : Identifiable, IComparable<Chapter>
         this.Title = title;
         this.FileName = fileName;
         this.Downloaded = downloaded;
+        this.MetadataConfidence = metadataConfidence;
+        this.IsBundled = isBundled;
     }
 
     public int CompareTo(Chapter? other)
@@ -278,4 +284,11 @@ public class Chapter : Identifiable, IComparable<Chapter>
     }
 
     public override string ToString() => $"{base.ToString()} Vol.{VolumeNumber} Ch.{ChapterNumber} - {Title}";
+}
+
+public enum MetadataConfidence
+{
+    Exact,
+    Heuristic,
+    Manual
 }

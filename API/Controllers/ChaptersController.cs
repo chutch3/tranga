@@ -309,4 +309,44 @@ public class ChaptersController(MangaContext context, TrangaSettings settings, I
 
         return TypedResults.Ok();
     }
+
+    /// <summary>
+    /// Manually assigns a volume number to a <see cref="Schema.MangaContext.Chapter"/>.
+    /// Passing null clears the volume assignment and confidence.
+    /// </summary>
+    /// <param name="ChapterId"><see cref="Schema.MangaContext.Chapter"/>.Key</param>
+    /// <param name="patch">Volume number to assign (null to clear)</param>
+    /// <response code="200">Volume number updated</response>
+    /// <response code="404"><see cref="Schema.MangaContext.Chapter"/> with <paramref name="ChapterId"/> not found</response>
+    /// <response code="500">Error during Database Operation</response>
+    [HttpPut("{ChapterId}/volume")]
+    [ProducesResponseType<DTOs.ChapterVolumeAssignmentResult>(Status200OK, "application/json")]
+    [ProducesResponseType<string>(Status404NotFound, "text/plain")]
+    [ProducesResponseType<string>(Status500InternalServerError, "text/plain")]
+    public async Task<Results<Ok<DTOs.ChapterVolumeAssignmentResult>, NotFound<string>, InternalServerError<string>>> AssignChapterVolume(string ChapterId, [FromBody] PatchChapterVolumeRecord patch)
+    {
+        if (await context.Chapters.FirstOrDefaultAsync(c => c.Key == ChapterId, HttpContext.RequestAborted) is not { } chapter)
+            return TypedResults.NotFound(nameof(ChapterId));
+
+        if (patch.VolumeNumber is not null)
+        {
+            chapter.VolumeNumber = patch.VolumeNumber;
+            chapter.MetadataConfidence = Schema.MangaContext.MetadataConfidence.Manual;
+        }
+        else
+        {
+            chapter.VolumeNumber = null;
+            chapter.MetadataConfidence = null;
+        }
+
+        if (await context.Sync(HttpContext.RequestAborted, GetType(), System.Reflection.MethodBase.GetCurrentMethod()?.Name) is { success: false } result)
+            return TypedResults.InternalServerError(result.exceptionMessage);
+
+        return TypedResults.Ok(new DTOs.ChapterVolumeAssignmentResult(
+            chapter.Key,
+            chapter.ChapterNumber,
+            chapter.VolumeNumber,
+            chapter.MetadataConfidence?.ToString()
+        ));
+    }
 }
