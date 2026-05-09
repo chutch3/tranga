@@ -1,3 +1,4 @@
+using System.Reflection;
 using API;
 using API.Controllers;
 using API.Controllers.DTOs;
@@ -87,6 +88,35 @@ public class SearchControllerTests
 
         Assert.IsType<Ok<MangaDto>>(result.Result);
         Assert.Equal(0, await ctx.Mangas.CountAsync());
+    }
+
+    [Fact]
+    public async Task GetMangaFromConnector_IdContainingSlash_ReturnsMangaDto()
+    {
+        // IDs like "2003/one-punch-man" must work; routing must accept ConnectorMangaId as a query param
+        // so that ASP.NET Core doesn't reject the encoded slash (%2F) in a path segment.
+        using var ctx = CreateContext();
+        var manga = MakeTestManga("One Punch Man");
+        var connectorId = MakeConnectorId(manga, "Mangaworld", "2003/one-punch-man");
+
+        var result = await CreateController(ctx, (_, id) => id == "2003/one-punch-man" ? (manga, connectorId) : null)
+            .GetMangaFromConnector("Mangaworld", "2003/one-punch-man");
+
+        var ok = Assert.IsType<Ok<MangaDto>>(result.Result);
+        Assert.Equal("One Punch Man", ok.Value!.Name);
+    }
+
+    [Fact]
+    public void GetMangaFromConnector_ConnectorMangaIdIsFromQueryParameter()
+    {
+        // Verifies the routing fix: ConnectorMangaId must be a query param so that
+        // IDs containing slashes (e.g. "2003/one-punch-man") are not rejected by ASP.NET Core routing.
+        var method = typeof(SearchController).GetMethod(nameof(SearchController.GetMangaFromConnector));
+        Assert.NotNull(method);
+        var param = method!.GetParameters().Single(p => p.Name == "ConnectorMangaId");
+        Assert.True(
+            param.GetCustomAttributes(typeof(FromQueryAttribute), inherit: false).Length > 0,
+            "ConnectorMangaId must be decorated with [FromQuery] to allow slash-containing IDs");
     }
 
     [Fact]

@@ -76,10 +76,10 @@ public class SearchController(
     /// <param name="ConnectorMangaId">The manga's ID on the connector site</param>
     /// <response code="200">Full <see cref="DTOs.Manga"/> detail</response>
     /// <response code="404">Manga not found on connector</response>
-    [HttpGet("{MangaConnectorName}/Manga/{ConnectorMangaId}")]
+    [HttpGet("{MangaConnectorName}/Manga")]
     [ProducesResponseType<DTOs.Manga>(Status200OK, "application/json")]
     [ProducesResponseType<string>(Status404NotFound, "text/plain")]
-    public Task<Results<Ok<DTOs.Manga>, NotFound<string>>> GetMangaFromConnector(string MangaConnectorName, string ConnectorMangaId)
+    public Task<Results<Ok<DTOs.Manga>, NotFound<string>>> GetMangaFromConnector(string MangaConnectorName, [FromQuery] string ConnectorMangaId)
     {
         if (LookupFromConnector(MangaConnectorName, ConnectorMangaId) is not ({ } manga, { } id))
             return Task.FromResult<Results<Ok<DTOs.Manga>, NotFound<string>>>(TypedResults.NotFound(nameof(ConnectorMangaId)));
