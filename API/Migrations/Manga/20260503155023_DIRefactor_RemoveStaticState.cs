@@ -13,8 +13,8 @@ namespace API.Migrations.Manga
             // MangaConnector is now a DI singleton — remove the orphaned table.
             // No FK referenced this table (MangaConnectorName was a plain string column),
             // so no foreign key drop is needed before dropping the table.
-            migrationBuilder.DropTable(
-                name: "MangaConnector");
+            // Use IF EXISTS so fresh databases (where this table was never created) don't fail.
+            migrationBuilder.Sql("DROP TABLE IF EXISTS \"MangaConnector\"");
         }
 
         /// <inheritdoc />

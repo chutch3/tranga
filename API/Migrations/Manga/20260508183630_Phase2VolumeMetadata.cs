@@ -11,8 +11,8 @@ namespace API.Migrations.Manga
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(
-                name: "MangaConnector");
+            // Use IF EXISTS — DIRefactor_RemoveStaticState may have already dropped this on existing DBs.
+            migrationBuilder.Sql("DROP TABLE IF EXISTS \"MangaConnector\"");
 
             migrationBuilder.DropColumn(
                 name: "MetadataSource_ExternalId",
