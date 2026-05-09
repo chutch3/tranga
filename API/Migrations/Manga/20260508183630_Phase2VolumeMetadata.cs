@@ -34,12 +34,8 @@ namespace API.Migrations.Manga
                 name: "MetadataSource_Status",
                 table: "Mangas");
 
-            migrationBuilder.AddColumn<bool>(
-                name: "IsTracked",
-                table: "Mangas",
-                type: "boolean",
-                nullable: false,
-                defaultValue: false);
+            // AddManga_IsTracked migration may have already added this column on existing DBs.
+            migrationBuilder.Sql("ALTER TABLE \"Mangas\" ADD COLUMN IF NOT EXISTS \"IsTracked\" boolean NOT NULL DEFAULT FALSE");
 
             migrationBuilder.CreateTable(
                 name: "MetadataSources",
