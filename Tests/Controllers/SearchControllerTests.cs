@@ -107,7 +107,7 @@ public class SearchControllerTests
     }
 
     [Fact]
-    public void GetMangaFromConnector_ConnectorMangaIdIsFromQueryParameter()
+    public async Task GetMangaFromConnector_ConnectorMangaIdIsFromQueryParameter()
     {
         // Verifies the routing fix: ConnectorMangaId must be a query param so that
         // IDs containing slashes (e.g. "2003/one-punch-man") are not rejected by ASP.NET Core routing.
@@ -120,24 +120,85 @@ public class SearchControllerTests
     }
 
     [Fact]
-    public void SearchManga_ReturnsCoverUrl()
+    public async Task SearchManga_ReturnsCoverUrl()
     {
         using var ctx = CreateContext();
         var manga = MakeTestManga("One Punch Man", "http://example.com/opm.jpg");
         var connectorId = MakeConnectorId(manga, "MangaDex", "opm-id");
 
         var mockConnector = new Mock<API.MangaConnectors.MangaConnector>("MangaDex", new[] { "en" }, new[] { "mangadex.org" }, "icon.png", new TrangaSettings());
-        mockConnector.Setup(c => c.SearchManga(It.IsAny<string>())).Returns([(manga, connectorId)]);
+        mockConnector.Setup(c => c.SearchManga(It.IsAny<string>())).ReturnsAsync([(manga, connectorId)]);
         // Enabled is true by default, and Name is set in constructor.
 
         var connectors = new[] { mockConnector.Object };
         var workerQueue = new Mock<API.Workers.IWorkerQueue>().Object;
         var controller = new SearchController(ctx, connectors, workerQueue);
+        controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
 
-        var result = controller.SearchManga("MangaDex", "one punch man");
+        var result = await controller.SearchManga("MangaDex", "one punch man");
 
         var ok = Assert.IsType<Ok<List<MinimalManga>>>(result.Result);
         var searchResult = Assert.Single(ok.Value!);
         Assert.Equal("http://example.com/opm.jpg", searchResult.CoverUrl);
+    }
+
+    [Fact]
+    public async Task GetMangaFromConnector_ExistingTrackedManga_ReturnsRealFileLibraryId()
+    {
+        using var ctx = CreateContext();
+        var library = new API.Schema.MangaContext.FileLibrary("/manga", "Main Lib");
+        ctx.FileLibraries.Add(library);
+        
+        var manga = MakeTestManga("One Piece");
+        manga.Library = library;
+        manga.IsTracked = true;
+        ctx.Mangas.Add(manga);
+        
+        var connectorId = new SchemaConnectorId(manga, "MangaDex", "op-123", "http://op.com", false);
+        ctx.MangaConnectorToManga.Add(connectorId);
+        await ctx.SaveChangesAsync();
+
+        var result = await CreateController(ctx, (_, _) => (manga, connectorId))
+            .GetMangaFromConnector("MangaDex", "op-123");
+
+        var ok = Assert.IsType<Ok<MangaDto>>(result.Result);
+        Assert.Equal(library.Key, ok.Value!.FileLibraryId);
+        Assert.Equal(manga.Key, ok.Value.Key);
+    }
+
+    [Fact]
+    public async Task SearchManga_ExistingTrackedManga_ReturnsRealFileLibraryId()
+    {
+        using var ctx = CreateContext();
+        var library = new API.Schema.MangaContext.FileLibrary("/manga", "Main Lib");
+        ctx.FileLibraries.Add(library);
+        
+        var manga = MakeTestManga("One Piece");
+        manga.Library = library;
+        manga.IsTracked = true;
+        ctx.Mangas.Add(manga);
+        
+        var connectorId = new SchemaConnectorId(manga, "MangaDex", "op-123", "http://op.com", false);
+        ctx.MangaConnectorToManga.Add(connectorId);
+        ctx.SaveChanges();
+
+        var mockConnector = new Mock<API.MangaConnectors.MangaConnector>("MangaDex", new[] { "en" }, new[] { "mangadex.org" }, "icon.png", new TrangaSettings());
+        mockConnector.Setup(c => c.SearchManga(It.IsAny<string>())).ReturnsAsync([(manga, connectorId)]);
+
+        var controller = CreateController(ctx);
+        // We need to inject the mock connector. The CreateController helper doesn't support it well currently.
+        // Let's manually create it.
+        var connectors = new[] { mockConnector.Object };
+        var workerQueue = new Mock<API.Workers.IWorkerQueue>().Object;
+        var searchController = new SearchController(ctx, connectors, workerQueue, null);
+        searchController.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
+
+        var result = await searchController.SearchManga("MangaDex", "One Piece");
+
+        var ok = Assert.IsType<Ok<List<MinimalManga>>>(result.Result);
+        var searchResult = Assert.Single(ok.Value!);
+        Assert.Equal(library.Key, searchResult.FileLibraryId);
+        Assert.Equal("en", searchResult.Language);
+        Assert.Equal(manga.Key, searchResult.Key);
     }
 }

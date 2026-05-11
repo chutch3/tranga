@@ -29,9 +29,9 @@ public abstract class MetadataFetcher
     internal MetadataEntry CreateMetadataEntry(Manga manga, string identifier) =>
         new (this, manga, identifier);
     
-    public abstract MetadataSearchResult[] SearchMetadataEntry(Manga manga);
+    public abstract Task<MetadataSearchResult[]> SearchMetadataEntry(Manga manga);
     
-    public abstract MetadataSearchResult[] SearchMetadataEntry(string searchTerm);
+    public abstract Task<MetadataSearchResult[]> SearchMetadataEntry(string searchTerm);
 
     /// <summary>
     /// Updates the Manga linked in the MetadataEntry

@@ -27,28 +27,28 @@ public sealed class Mangaworld : MangaConnector
         downloadClient = new HttpDownloadClient(rateLimitHandler, settings);
     }
 
-    public override (Manga, MangaConnectorId<Manga>)[] SearchManga(string mangaSearchName)
+    public override async Task<(Manga, MangaConnectorId<Manga>)[]> SearchManga(string mangaSearchName)
     {
         // 1) Tentativo con la stringa così com'è
-        (Manga, MangaConnectorId<Manga>)[] first = SearchOnce(mangaSearchName);
+        (Manga, MangaConnectorId<Manga>)[] first = await SearchOnce(mangaSearchName);
         if (first.Length > 0)
             return first;
 
         // 2) Fallback: rimuovi diacritici / caratteri strani
         string fallback = RemoveDiacritics(mangaSearchName);
         if (!string.Equals(fallback, mangaSearchName, StringComparison.Ordinal))
-            return SearchOnce(fallback);
+            return await SearchOnce(fallback);
 
         return first;
     }
 
-    private (Manga, MangaConnectorId<Manga>)[] SearchOnce(string query)
+    private async Task<(Manga, MangaConnectorId<Manga>)[]> SearchOnce(string query)
     {
         Uri baseUri = new("https://www.mangaworld.mx/");
         Uri searchUrl = new(baseUri, "archive?keyword=" + HttpUtility.UrlEncode(query));
 
         using HttpResponseMessage res =
-            downloadClient.MakeRequest(searchUrl.ToString(), RequestType.Default).Result;
+            await downloadClient.MakeRequest(searchUrl.ToString(), RequestType.Default);
 
         if ((int)res.StatusCode < 200 || (int)res.StatusCode >= 300)
             return [];
@@ -77,7 +77,7 @@ public sealed class Mangaworld : MangaConnector
             if (!seen.Add(canonical))
                 continue;
 
-            (Manga, MangaConnectorId<Manga>)? manga = GetMangaFromUrl(canonical);
+            (Manga, MangaConnectorId<Manga>)? manga = await GetMangaFromUrl(canonical);
             if (manga is null)
                 continue;
 
@@ -87,15 +87,15 @@ public sealed class Mangaworld : MangaConnector
         return list.ToArray();
     }
 
-    public override (Manga, MangaConnectorId<Manga>)? GetMangaFromUrl(string url)
+    public override async Task<(Manga, MangaConnectorId<Manga>)?> GetMangaFromUrl(string url)
     {
         Match m = SeriesUrl.Match(url);
         if (!m.Success)
             return null;
-        return GetMangaFromId($"{m.Groups["id"].Value}/{m.Groups["slug"].Value}");
+        return await GetMangaFromId($"{m.Groups["id"].Value}/{m.Groups["slug"].Value}");
     }
 
-    public override (Manga, MangaConnectorId<Manga>)? GetMangaFromId(string mangaIdOnSite)
+    public override async Task<(Manga, MangaConnectorId<Manga>)?> GetMangaFromId(string mangaIdOnSite)
     {
         string[] parts = mangaIdOnSite.Split('/', 2);
         if (parts.Length != 2)
@@ -107,7 +107,7 @@ public sealed class Mangaworld : MangaConnector
         Uri seriesUrl = new Uri($"https://www.mangaworld.mx/manga/{id}/{slug}/");
 
         using HttpResponseMessage res =
-            downloadClient.MakeRequest(seriesUrl.ToString(), RequestType.MangaInfo).Result;
+            await downloadClient.MakeRequest(seriesUrl.ToString(), RequestType.MangaInfo);
 
         if ((int)res.StatusCode < 200 || (int)res.StatusCode >= 300)
             return null;
@@ -172,7 +172,7 @@ public sealed class Mangaworld : MangaConnector
         return (m, mcId);
     }
 
-    public override (Chapter, MangaConnectorId<Chapter>)[] GetChapters(MangaConnectorId<Manga> mangaId, string? language = null)
+    public override async Task<(Chapter, MangaConnectorId<Chapter>)[]> GetChapters(MangaConnectorId<Manga> mangaId, string? language = null)
     {
         string[] parts = mangaId.IdOnConnectorSite.Split('/', 2);
         if (parts.Length != 2)
@@ -182,7 +182,7 @@ public sealed class Mangaworld : MangaConnector
         string slug = parts[1];
         string seriesUrl = $"https://www.mangaworld.mx/manga/{id}/{slug}/";
 
-        string html = FetchHtmlWithFallback(seriesUrl, out Uri baseUri);
+        (string html, Uri baseUri) = await FetchHtmlWithFallback(seriesUrl);
         if (string.IsNullOrEmpty(html))
             return [];
 
@@ -195,15 +195,15 @@ public sealed class Mangaworld : MangaConnector
         return chapters.OrderBy(c => c.Item1, new Chapter.ChapterComparer()).ToArray();
     }
 
-    internal override string[] GetChapterImageUrls(MangaConnectorId<Chapter> chapterId)
+    internal override async Task<string[]> GetChapterImageUrls(MangaConnectorId<Chapter> chapterId)
     {
         string raw = chapterId.WebsiteUrl ?? $"https://www.mangaworld.mx/manga/{chapterId.IdOnConnectorSite}";
         string url = EnsureReaderUrl(raw);
 
-        if (downloadClient.MakeRequest(url, RequestType.MangaInfo).Result is not { IsSuccessStatusCode: true } res)
+        if (await downloadClient.MakeRequest(url, RequestType.MangaInfo) is not { IsSuccessStatusCode: true } res)
             return [];
 
-        string html = res.Content.ReadAsStringAsync().Result;
+        string html = await res.Content.ReadAsStringAsync();
 
         Uri baseUri = new(url);
         HtmlDocument doc = new();
@@ -385,19 +385,19 @@ public sealed class Mangaworld : MangaConnector
         return new string(buffer[..i]).Normalize(NormalizationForm.FormC);
     }
 
-    private string FetchHtmlWithFallback(string seriesUrl, out Uri baseUri)
+        private async Task<(string html, Uri baseUri)> FetchHtmlWithFallback(string seriesUrl)
     {
-        baseUri = new Uri(seriesUrl);
+        Uri baseUri = new Uri(seriesUrl);
         HttpResponseMessage res;
         try
         {
-            res = downloadClient.MakeRequest(seriesUrl, RequestType.Default).Result;
+            res = await downloadClient.MakeRequest(seriesUrl, RequestType.Default);
         }
         catch
         {
-            return "";
+            return ("", baseUri);
         }
         using StreamReader sr = new StreamReader(res.Content.ReadAsStream());
-        return sr.ReadToEnd();
+        return (await sr.ReadToEndAsync(), baseUri);
     }
 }

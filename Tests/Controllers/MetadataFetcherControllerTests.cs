@@ -39,8 +39,8 @@ public class MetadataFetcherControllerTests
     // Concrete test double — parameterless MetadataFetcher sets Name = GetType().Name
     private sealed class FakeFetcher : MetadataFetcher
     {
-        public override MetadataSearchResult[] SearchMetadataEntry(Manga manga) => [];
-        public override MetadataSearchResult[] SearchMetadataEntry(string searchTerm) => [];
+        public override Task<MetadataSearchResult[]> SearchMetadataEntry(Manga manga) => Task.FromResult<MetadataSearchResult[]>([]);
+        public override Task<MetadataSearchResult[]> SearchMetadataEntry(string searchTerm) => Task.FromResult<MetadataSearchResult[]>([]);
         public override Task UpdateMetadata(MetadataEntry metadataEntry, MangaContext dbContext, CancellationToken token) => Task.CompletedTask;
     }
 
@@ -180,5 +180,34 @@ public class MetadataFetcherControllerTests
 
         var statusResult = Assert.IsType<StatusCodeHttpResult>(result.Result);
         Assert.Equal(412, statusResult.StatusCode);
+    }
+
+    private sealed class ExplodingFetcher : MetadataFetcher
+    {
+        public override Task<MetadataSearchResult[]> SearchMetadataEntry(Manga manga) => throw new Exception("Jikan Gateway Timeout");
+        public override Task<MetadataSearchResult[]> SearchMetadataEntry(string searchTerm) => Task.FromResult<MetadataSearchResult[]>([]);
+        public override Task UpdateMetadata(MetadataEntry metadataEntry, MangaContext dbContext, CancellationToken token) => Task.CompletedTask;
+    }
+
+    [Fact]
+    public async Task SearchMangaMetadata_WhenFetcherThrows_ReturnsProblem()
+    {
+        using var mangaCtx = CreateMangaContext();
+        using var actionsCtx = CreateActionsContext();
+        var manga = new Manga("Test", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], []);
+        mangaCtx.Mangas.Add(manga);
+        await mangaCtx.SaveChangesAsync();
+        
+        var fetcher = new ExplodingFetcher();
+
+        // This currently propagates the exception and returns 500 (crash)
+        // We want it to return a clean error response.
+        var result = await CreateController(mangaCtx, actionsCtx, [fetcher])
+            .SearchMangaMetadata(manga.Key, fetcher.Name);
+
+        // We expect some kind of non-crashing error result
+        Assert.IsAssignableFrom<IStatusCodeHttpResult>(result.Result);
+        var status = (IStatusCodeHttpResult)result.Result;
+        Assert.True(status.StatusCode >= 400);
     }
 }

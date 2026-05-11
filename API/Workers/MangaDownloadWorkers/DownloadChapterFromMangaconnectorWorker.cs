@@ -79,130 +79,129 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
             return [];
         }
 
-        Log.Info($"Getting imageUrls for chapter {chapter}");
-        string[] imageUrls = mangaConnector.GetChapterImageUrls(mangaConnectorId);
-        if (imageUrls.Length < 1)
-        {
-            Log.Info($"No imageUrls for chapter {chapter}");
-            return [];
-        }
-
-        if (chapter.GetFullFilepath(settings.ChapterNamingScheme) is not { } saveArchiveFilePath)
-        {
-            Log.Error("Failed getting saveArchiveFilePath");
-            return [];
-        }
-        Log.Debug($"Chapter path: {saveArchiveFilePath}");
-
-        //Check if Publication Directory already exists
-        string? directoryPath = Path.GetDirectoryName(saveArchiveFilePath);
-        if (directoryPath is null)
-        {
-            Log.Error($"Directory path could not be found: {saveArchiveFilePath}");
-            this.Fail();
-            return [];
-        }
-        if (!Directory.Exists(directoryPath))
-        {
-            Log.Info($"Creating publication Directory: {directoryPath}");
-            Directory.CreateDirectory(directoryPath);
-        }
-
-        Log.Info($"Downloading images: {chapter}");
-        List<Stream> images = [];
-        //Download all Images to temporary Folder
-        foreach (string imageUrl in imageUrls)
-        {
-            try
-            {
-                if (await mangaConnector.DownloadImage(imageUrl, CancellationToken) is not { } stream)
-                {
-                    Log.Error($"Failed to download image: {imageUrl}");
-                    return [];
-                }
-                else
-                    images.Add(await ProcessImage(stream, CancellationToken));
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex);
-                images.ForEach(i => i.Dispose());
-                return [];
-            }
-        }
-
-        await CopyCoverFromCacheToDownloadLocation(chapter.ParentManga);
-
-        Log.Debug($"Loading collections {chapter}");
-        foreach (CollectionEntry collectionEntry in MangaContext.Entry(chapter.ParentManga).Collections)
-            await collectionEntry.LoadAsync(CancellationToken);
-
-        if (File.Exists(saveArchiveFilePath))
-        {
-            Log.Info($"Archive {saveArchiveFilePath} already existed, overwriting.");
-            File.Delete(saveArchiveFilePath);
-        }
-
-        //Create cbz archive
+        List<Stream> images = new();
         try
         {
-            Log.Debug($"Creating archive: {saveArchiveFilePath}");
-            //ZIP-it and ship-it
-            using ZipArchive archive = ZipFile.Open(saveArchiveFilePath, ZipArchiveMode.Create);
-
-            if (Constants.CreateComicInfoXml)
+            string[] imageUrls = await mangaConnector.GetChapterImageUrls(mangaConnectorId);
+            foreach (string imageUrl in imageUrls)
             {
-                Log.Debug("Writing ComicInfo.xml");
-                Stream comicStream = archive.CreateEntry("ComicInfo.xml").Open();
-                string comicInfo = chapter.GetComicInfoXmlString();
-                await comicStream.WriteAsync(Encoding.UTF8.GetBytes(comicInfo), CancellationToken);
-                await comicStream.DisposeAsync();
+                Stream? imageStream = await mangaConnector.DownloadImage(imageUrl, CancellationToken);
+                if (imageStream is not null)
+                    images.Add(await ProcessImage(imageStream, CancellationToken));
             }
-            else
-                Log.Debug("Skipping ComicInfo.xml. CREATE_COMICINFO_XML is set to false");
 
-            for (int i = 0; i < images.Count; i++)
+            Log.Debug($"Images downloaded for chapter {chapter}. Packaging...");
+
+            string saveArchiveFilePath = chapter.GetFullFilepath(settings.ChapterNamingScheme);
+            string? directoryPath = Path.GetDirectoryName(saveArchiveFilePath);
+            if (directoryPath != null && !Directory.Exists(directoryPath))
+                Directory.CreateDirectory(directoryPath);
+
+            //ZIP-it and ship-it
+            using (ZipArchive archive = ZipFile.Open(saveArchiveFilePath, ZipArchiveMode.Create))
             {
-                Log.Debug($"Packaging images to archive {chapter} , image {i}");
-                Stream zipStream = archive.CreateEntry($"{i}.jpg").Open();
-                Stream imageStream = images[i];
-                imageStream.Position = 0;
-                await imageStream.CopyToAsync(zipStream, CancellationToken);
-                await zipStream.DisposeAsync();
+                if (Constants.CreateComicInfoXml)
+                {
+                    Log.Debug("Writing ComicInfo.xml");
+                    Stream comicStream = archive.CreateEntry("ComicInfo.xml").Open();
+                    string comicInfo = chapter.GetComicInfoXmlString();
+                    await comicStream.WriteAsync(Encoding.UTF8.GetBytes(comicInfo), CancellationToken);
+                    await comicStream.DisposeAsync();
+                }
+
+                for (int i = 0; i < images.Count; i++)
+                {
+                    Log.Debug($"Packaging images to archive {chapter} , image {i}");
+                    Stream zipStream = archive.CreateEntry($"{i}.jpg").Open();
+                    Stream imageStream = images[i];
+                    imageStream.Position = 0;
+                    await imageStream.CopyToAsync(zipStream, CancellationToken);
+                    await zipStream.DisposeAsync();
+                }
+            }
+
+            chapter.Downloaded = true;
+            chapter.FileName = new FileInfo(saveArchiveFilePath).Name;
+            // Sync moved to end
+
+            Log.Debug($"Downloaded chapter {chapter}.");
+
+            await ActionsContext.Actions.AddAsync(new ChapterDownloadedActionRecord(chapter.ParentManga, chapter));
+            if (await ActionsContext.Sync(CancellationToken, GetType(), "Download complete") is { success: false } actionsContextException)
+                Log.Error($"Failed to save database changes: {actionsContextException.exceptionMessage}");
+
+            await NotificationsContext.Notifications.AddAsync(new Notification(
+                "Chapter downloaded",
+                $"{chapter.ParentManga.Name} Ch. {chapter.ChapterNumber} - {chapter.FileName}"
+                ), CancellationToken);
+
+            // Consolidated sync for all contexts
+            var syncTasks = new List<Task<(bool success, string? exceptionMessage)>>
+            {
+                MangaContext.Sync(CancellationToken, GetType(), "Download Success"),
+                ActionsContext.Sync(CancellationToken, GetType(), "Download Success"),
+                NotificationsContext.Sync(CancellationToken, GetType(), "Download Success")
+            };
+            var results = await Task.WhenAll(syncTasks);
+            foreach (var result in results)
+            {
+                if (!result.success) Log.Error($"Failed to save database changes: {result.exceptionMessage}");
+            }
+            
+            if (directoryPath != null)
+            {
+                var mangaConnectorIdForManga = chapter.ParentManga.MangaConnectorIds.FirstOrDefault(id => id.MangaConnectorName == mangaConnector.Name);
+                if (mangaConnectorIdForManga != null)
+                    await EnsureCoverInPublicationFolder(chapter.ParentManga, mangaConnector, mangaConnectorIdForManga, directoryPath);
             }
         }
         catch (Exception ex)
         {
-            Log.Error(ex);
+            Log.ErrorFormat("Failed to download chapter {0}: {1}", chapter, ex);
+            return []; // Fail early!
         }
         finally
         {
             images.ForEach(i => i.Dispose());
         }
 
-        chapter.Downloaded = true;
-        chapter.FileName = new FileInfo(saveArchiveFilePath).Name;
-        if(await MangaContext.Sync(CancellationToken, GetType(), "Downloading complete") is { success: false } chapterContextException)
-            Log.Error($"Failed to save database changes: {chapterContextException.exceptionMessage}");
-
-        Log.Debug($"Downloaded chapter {chapter}.");
-
-        await ActionsContext.Actions.AddAsync(new ChapterDownloadedActionRecord(chapter.ParentManga, chapter));
-        if(await ActionsContext.Sync(CancellationToken, GetType(), "Download complete") is { success: false } actionsContextException)
-            Log.Error($"Failed to save database changes: {actionsContextException.exceptionMessage}");
-
-        await NotificationsContext.Notifications.AddAsync(new Notification(
-            "Chapter downloaded",
-            $"{chapter.ParentManga.Name} Ch. {chapter.ChapterNumber} - {chapter.FileName}"
-            ), CancellationToken);
-        if(await NotificationsContext.Sync(CancellationToken, GetType(), "Download complete") is { success: false } notificationsContextException)
-            Log.Error($"Failed to save database changes: {notificationsContextException.exceptionMessage}");
-
         bool refreshLibrary = await CheckLibraryRefresh();
-        if(refreshLibrary)
         if (refreshLibrary)
             Log.Info($"Condition {settings.LibraryRefreshSetting} met.");
-        return refreshLibrary? [new RefreshLibrariesWorker()] : [];
+        return refreshLibrary ? [new RefreshLibrariesWorker()] : [];
+    }
+
+    private async Task EnsureCoverInPublicationFolder(Manga manga, MangaConnector mangaConnector, MangaConnectorId<Manga> mangaConnectorId, string publicationFolder)
+    {
+        if (File.Exists(Path.Join(publicationFolder, "cover.jpg"))) return;
+        
+        string? coverFileNameInCache = manga.CoverFileNameInCache;
+        if (coverFileNameInCache is null)
+        {
+            Log.Debug("Cover filename in cache is null. Attempting to download...");
+            coverFileNameInCache = await mangaConnector.SaveCoverImageToCache(mangaConnectorId);
+            manga.CoverFileNameInCache = coverFileNameInCache;
+            if (await MangaContext.Sync(CancellationToken, reason: "Update cover filename") is { success: false } result)
+                Log.Error($"Couldn't update cover filename {result.exceptionMessage}");
+        }
+        
+        if (coverFileNameInCache is null)
+        {
+            Log.Error("Could not retrieve cover image cache filename.");
+            return;
+        }
+
+        string fullCoverPath = Path.Join(settings.CoverImageCacheOriginal, coverFileNameInCache);
+        if (!File.Exists(fullCoverPath))
+        {
+            Log.Error($"Cached cover file {fullCoverPath} does not exist.");
+            return;
+        }
+
+        string extension = Path.GetExtension(coverFileNameInCache);
+        string newFilePath = Path.Join(publicationFolder, $"cover{extension}");
+        File.Copy(fullCoverPath, newFilePath, true);
+        Log.Debug($"Copied cover from {fullCoverPath} to {newFilePath}");
     }
 
     private async Task<bool> CheckLibraryRefresh() => settings.LibraryRefreshSetting switch
@@ -210,7 +209,7 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
         LibraryRefreshSetting.AfterAllFinished => await AllDownloadsFinished(),
         LibraryRefreshSetting.AfterMangaFinished => await MangaContext.MangaConnectorToChapter.Include(chId => chId.Obj).Where(chId => chId.UseForDownload).AllAsync(chId => chId.Obj.Downloaded, CancellationToken),
         LibraryRefreshSetting.AfterEveryChapter => true,
-        LibraryRefreshSetting.WhileDownloading => await AllDownloadsFinished() ||  DateTime.UtcNow.Subtract(RefreshLibrariesWorker.LastRefresh).TotalMinutes > settings.RefreshLibraryWhileDownloadingEveryMinutes,
+        LibraryRefreshSetting.WhileDownloading => await AllDownloadsFinished() || DateTime.UtcNow.Subtract(RefreshLibrariesWorker.LastRefresh).TotalMinutes > settings.RefreshLibraryWhileDownloadingEveryMinutes,
         _ => true
     };
     private async Task<bool> AllDownloadsFinished() => (await StartNewChapterDownloadsWorker.GetMissingChapters(MangaContext, CancellationToken)).Count == 0;
@@ -225,7 +224,7 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
             return imageStream;
         }
 
-        MemoryStream processedImage = new ();
+        MemoryStream processedImage = new();
         try
         {
             using Image image = await Image.LoadAsync(imageStream, cancellationToken ?? CancellationToken.None);
@@ -235,83 +234,16 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
             await image.SaveAsJpegAsync(processedImage, new JpegEncoder()
             {
                 Quality = settings.ImageCompression
-            });
+            }, cancellationToken ?? CancellationToken.None);
             Log.Debug("Image processed");
-            processedImage.Position = 0;
-            return processedImage;
-        }
-        catch (Exception e)
-        {
-            if (e is UnknownImageFormatException or NotSupportedException)
-            {
-                //If the Image-Format is not processable by ImageSharp, we can't modify it.
-                Log.Debug("Unable to process image: Not supported image format");
-            }else if (e is InvalidImageContentException)
-            {
-                Log.Debug("Unable to process image: Invalid Content");
-            }
-            else
-            {
-                Log.Error(e);
-            }
-            await imageStream.CopyToAsync(processedImage);
-            processedImage.Position = 0;
-            return processedImage;
-        }
-    }
-
-    private async Task CopyCoverFromCacheToDownloadLocation(Manga manga)
-    {
-        Log.Debug($"Copying cover for {manga}");
-
-        manga = await MangaContext.MangaWithMetadata().Include(m => m.MangaConnectorIds).FirstAsync(m => m.Key == manga.Key, CancellationToken);
-        string publicationFolder;
-        try
-        {
-            Log.Debug("Checking Manga directory exists...");
-            //Check if Publication already has a Folder and cover
-            publicationFolder = manga.FullDirectoryPath;
-
-            Log.Debug("Checking cover already exists...");
-            DirectoryInfo dirInfo = new(publicationFolder);
-            if (dirInfo.EnumerateFiles()
-                .Any(info => info.Name.Contains("cover", StringComparison.InvariantCultureIgnoreCase)))
-            {
-                Log.Debug($"Cover already exists at {publicationFolder}");
-                return;
-            }
         }
         catch (Exception e)
         {
             Log.Error(e);
-            return;
+            return imageStream;
         }
-
-        if (manga.CoverFileNameInCache is not { } coverFileNameInCache)
-        {
-            MangaConnectorId<Manga> mangaConnectorId = manga.MangaConnectorIds.First();
-            MangaConnector? mangaConnector = connectors.FirstOrDefault(c => c.Name.Equals(mangaConnectorId.MangaConnectorName, StringComparison.InvariantCultureIgnoreCase));
-            if (mangaConnector is null)
-            {
-                Log.Error($"MangaConnector with name {mangaConnectorId.MangaConnectorName} could not be found");
-                return;
-            }
-
-            coverFileNameInCache = mangaConnector.SaveCoverImageToCache(mangaConnectorId);
-            manga.CoverFileNameInCache = coverFileNameInCache;
-            if (await MangaContext.Sync(CancellationToken, reason: "Update cover filename") is { success: false } result)
-                Log.Error($"Couldn't update cover filename {result.exceptionMessage}");
-        }
-        if (coverFileNameInCache is null)
-        {
-            Log.Error($"File {coverFileNameInCache} does not exist and failed to download cover");
-            return;
-        }
-
-        string fullCoverPath = Path.Join(settings.CoverImageCacheOriginal, coverFileNameInCache);
-        string newFilePath = Path.Join(publicationFolder, $"cover.{Path.GetFileName(coverFileNameInCache).Split('.')[^1]}" );
-        File.Copy(fullCoverPath, newFilePath, true);
-        Log.Debug($"Copied cover from {fullCoverPath} to {newFilePath}");
+        processedImage.Position = 0;
+        return processedImage;
     }
 
     public override string ToString() => $"{base.ToString()} {ChapterIdId}";

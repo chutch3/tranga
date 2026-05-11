@@ -2517,6 +2517,16 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }
@@ -3492,7 +3502,7 @@
         }
       }
     },
-    "/v2/Search/{MangaConnectorName}/Manga/{ConnectorMangaId}": {
+    "/v2/Search/{MangaConnectorName}/Manga": {
       "get": {
         "tags": [
           "Search"
@@ -3510,9 +3520,8 @@
           },
           {
             "name": "ConnectorMangaId",
-            "in": "path",
+            "in": "query",
             "description": "The manga's ID on the connector site",
-            "required": true,
             "schema": {
               "type": "string"
             }
@@ -5315,7 +5324,6 @@
           "altTitles",
           "authors",
           "description",
-          "fileLibraryId",
           "ignoreChaptersBefore",
           "key",
           "links",
@@ -5370,11 +5378,6 @@
             },
             "description": "Alt Titles of Manga"
           },
-          "fileLibraryId": {
-            "minLength": 1,
-            "type": "string",
-            "description": "Id of the Library the Manga gets downloaded to"
-          },
           "name": {
             "minLength": 1,
             "type": "string",
@@ -5398,6 +5401,16 @@
           "coverUrl": {
             "type": "string",
             "description": "External cover image URL from the connector",
+            "nullable": true
+          },
+          "fileLibraryId": {
+            "type": "string",
+            "description": "Id of the Library the Manga gets downloaded to",
+            "nullable": true
+          },
+          "language": {
+            "type": "string",
+            "description": "Content Language (e.g. translation language)",
             "nullable": true
           },
           "key": {
@@ -5658,6 +5671,16 @@
           "coverUrl": {
             "type": "string",
             "description": "External cover image URL from the connector",
+            "nullable": true
+          },
+          "fileLibraryId": {
+            "type": "string",
+            "description": "Id of the Library the Manga gets downloaded to",
+            "nullable": true
+          },
+          "language": {
+            "type": "string",
+            "description": "Content Language (e.g. translation language)",
             "nullable": true
           },
           "key": {

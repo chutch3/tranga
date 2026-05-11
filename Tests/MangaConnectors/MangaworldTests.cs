@@ -38,7 +38,7 @@ public class MangaworldTests
     [InlineData("Vol. 3", 3)]
     [InlineData("Vol 10", 10)]
     [InlineData("Volume", 0)] // Default fallback currently is 0 if no digits found
-    public void GetChapters_ParsesVolumeFromText(string volumeText, int expectedVolume)
+    public async Task GetChapters_ParsesVolumeFromText(string volumeText, int expectedVolume)
     {
         var html = $$"""
         <html>
@@ -64,7 +64,7 @@ public class MangaworldTests
         };
 
         var mangaId = CreateDummyManga(mangaworld);
-        var chapters = mangaworld.GetChapters(mangaId);
+        var chapters = await mangaworld.GetChapters(mangaId);
 
         Assert.Single(chapters);
         Assert.Equal(expectedVolume, chapters[0].Item1.VolumeNumber);

@@ -96,4 +96,19 @@ public class MangaTests
         var manga = MakeTestManga();
         Assert.Equal(LibraryLayout.Flat, manga.LibraryLayout);
     }
+
+    [Fact]
+    public void FullDirectoryPath_WhenPathRestricted_ShouldNotThrowException()
+    {
+        // On Linux, /root is usually restricted. 
+        // We want to verify that accessing the property doesn't trigger EnsureDirectoryExists side effects
+        // that cause UnauthorizedAccessException if the directory doesn't exist yet.
+        var library = new FileLibrary("/root/manga_test_forbidden", "Restricted");
+        var manga = new Manga("Test Manga", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        
+        // This should NOT throw even if we don't have permissions to create /root/manga_test_forbidden/Test_Manga
+        var path = manga.FullDirectoryPath;
+        
+        Assert.Equal("/root/manga_test_forbidden/Test Manga", path);
+    }
 }

@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using API.Controllers.DTOs;
 using API.MangaConnectors;
 using MangaConnectorImpl = API.MangaConnectors.MangaConnector;
@@ -24,14 +25,14 @@ public class SearchController(
     Func<string, string, (Manga, Schema.MangaContext.MangaConnectorId<Manga>)?>? connectorLookup = null)
     : ControllerBase
 {
-    private (Manga, Schema.MangaContext.MangaConnectorId<Manga>)? LookupFromConnector(string connectorName, string mangaIdOnSite)
+    private async Task<(Manga, Schema.MangaContext.MangaConnectorId<Manga>)?> LookupFromConnector(string connectorName, string mangaIdOnSite)
     {
         if (connectorLookup is not null)
             return connectorLookup(connectorName, mangaIdOnSite);
 
         if (connectors.FirstOrDefault(c => c.Name.Equals(connectorName, StringComparison.InvariantCultureIgnoreCase)) is not { } connector)
             return null;
-        return connector.GetMangaFromId(mangaIdOnSite);
+        return await connector.GetMangaFromId(mangaIdOnSite);
     }
 
     /// <summary>
@@ -46,14 +47,14 @@ public class SearchController(
     [ProducesResponseType<List<MinimalManga>>(Status200OK, "application/json")]
     [ProducesResponseType<string>(Status404NotFound, "text/plain")]
     [ProducesResponseType(Status406NotAcceptable)]
-    public Results<Ok<List<MinimalManga>>, NotFound<string>, StatusCodeHttpResult> SearchManga(string MangaConnectorName, string Query)
+    public async Task<Results<Ok<List<MinimalManga>>, NotFound<string>, StatusCodeHttpResult>> SearchManga(string MangaConnectorName, string Query)
     {
         if (connectors.FirstOrDefault(c => c.Name.Equals(MangaConnectorName, StringComparison.InvariantCultureIgnoreCase)) is not { } connector)
             return TypedResults.NotFound(nameof(MangaConnectorName));
         if (!connector.Enabled)
             return TypedResults.StatusCode(Status412PreconditionFailed);
 
-        (Manga manga, Schema.MangaContext.MangaConnectorId<Manga> id)[] mangas = connector.SearchManga(Query);
+        (Manga manga, Schema.MangaContext.MangaConnectorId<Manga> id)[] mangas = await connector.SearchManga(Query);
 
         IEnumerable<MinimalManga> result = mangas.Select(kv =>
         {
@@ -79,10 +80,10 @@ public class SearchController(
     [HttpGet("{MangaConnectorName}/Manga")]
     [ProducesResponseType<DTOs.Manga>(Status200OK, "application/json")]
     [ProducesResponseType<string>(Status404NotFound, "text/plain")]
-    public Task<Results<Ok<DTOs.Manga>, NotFound<string>>> GetMangaFromConnector(string MangaConnectorName, [FromQuery] string ConnectorMangaId)
+    public async Task<Results<Ok<DTOs.Manga>, NotFound<string>>> GetMangaFromConnector(string MangaConnectorName, [FromQuery] string ConnectorMangaId)
     {
-        if (LookupFromConnector(MangaConnectorName, ConnectorMangaId) is not ({ } manga, { } id))
-            return Task.FromResult<Results<Ok<DTOs.Manga>, NotFound<string>>>(TypedResults.NotFound(nameof(ConnectorMangaId)));
+        if (await LookupFromConnector(MangaConnectorName, ConnectorMangaId) is not ({ } manga, { } id))
+            return TypedResults.NotFound(nameof(ConnectorMangaId));
         IEnumerable<DTOs.MangaConnectorId<DTOs.Manga>> ids =
         [
             new DTOs.MangaConnectorId<DTOs.Manga>(id.Key, id.MangaConnectorName, id.ObjId, id.IdOnConnectorSite, id.WebsiteUrl, id.UseForDownload)
@@ -99,7 +100,7 @@ public class SearchController(
             FileLibraryId: null,
             CoverUrl: manga.CoverUrl);
 
-        return Task.FromResult<Results<Ok<DTOs.Manga>, NotFound<string>>>(TypedResults.Ok(result));
+        return TypedResults.Ok(result);
     }
 
     /// <summary>
@@ -119,7 +120,7 @@ public class SearchController(
         if (connectors.FirstOrDefault(c => c.Name.Equals("Global", StringComparison.InvariantCultureIgnoreCase)) is not { } connector)
             return TypedResults.InternalServerError("Could not find Global Connector.");
 
-        if (connector.GetMangaFromUrl(url) is not ({ } m, not null) manga)
+        if (await connector.GetMangaFromUrl(url) is not ({ } m, not null) manga)
             return TypedResults.NotFound("Could not retrieve Manga");
 
         if (await context.UpsertManga(manga.Item1, manga.Item2, HttpContext.RequestAborted) is not { } added)

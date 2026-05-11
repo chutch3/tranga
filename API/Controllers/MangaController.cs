@@ -48,7 +48,7 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
         return TypedResults.Ok(result.Select(m =>
         {
             IEnumerable<DTOs.MangaConnectorId<Manga>> ids = m.MangaConnectorIds.Select(id => new DTOs.MangaConnectorId<Manga>(id.Key, id.MangaConnectorName, id.ObjId, id.IdOnConnectorSite, id.WebsiteUrl, id.UseForDownload));
-            return new MinimalManga(m.Key, m.Name, m.Description, m.ReleaseStatus, ids, m.CoverUrl);
+            return new MinimalManga(m.Key, m.Name, m.Description, m.ReleaseStatus, ids, m.LibraryId, m.OriginalLanguage, m.CoverUrl);
         }).ToList());
     }
     
@@ -72,7 +72,7 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
         return TypedResults.Ok(result.Select(m =>
         {
             IEnumerable<DTOs.MangaConnectorId<Manga>> ids = m.MangaConnectorIds.Select(id => new DTOs.MangaConnectorId<Manga>(id.Key, id.MangaConnectorName, id.ObjId, id.IdOnConnectorSite, id.WebsiteUrl, id.UseForDownload));
-            return new MinimalManga(m.Key, m.Name, m.Description, m.ReleaseStatus, ids, m.CoverUrl);
+            return new MinimalManga(m.Key, m.Name, m.Description, m.ReleaseStatus, ids, m.LibraryId, m.OriginalLanguage, m.CoverUrl);
         }).ToList());
     }
 
@@ -224,7 +224,7 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
             if (connectors.FirstOrDefault(c => c.Name.Equals(connectorName, StringComparison.InvariantCultureIgnoreCase)) is not { } connector)
                 return TypedResults.NotFound(nameof(connectorName));
 
-            if (connector.GetMangaFromId(connectorMangaId) is not ({ } m, { } id))
+            if (await connector.GetMangaFromId(connectorMangaId) is not ({ } m, { } id))
                 return TypedResults.NotFound(nameof(connectorMangaId));
 
             if (await context.UpsertManga(m, id, HttpContext.RequestAborted) is not { } added)
@@ -333,7 +333,7 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
         if (await context.Mangas.FirstOrDefaultAsync(m => m.Key == MangaId, HttpContext.RequestAborted) is not { } manga)
             return TypedResults.NotFound(nameof(MangaId));
 
-        return new SearchController(context, connectors, workerQueue).SearchManga(MangaConnectorName, manga.Name);
+        return await new SearchController(context, connectors, workerQueue).SearchManga(MangaConnectorName, manga.Name);
     }
     
     /// <summary>
@@ -392,7 +392,7 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
         return TypedResults.Ok(result.Select(m =>
         {
             IEnumerable<DTOs.MangaConnectorId<Manga>> ids = m.MangaConnectorIds.Select(id => new DTOs.MangaConnectorId<Manga>(id.Key, id.MangaConnectorName, id.ObjId, id.IdOnConnectorSite, id.WebsiteUrl, id.UseForDownload));
-            return new MinimalManga(m.Key, m.Name, m.Description, m.ReleaseStatus, ids, m.CoverUrl);
+            return new MinimalManga(m.Key, m.Name, m.Description, m.ReleaseStatus, ids, m.LibraryId, m.OriginalLanguage, m.CoverUrl);
         }).ToList());
     }
 

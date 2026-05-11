@@ -8,7 +8,7 @@ namespace API.Controllers.DTOs;
 /// <see cref="Schema.MangaContext.Manga"/> DTO
 /// </summary>
 public sealed record Manga(string Key, string Name, string Description, MangaReleaseStatus ReleaseStatus, IEnumerable<MangaConnectorId<Manga>> MangaConnectorIds, float IgnoreChaptersBefore, uint? Year, string? OriginalLanguage, IEnumerable<Author> Authors, IEnumerable<string> Tags, IEnumerable<Link> Links, IEnumerable<AltTitle> AltTitles, string? FileLibraryId, string CoverUrl = "")
-    : MinimalManga(Key, Name, Description, ReleaseStatus, MangaConnectorIds, CoverUrl)
+    : MinimalManga(Key, Name, Description, ReleaseStatus, MangaConnectorIds, FileLibraryId, OriginalLanguage, CoverUrl)
 {
     /// <summary>
     /// Chapter cutoff for Downloads (Chapters before this will not be downloaded)
@@ -57,10 +57,5 @@ public sealed record Manga(string Key, string Name, string Description, MangaRel
     [Description("Alt Titles of Manga")]
     public IEnumerable<AltTitle> AltTitles { get; init; } = AltTitles;
     
-    /// <summary>
-    /// Id of the Library the Manga gets downloaded to
-    /// </summary>
-    [Required]
-    [Description("Id of the Library the Manga gets downloaded to")]
-    public string? FileLibraryId { get; init; } = FileLibraryId;
+
 }

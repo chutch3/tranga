@@ -97,7 +97,7 @@ public class Chapter : Identifiable, IComparable<Chapter>
             throw new KeyNotFoundException("Unable to find chapter");
 
         bool useExactMatch = exactMatch ?? Constants.DownloadedChaptersCheckMatchExactName;
-        if (chapter.ParentManga.Library is null || (chapter.FileName is null && useExactMatch))
+        if (chapter.ParentManga.Library is null)
         {
             this.Downloaded = false;
             this.FileName = null;

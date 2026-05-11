@@ -99,7 +99,7 @@ public abstract class BaseWorker : Identifiable
             DateTime startTime = DateTime.UtcNow;
             State = WorkerExecutionState.Running;
             Task<BaseWorker[]> task = DoWorkInternal();
-            task.GetAwaiter().OnCompleted(Finish(startTime, callback));
+            task.GetAwaiter().OnCompleted(Finish(task, startTime, callback));
             return task;
         }
         catch (Exception e)
@@ -109,11 +109,19 @@ public abstract class BaseWorker : Identifiable
         }
     }
 
-    private Action Finish(DateTime startTime, Action? callback = null) => () =>
+    private Action Finish(Task task, DateTime startTime, Action? callback = null) => () =>
     {
         DateTime endTime = DateTime.UtcNow;
-        Log.InfoFormat("Completed {0}\n\t{1} ms", this, endTime.Subtract(startTime).TotalMilliseconds);
-        this.State = WorkerExecutionState.Completed;
+        if (task.IsCompletedSuccessfully)
+        {
+            Log.InfoFormat("Completed {0}\n\t{1} ms", this, endTime.Subtract(startTime).TotalMilliseconds);
+            this.State = WorkerExecutionState.Completed;
+        }
+        else
+        {
+            Log.ErrorFormat("Failed {0}\n\t{1} ms\n\t{2}", this, endTime.Subtract(startTime).TotalMilliseconds, task.Exception?.ToString() ?? "Unknown error");
+            this.State = WorkerExecutionState.Failed;
+        }
         if(this is IPeriodic periodic)
             periodic.LastExecution = DateTime.UtcNow;
         callback?.Invoke();

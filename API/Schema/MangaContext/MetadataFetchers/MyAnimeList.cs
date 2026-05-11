@@ -10,7 +10,7 @@ public class MyAnimeList : MetadataFetcher
     private static readonly Jikan Jikan = new ();
     private static readonly Regex GetIdFromUrl = new(@"https?:\/\/myanimelist\.net\/manga\/([0-9]+)\/?.*");
     
-    public override MetadataSearchResult[] SearchMetadataEntry(Manga manga)
+    public override async Task<MetadataSearchResult[]> SearchMetadataEntry(Manga manga)
     {
         if (manga.Links.Any(link => link.LinkProvider.Equals("MyAnimeList", StringComparison.InvariantCultureIgnoreCase)))
         {
@@ -19,18 +19,18 @@ public class MyAnimeList : MetadataFetcher
             if (m.Success && m.Groups[1].Success)
             {
                 long id = long.Parse(m.Groups[1].Value);
-                JikanDotNet.Manga data = Jikan.GetMangaAsync(id).Result.Data;
+                JikanDotNet.Manga data = (await Jikan.GetMangaAsync(id)).Data;
                 return [new MetadataSearchResult(id.ToString(), data.Titles.First().Title, data.Url, data.Synopsis)];
             }
         }
 
-        return SearchMetadataEntry(manga.Name);
+        return await SearchMetadataEntry(manga.Name);
     }
 
-    public override MetadataSearchResult[] SearchMetadataEntry(string searchTerm)
+    public override async Task<MetadataSearchResult[]> SearchMetadataEntry(string searchTerm)
     {
         Log.DebugFormat("Searching '{0}'...", searchTerm);
-        ICollection<JikanDotNet.Manga> resultData = Jikan.SearchMangaAsync(searchTerm).Result.Data;
+        ICollection<JikanDotNet.Manga> resultData = (await Jikan.SearchMangaAsync(searchTerm)).Data;
         Log.DebugFormat("Found {0} results.", resultData.Count);
         if (resultData.Count < 1)
             return [];

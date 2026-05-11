@@ -1,13 +1,20 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using Microsoft.EntityFrameworkCore;
 
 namespace API.Schema.MangaContext;
 
 [PrimaryKey("Key")]
 public class FileLibrary(string basePath, string libraryName)
-    : Identifiable(TokenGen.CreateToken(typeof(FileLibrary), basePath))
+    : Identifiable(TokenGen.CreateToken(typeof(FileLibrary), basePath.Trim()))
 {
-    [StringLength(256)] public string BasePath { get; internal set; } = basePath;
+    private string _basePath = basePath.Trim();
+
+    [StringLength(256)] 
+    public string BasePath 
+    { 
+        get => _basePath; 
+        internal set => _basePath = value.Trim(); 
+    }
 
     [StringLength(512)] public string LibraryName { get; internal set; } = libraryName;
 

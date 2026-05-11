@@ -19,12 +19,12 @@ public class WeebCentral : MangaConnector
         this.downloadClient = new HttpDownloadClient(rateLimitHandler, settings);
     }
 
-    public override (Manga, MangaConnectorId<Manga>)[] SearchManga(string mangaSearchName)
+    public override async Task<(Manga, MangaConnectorId<Manga>)[]> SearchManga(string mangaSearchName)
     {
         Log.InfoFormat("Searching: {0}", mangaSearchName);
         string sanitizedTitle = string.Join(' ', Regex.Matches(mangaSearchName, @"[A-Za-z]+").Where(m => m.Value.Length > 0)).ToLowerInvariant();
         string requestUrl = $"https://weebcentral.com/search/data?limit=32&offset=0&text={HttpUtility.UrlEncode(sanitizedTitle)}&sort=Best+Match&order=Ascending&official=Any&display_mode=Minimal%20Display";
-        HttpResponseMessage response = downloadClient.MakeRequest(requestUrl, RequestType.Default).GetAwaiter().GetResult();
+        HttpResponseMessage response = await downloadClient.MakeRequest(requestUrl, RequestType.Default);
 
         if (!response.IsSuccessStatusCode)
         {
@@ -32,7 +32,7 @@ public class WeebCentral : MangaConnector
             return [];
         }
 
-        string html = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+        string html = await response.Content.ReadAsStringAsync();
         Log.DebugFormat("Search HTML length: {0}", html.Length);
         HtmlDocument doc = new();
         doc.LoadHtml(html);
@@ -56,7 +56,7 @@ public class WeebCentral : MangaConnector
                 if (seenUrls.Add(fullUrl))
                 {
                     Log.DebugFormat("Fetching from {0}", fullUrl); // Debug URL
-                    (Manga, MangaConnectorId<Manga>)? manga = GetMangaFromUrl(fullUrl);
+                    (Manga, MangaConnectorId<Manga>)? manga = await GetMangaFromUrl(fullUrl);
                     if (manga.HasValue)
                     {
                         mangas.Add(manga.Value);
@@ -74,7 +74,7 @@ public class WeebCentral : MangaConnector
         return mangas.DistinctBy(r => r.Item1.Key).ToArray(); // Dedup by manga Key
     }
 
-   public override (Manga, MangaConnectorId<Manga>)? GetMangaFromUrl(string url)
+   public override async Task<(Manga, MangaConnectorId<Manga>)?> GetMangaFromUrl(string url)
     {
         Log.InfoFormat("Fetching manga from URL: {0}", url);
         // Robust regex: Capture full slug before optional UID
@@ -86,31 +86,31 @@ public class WeebCentral : MangaConnector
         string storedUrl = $"https://weebcentral.com/series/{coreSlug}";  // Stable wildcard
 
         // Fetch once using full url (no double fetch)
-        HttpResponseMessage response = downloadClient.MakeRequest(url, RequestType.MangaInfo).GetAwaiter().GetResult();
+        HttpResponseMessage response = await downloadClient.MakeRequest(url, RequestType.MangaInfo);
         if (!response.IsSuccessStatusCode)
         {
             Log.Error("Failed to retrieve manga page");
             return null;
         }
 
-        string html = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+        string html = await response.Content.ReadAsStringAsync();
         HtmlDocument doc = new();
         doc.LoadHtml(html);
 
         return ParseMangaFromHtml(doc, coreSlug, storedUrl);
     }
 
-    public override (Manga, MangaConnectorId<Manga>)? GetMangaFromId(string mangaIdOnSite)
+    public override async Task<(Manga, MangaConnectorId<Manga>)?> GetMangaFromId(string mangaIdOnSite)
     {
         string url = $"https://weebcentral.com/series/{mangaIdOnSite}";
-        HttpResponseMessage response = downloadClient.MakeRequest(url, RequestType.MangaInfo).GetAwaiter().GetResult();
+        HttpResponseMessage response = await downloadClient.MakeRequest(url, RequestType.MangaInfo);
         if (!response.IsSuccessStatusCode)
         {
             Log.Error("Failed to retrieve manga page");
             return null;
         }
 
-        string html = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+        string html = await response.Content.ReadAsStringAsync();
         HtmlDocument doc = new();
         doc.LoadHtml(html);
 
@@ -180,7 +180,7 @@ public class WeebCentral : MangaConnector
         return (manga, mcId);
     }
 
-    public override (Chapter, MangaConnectorId<Chapter>)[] GetChapters(MangaConnectorId<Manga> manga, string? language = null)
+    public override async Task<(Chapter, MangaConnectorId<Chapter>)[]> GetChapters(MangaConnectorId<Manga> manga, string? language = null)
     {
         Log.InfoFormat("Fetching chapters for: {0}", manga.IdOnConnectorSite);
 
@@ -190,14 +190,14 @@ public class WeebCentral : MangaConnector
 
         string websiteUrl = $"https://weebcentral.com/series/{baseSlug}/full-chapter-list";
 
-        HttpResponseMessage response = downloadClient.MakeRequest(websiteUrl, RequestType.Default).GetAwaiter().GetResult();
+        HttpResponseMessage response = await downloadClient.MakeRequest(websiteUrl, RequestType.Default);
         if (!response.IsSuccessStatusCode)
         {
             Log.Error("Failed to load chapters page");
             return [];
         }
 
-        string html = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+        string html = await response.Content.ReadAsStringAsync();
         HtmlDocument doc = new();
         doc.LoadHtml(html);
 
@@ -260,7 +260,7 @@ public class WeebCentral : MangaConnector
         return chapters.OrderBy(c => c.Item1, new Chapter.ChapterComparer()).ToArray();
     }
 
-    internal override string[] GetChapterImageUrls(MangaConnectorId<Chapter> chapterId)
+    internal override async Task<string[]> GetChapterImageUrls(MangaConnectorId<Chapter> chapterId)
     {
         Log.InfoFormat("Getting Chapter Image-Urls: {0}", chapterId.Obj);
         if (chapterId.WebsiteUrl is null)
@@ -276,7 +276,7 @@ public class WeebCentral : MangaConnector
                 .FirstOrDefault(id => id.MangaConnectorName == this.Name)?.WebsiteUrl;
         }
 
-		return GetChapterImageUrlsAsync(chapterId, referrer).GetAwaiter().GetResult();
+		return await GetChapterImageUrlsAsync(chapterId, referrer);
 	}
 
 	private async Task<string[]> GetChapterImageUrlsAsync(MangaConnectorId<Chapter> chapterId, string? referrer)

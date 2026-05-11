@@ -1,3 +1,4 @@
+using log4net;
 using API.Schema.ActionsContext;
 using API.Schema.ActionsContext.Actions;
 using API.Schema.MangaContext;
@@ -15,8 +16,10 @@ namespace API.Controllers;
 [ApiVersion(2)]
 [ApiController]
 [Route("v{v:apiVersion}/[controller]")]
-public class MetadataFetcherController(MangaContext mangaContext, ActionsContext actionsContext, IEnumerable<MetadataFetcher> fetchers) : ControllerBase
+public class MetadataFetcherController(
+    MangaContext mangaContext, ActionsContext actionsContext, IEnumerable<MetadataFetcher> fetchers) : ControllerBase
 {
+    private static readonly ILog Log = LogManager.GetLogger(typeof(MetadataFetcherController));
     /// <summary>
     /// Get all <see cref="MetadataFetcher"/> (Metadata-Sites)
     /// </summary>
@@ -73,15 +76,23 @@ public class MetadataFetcherController(MangaContext mangaContext, ActionsContext
     [ProducesResponseType<MetadataSearchResult[]>(Status200OK, "application/json")]
     [ProducesResponseType(Status400BadRequest)]
     [ProducesResponseType<string>(Status404NotFound, "text/plain")]
-    public async Task<Results<Ok<List<MetadataSearchResult>>, BadRequest, NotFound<string>>> SearchMangaMetadata(string MangaId, string MetadataFetcherName, [FromBody (EmptyBodyBehavior = EmptyBodyBehavior.Allow)]string? searchTerm = null)
+    public async Task<Results<Ok<List<MetadataSearchResult>>, BadRequest, NotFound<string>, InternalServerError<string>>> SearchMangaMetadata(string MangaId, string MetadataFetcherName, [FromBody (EmptyBodyBehavior = EmptyBodyBehavior.Allow)]string? searchTerm = null)
     {
         if (await mangaContext.Mangas.FirstOrDefaultAsync(m => m.Key == MangaId, HttpContext.RequestAborted) is not { } manga)
             return TypedResults.NotFound(nameof(MangaId));
         if(fetchers.FirstOrDefault(f => f.Name == MetadataFetcherName) is not { } fetcher)
             return TypedResults.BadRequest();
 
-        MetadataSearchResult[] searchResults = searchTerm is null ? fetcher.SearchMetadataEntry(manga) : fetcher.SearchMetadataEntry(searchTerm);
-        return TypedResults.Ok(searchResults.ToList());
+        try
+        {
+            MetadataSearchResult[] searchResults = searchTerm is null ? await fetcher.SearchMetadataEntry(manga) : await fetcher.SearchMetadataEntry(searchTerm);
+            return TypedResults.Ok(searchResults.ToList());
+        }
+        catch (Exception e)
+        {
+            Log.Error($"Error searching metadata with {MetadataFetcherName}", e);
+            return TypedResults.InternalServerError(e.Message);
+        }
     }
 
     /// <summary>

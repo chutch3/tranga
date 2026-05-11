@@ -54,7 +54,7 @@ public class RetrieveMangaChaptersFromMangaconnectorWorker(MangaConnectorId<Mang
         
         // Retrieve available Chapters from Connector
         (Chapter chapter, MangaConnectorId<Chapter> chapterId)[] allChapters =
-            mangaConnector.GetChapters(mangaConnectorId, language).DistinctBy(c => c.Item1.Key).ToArray();
+            (await mangaConnector.GetChapters(mangaConnectorId, language)).DistinctBy(c => c.Item1.Key).ToArray();
         Log.DebugFormat("Got {0} chapters from connector.", allChapters.Length);
         
         // Filter for new Chapters

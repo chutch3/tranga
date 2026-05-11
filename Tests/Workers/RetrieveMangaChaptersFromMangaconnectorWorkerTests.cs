@@ -72,7 +72,7 @@ public class RetrieveMangaChaptersFromMangaconnectorWorkerTests : IDisposable
         fetchedChapter.MangaConnectorIds.Add(fetchedChMcId);
 
         mockConnector.Setup(c => c.GetChapters(It.IsAny<MangaConnectorId>(), It.IsAny<string>()))
-            .Returns([(fetchedChapter, fetchedChMcId)]);
+            .ReturnsAsync([(fetchedChapter, fetchedChMcId)]);
         // Name is set via constructor parameter
 
         var worker = new RetrieveMangaChaptersFromMangaconnectorWorker(mangaMcId, "en", new[] { mockConnector.Object });

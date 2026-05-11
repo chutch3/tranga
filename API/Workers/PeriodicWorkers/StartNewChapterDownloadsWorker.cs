@@ -14,7 +14,7 @@ public class StartNewChapterDownloadsWorker(TrangaSettings settings, IWorkerQueu
 {
 
     public DateTime LastExecution { get; set; } = DateTime.UnixEpoch;
-    public TimeSpan Interval { get; set; } = interval ?? TimeSpan.FromMinutes(1);
+    public TimeSpan Interval { get; set; } = interval ?? TimeSpan.FromSeconds(10);
     
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     private MangaContext MangaContext = null!;

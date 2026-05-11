@@ -39,7 +39,7 @@ public class Manga : Identifiable
     /// <exception cref="DirectoryNotFoundException">Library not loaded</exception>
     [NotMapped]
     [JsonIgnore]
-    public string FullDirectoryPath => EnsureDirectoryExists();
+    public string FullDirectoryPath => Library is not null ? Path.Join(Library.BasePath, DirectoryName) : throw new DirectoryNotFoundException("Library not loaded");
 
     [NotMapped]
     public ICollection<string> ChapterIds => Chapters.Select(c => c.Key).ToList();
@@ -98,14 +98,11 @@ public class Manga : Identifiable
     }
     
     /// <exception cref="DirectoryNotFoundException">Library not loaded</exception>
-    private string EnsureDirectoryExists()
+    public string EnsureDirectoryExists()
     {
-        string? publicationFolder = Library is not null ? Path.Join(Library.BasePath, DirectoryName) : null;
-        if (publicationFolder is null)
-            throw new DirectoryNotFoundException("Publication folder not found");
-        if(!Directory.Exists(publicationFolder))
-            Directory.CreateDirectory(publicationFolder);
-        return publicationFolder;
+        if (!Directory.Exists(FullDirectoryPath))
+            Directory.CreateDirectory(FullDirectoryPath);
+        return FullDirectoryPath;
     }
 
     /// <summary>

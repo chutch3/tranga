@@ -37,7 +37,7 @@ public class AsuraComicTests
     [InlineData("Chapter 1", null, "1")]
     [InlineData("Vol. 2 Chapter 3", 2, "3")]
     [InlineData("Season 1 Chapter 4", 1, "4")]
-    public void GetChapters_ParsesVolumeFromText(string linkText, int? expectedVolume, string expectedChapter)
+    public async Task GetChapters_ParsesVolumeFromText(string linkText, int? expectedVolume, string expectedChapter)
     {
         var html = $$"""
         <html>
@@ -58,10 +58,10 @@ public class AsuraComicTests
         var mangaId = CreateDummyManga(asuracomic);
         var chapters = asuracomic.GetChapters(mangaId);
 
-        Assert.Single(chapters);
+        Assert.Single(await chapters);
         // AsuraComic currently does not parse volume, but we want it to. 
         // This test sets up the expectation for the Red/Green/Refactor cycle.
-        Assert.Equal(expectedVolume, chapters[0].Item1.VolumeNumber);
-        Assert.Equal(expectedChapter, chapters[0].Item1.ChapterNumber);
+        Assert.Equal(expectedVolume, (await chapters)[0].Item1.VolumeNumber);
+        Assert.Equal(expectedChapter, (await chapters)[0].Item1.ChapterNumber);
     }
 }

@@ -38,7 +38,7 @@ public class WeebCentralTests
     [InlineData("Vol 3 Chapter 4", 3, "4")]
     [InlineData("Season 5 Episode 6", 5, "6")]
     [InlineData("Chapter 10", null, "10")] // No volume
-    public void GetChapters_ParsesVolumeFromText(string linkText, int? expectedVolume, string expectedChapter)
+    public async Task GetChapters_ParsesVolumeFromText(string linkText, int? expectedVolume, string expectedChapter)
     {
         var html = $$"""
         <html>
@@ -57,7 +57,7 @@ public class WeebCentralTests
         };
 
         var mangaId = CreateDummyManga(weebCentral);
-        var chapters = weebCentral.GetChapters(mangaId);
+        var chapters = await weebCentral.GetChapters(mangaId);
 
         Assert.Single(chapters);
         Assert.Equal(expectedVolume, chapters[0].Item1.VolumeNumber);

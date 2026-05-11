@@ -21,7 +21,7 @@ public class MangaDex : MangaConnector
     }
 
     private const int Limit = 100;
-    public override (Manga, MangaConnectorId<Manga>)[] SearchManga(string mangaSearchName)
+    public override async Task<(Manga, MangaConnectorId<Manga>)[]> SearchManga(string mangaSearchName)
     {
         Log.InfoFormat("Searching Obj: {0}", mangaSearchName);
         List<(Manga, MangaConnectorId<Manga>)> mangas = new ();
@@ -36,7 +36,7 @@ public class MangaDex : MangaConnector
                 $"&order%5Brelevance%5D=desc&availableTranslatedLanguage%5B%5D=" + Settings.DownloadLanguage + "&includes%5B%5D=manga&includes%5B%5D=cover_art&includes%5B%5D=author&includes%5B%5D=artist&includes%5B%5D=tag";
             offset += Limit;
 
-            HttpResponseMessage result = downloadClient.MakeRequest(requestUrl, RequestType.MangaDexFeed).Result;
+            HttpResponseMessage result = await downloadClient.MakeRequest(requestUrl, RequestType.MangaDexFeed);
             if ((int)result.StatusCode < 200 || (int)result.StatusCode >= 300)
             {
                 Log.Error("Request failed");
@@ -70,7 +70,7 @@ public class MangaDex : MangaConnector
     }
 
     private static readonly Regex GetMangaIdFromUrl = new(@"https?:\/\/mangadex\.org\/title\/([a-z0-9-]+)\/?.*");
-    public override (Manga, MangaConnectorId<Manga>)? GetMangaFromUrl(string url)
+    public override async Task<(Manga, MangaConnectorId<Manga>)?> GetMangaFromUrl(string url)
     {
         Log.InfoFormat("Getting Obj: {0}", url);
         if (!UrlMatchesConnector(url))
@@ -87,17 +87,17 @@ public class MangaDex : MangaConnector
         }
         string id = match.Groups[1].Value;
 
-        return GetMangaFromId(id);
+        return await GetMangaFromId(id);
     }
 
-    public override (Manga, MangaConnectorId<Manga>)? GetMangaFromId(string mangaIdOnSite)
+    public override async Task<(Manga, MangaConnectorId<Manga>)?> GetMangaFromId(string mangaIdOnSite)
     {
         Log.InfoFormat("Getting Obj: {0}", mangaIdOnSite);
         string requestUrl =
             $"https://api.mangadex.org/manga/{mangaIdOnSite}" +
             $"?includes%5B%5D=manga&includes%5B%5D=cover_art&includes%5B%5D=author&includes%5B%5D=artist&includes%5B%5D=tag'";
 
-        HttpResponseMessage result = downloadClient.MakeRequest(requestUrl, RequestType.MangaDexFeed).Result;
+        HttpResponseMessage result = await downloadClient.MakeRequest(requestUrl, RequestType.MangaDexFeed);
         if ((int)result.StatusCode < 200 || (int)result.StatusCode >= 300)
         {
             Log.Error("Request failed");
@@ -124,7 +124,7 @@ public class MangaDex : MangaConnector
         return ParseMangaFromJToken(data);
     }
 
-    public override (Chapter, MangaConnectorId<Chapter>)[] GetChapters(MangaConnectorId<Manga> mangaId, string? language = null)
+    public override async Task<(Chapter, MangaConnectorId<Chapter>)[]> GetChapters(MangaConnectorId<Manga> mangaId, string? language = null)
     {
         Log.InfoFormat("Getting Chapters: {0}", mangaId.IdOnConnectorSite);
         List<(Chapter, MangaConnectorId<Chapter>)> chapters = new ();
@@ -142,7 +142,7 @@ public class MangaDex : MangaConnector
                 $"includeEmptyPages=0"; // remove entries with no available pages e.g. externally hosted chapters
             offset += Limit;
 
-            HttpResponseMessage result = downloadClient.MakeRequest(requestUrl, RequestType.MangaDexFeed).Result;
+            HttpResponseMessage result = await downloadClient.MakeRequest(requestUrl, RequestType.MangaDexFeed);
             if ((int)result.StatusCode < 200 || (int)result.StatusCode >= 300)
             {
                 Log.Error("Request failed");
@@ -176,7 +176,7 @@ public class MangaDex : MangaConnector
     }
 
     private static readonly Regex GetChapterIdFromUrl = new(@"https?:\/\/mangadex\.org\/chapter\/([a-z0-9-]+)\/?.*");
-    internal override string[] GetChapterImageUrls(MangaConnectorId<Chapter> chapterId)
+    internal override async Task<string[]> GetChapterImageUrls(MangaConnectorId<Chapter> chapterId)
     {
         Log.InfoFormat("Getting Chapter Image-Urls: {0}", chapterId.Obj);
         if (chapterId.WebsiteUrl is null || !UrlMatchesConnector(chapterId.WebsiteUrl))
@@ -195,7 +195,7 @@ public class MangaDex : MangaConnector
         string id = match.Groups[1].Value;
         string requestUrl = $"https://api.mangadex.org/at-home/server/{id}";
 
-        HttpResponseMessage result = downloadClient.MakeRequest(requestUrl, RequestType.Default).Result;
+        HttpResponseMessage result = await downloadClient.MakeRequest(requestUrl, RequestType.Default);
         if ((int)result.StatusCode < 200 || (int)result.StatusCode >= 300)
         {
             Log.Error("Request failed");

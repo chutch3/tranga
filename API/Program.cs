@@ -266,7 +266,7 @@ var trangaSettings = app.Services.GetRequiredService<TrangaSettings>();
 var mangaConnectors = app.Services.GetRequiredService<IEnumerable<MangaConnector>>();
 trangaSettings.ApplyDisabledConnectors(mangaConnectors);
 
-trangaManager.StartupTasks();
+await trangaManager.StartupTasks();
 trangaManager.AddDefaultWorkers();
 
 log.Info("Running app.");

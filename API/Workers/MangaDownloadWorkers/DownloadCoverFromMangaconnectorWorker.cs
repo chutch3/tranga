@@ -45,7 +45,7 @@ public class DownloadCoverFromMangaconnectorWorker(MangaConnectorId<Manga> mcId,
         }
         Log.Debug($"Getting Cover for MangaConnectorId {mangaConnectorId}...");
 
-        string? coverFileName = mangaConnector.SaveCoverImageToCache(mangaConnectorId);
+        string? coverFileName = await mangaConnector.SaveCoverImageToCache(mangaConnectorId);
         if (coverFileName is null)
         {
             Log.Error($"Could not get Cover for MangaConnectorId {mangaConnectorId}.");

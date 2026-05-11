@@ -47,19 +47,18 @@ public class Tranga
     // Helper to keep the startup lists clean
     private T GetWorker<T>() where T : BaseWorker => _serviceProvider.GetRequiredService<T>();
 
-    public void StartupTasks()
+    public async Task StartupTasks()
     {
         // 3. Pulling workers directly from the DI container
         _workerQueue.AddWorker(GetWorker<SendNotificationsWorker>());
         _workerQueue.AddWorker(GetWorker<CleanupMangaconnectorIdsWithoutConnector>());
         _workerQueue.AddWorker(GetWorker<CleanupMangaCoversWorker>());
 
-        if(Constants.UpdateChaptersDownloadedBeforeStarting)
-            _workerQueue.AddWorker(GetWorker<UpdateChaptersDownloadedWorker>());
+        // Moved to AddDefaultWorkers
 
         Log.Info("Waiting for startup to complete...");
         while (_workerQueue.GetRunningWorkers().Any(w => w.State < WorkerExecutionState.Completed))
-            Thread.Sleep(1000);
+            await Task.Delay(1000);
         Log.Info("Start complete!");
     }
 

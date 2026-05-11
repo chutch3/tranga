@@ -70,7 +70,7 @@ public class MangaControllerTests
         var connectorId = new ConnectorId(manga, "MangaDex", "ext-id", null);
 
         var mockConnector = new Mock<API.MangaConnectors.MangaConnector>("MangaDex", new[] { "en" }, new[] { "mangadex.org" }, "icon.png", new TrangaSettings());
-        mockConnector.Setup(c => c.GetMangaFromId("ext-id")).Returns((manga, connectorId));
+        mockConnector.Setup(c => c.GetMangaFromId("ext-id")).ReturnsAsync((manga, connectorId));
 
         var controller = CreateController(ctx, actionsCtx, [mockConnector.Object]);
         

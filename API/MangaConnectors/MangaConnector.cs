@@ -20,21 +20,22 @@ public abstract class MangaConnector(string name, string[] supportedLanguages, s
     [StringLength(2048)] public string IconUrl { get; init; } = iconUrl;
     [StringLength(256)] public string[] BaseUris { get; init; } = baseUris;
     public bool Enabled { get; internal set; } = true;
+    protected TrangaSettings Settings => settings;
 
-    public abstract (Manga, MangaConnectorId<Manga>)[] SearchManga(string mangaSearchName);
+    public abstract Task<(Manga, MangaConnectorId<Manga>)[]> SearchManga(string mangaSearchName);
 
-    public abstract (Manga, MangaConnectorId<Manga>)? GetMangaFromUrl(string url);
+    public abstract Task<(Manga, MangaConnectorId<Manga>)?> GetMangaFromUrl(string url);
 
-    public abstract (Manga, MangaConnectorId<Manga>)? GetMangaFromId(string mangaIdOnSite);
+    public abstract Task<(Manga, MangaConnectorId<Manga>)?> GetMangaFromId(string mangaIdOnSite);
 
-    public abstract (Chapter, MangaConnectorId<Chapter>)[] GetChapters(MangaConnectorId<Manga> mangaId,
+    public abstract Task<(Chapter, MangaConnectorId<Chapter>)[]> GetChapters(MangaConnectorId<Manga> mangaId,
         string? language = null);
 
-    internal abstract string[] GetChapterImageUrls(MangaConnectorId<Chapter> chapterId);
+    internal abstract Task<string[]> GetChapterImageUrls(MangaConnectorId<Chapter> chapterId);
 
     public bool UrlMatchesConnector(string url) => BaseUris.Any(baseUri => Regex.IsMatch(url, "https?://" + baseUri + "/.*"));
 
-    internal string? SaveCoverImageToCache(MangaConnectorId<Manga> mangaId, int retries = 3)
+    internal async Task<string?> SaveCoverImageToCache(MangaConnectorId<Manga> mangaId, int retries = 3)
     {
         if(retries < 0)
             return null;
@@ -48,19 +49,19 @@ public abstract class MangaConnector(string name, string[] supportedLanguages, s
         if (File.Exists(saveImagePath))
             return filename;
 
-        HttpResponseMessage coverResult = downloadClient.MakeRequest(mangaId.Obj.CoverUrl, RequestType.MangaCover, $"https://{match.Groups[1].Value}").Result;
+        HttpResponseMessage coverResult = await downloadClient.MakeRequest(mangaId.Obj.CoverUrl, RequestType.MangaCover, $"https://{match.Groups[1].Value}");
         if ((int)coverResult.StatusCode < 200 || (int)coverResult.StatusCode >= 300)
-            return SaveCoverImageToCache(mangaId, retries - 1);
+            return await SaveCoverImageToCache(mangaId, retries - 1);
 
         try
         {
             using MemoryStream ms = new();
-            coverResult.Content.ReadAsStream().CopyTo(ms);
-            byte[] imageBytes = ms.ToArray();
+            await (await coverResult.Content.ReadAsStreamAsync()).CopyToAsync(ms);
+            ms.Position = 0;
             Directory.CreateDirectory(settings.CoverImageCacheOriginal);
-            File.WriteAllBytes(saveImagePath, imageBytes);
+            File.WriteAllBytes(saveImagePath, ms.ToArray());
 
-            using Image image = Image.Load(imageBytes);
+            using Image image = await Image.LoadAsync(ms); // Use stream for async load
             Directory.CreateDirectory(settings.CoverImageCacheLarge);
             using Image large = image.Clone(x => x.Resize(new ResizeOptions
                 { Size = Constants.ImageLgSize, Mode = ResizeMode.Max }));
