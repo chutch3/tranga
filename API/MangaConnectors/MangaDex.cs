@@ -33,7 +33,7 @@ public class MangaDex : MangaConnector
             string requestUrl =
                 $"https://api.mangadex.org/manga?limit={Limit}&offset={offset}&title={HttpUtility.UrlEncode(mangaSearchName)}" +
                 $"&contentRating%5B%5D=safe&contentRating%5B%5D=suggestive&contentRating%5B%5D=erotica" +
-                $"&includes%5B%5D=manga&includes%5B%5D=cover_art&includes%5B%5D=author&includes%5B%5D=artist&includes%5B%5D=tag";
+                $"&order%5Brelevance%5D=desc&availableTranslatedLanguage%5B%5D=" + Settings.DownloadLanguage + "&includes%5B%5D=manga&includes%5B%5D=cover_art&includes%5B%5D=author&includes%5B%5D=artist&includes%5B%5D=tag";
             offset += Limit;
 
             HttpResponseMessage result = downloadClient.MakeRequest(requestUrl, RequestType.MangaDexFeed).Result;
