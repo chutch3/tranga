@@ -18,6 +18,24 @@ public class TrangaSettingsTests
     }
 
     [Fact]
+    public void Cors_DefaultsToAllowAnyOrigin()
+    {
+        var settings = new TrangaSettings();
+
+        Assert.Empty(settings.CorsAllowedOrigins);
+        Assert.True(settings.CorsAllowAnyOrigin);
+    }
+
+    [Fact]
+    public void Cors_WhenOriginsConfigured_DoesNotAllowAnyOrigin()
+    {
+        var settings = new TrangaSettings { CorsAllowedOrigins = ["https://my-frontend.test"] };
+
+        Assert.False(settings.CorsAllowAnyOrigin);
+        Assert.Contains("https://my-frontend.test", settings.CorsAllowedOrigins);
+    }
+
+    [Fact]
     public void WorkingDirectory_ShouldReflectCustomAppData()
     {
         var settings = new TrangaSettings { AppData = "/tmp/custom_manga" };

@@ -70,6 +70,15 @@ public class TrangaSettings
     /// </summary>
     public HashSet<string> DisabledConnectors { get; set; } = [];
 
+    /// <summary>
+    /// Origins permitted for browser CORS requests. Empty (the default) preserves the historical
+    /// "allow any origin" behaviour; populate it to restrict the API to specific frontends.
+    /// </summary>
+    public string[] CorsAllowedOrigins { get; set; } = [];
+
+    /// <summary>True when no explicit origins are configured, i.e. any origin is allowed.</summary>
+    [JsonIgnore] public bool CorsAllowAnyOrigin => CorsAllowedOrigins.Length == 0;
+
     public TrangaSettings()
     {
         // WorkingDirectory is created by the AppData setter when AppData is overridden

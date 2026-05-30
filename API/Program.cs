@@ -43,13 +43,21 @@ log.Info("Logger Configured.");
 log.Info("Starting up");
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
+log.Debug("Loading Settings...");
+var settings = TrangaSettings.Load();
+builder.Services.AddSingleton(settings);
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll",
         policy =>
         {
+            // Restrict to configured origins when any are set; otherwise fall back to allow-any.
+            if (settings.CorsAllowAnyOrigin)
+                policy.AllowAnyOrigin();
+            else
+                policy.WithOrigins(settings.CorsAllowedOrigins);
             policy
-                .AllowAnyOrigin()
                 .AllowAnyMethod()
                 .AllowAnyHeader();
         });
@@ -99,9 +107,7 @@ NpgsqlConnectionStringBuilder connectionStringBuilder = new()
     ApplicationName = "Tranga"
 };
 
-log.Debug("Loading Settings...");
-var settings = TrangaSettings.Load();
-builder.Services.AddSingleton(settings);
+// Settings already loaded and registered above (before CORS configuration).
 
 // 2. Register all your MangaConnectors
 // By registering them all as the base type 'MangaConnector', DI will group them.
@@ -173,8 +179,6 @@ ApiVersionSet apiVersionSet = app.NewApiVersionSet()
     .HasApiVersion(new ApiVersion(2))
     .ReportApiVersions()
     .Build();
-
-app.UseCors("AllowAll");
 
 log.Debug("Mapping Controllers...");
 app.MapControllers()
