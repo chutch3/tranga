@@ -132,6 +132,85 @@ public class MangaDexTests
         Assert.Contains("availableTranslatedLanguage%5B%5D=fr", capturedUrl);
     }
 
+    private static string OneMangaPage(int total) => $$"""
+        {
+            "result": "ok",
+            "total": {{total}},
+            "data": [
+                {
+                    "id": "manga-1",
+                    "attributes": {
+                        "title": { "en": "First Page Manga" },
+                        "description": { "en": "desc" },
+                        "status": "ongoing"
+                    },
+                    "relationships": [
+                        { "type": "cover_art", "attributes": { "fileName": "cover.jpg" } }
+                    ]
+                }
+            ]
+        }
+        """;
+
+    private static Mock<IDownloadClient> SequencedClient(params HttpResponseMessage[] responses)
+    {
+        var mock = new Mock<IDownloadClient>();
+        var seq = mock.SetupSequence(c => c.MakeRequest(It.IsAny<string>(), It.IsAny<RequestType>(), It.IsAny<string>(), It.IsAny<CancellationToken?>()));
+        foreach (var r in responses)
+            seq = seq.ReturnsAsync(r);
+        return mock;
+    }
+
+    [Fact]
+    public async Task SearchManga_KeepsResultsGathered_WhenLaterPageFails()
+    {
+        // total > Limit forces a second page; the second request fails. Results from page 1 must survive.
+        var page1 = new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(OneMangaPage(total: 150), Encoding.UTF8, "application/json")
+        };
+        var page2Fail = new HttpResponseMessage(HttpStatusCode.InternalServerError)
+        {
+            Content = new StringContent("", Encoding.UTF8, "application/json")
+        };
+
+        var settings = CreateSettings();
+        var mangaDex = new MangaDex(settings, CreateRateLimitHandler())
+        {
+            downloadClient = SequencedClient(page1, page2Fail).Object
+        };
+
+        var results = await mangaDex.SearchManga("Test");
+
+        Assert.Single(results);
+        Assert.Equal("First Page Manga", results[0].Item1.Name);
+    }
+
+    [Fact]
+    public async Task SearchManga_DoesNotRequestBeyondOffsetCap()
+    {
+        // MangaDex hard-caps offset at 10000. Even if total claims far more, we must stop requesting
+        // (Limit=100 => at most 100 pages) instead of looping into guaranteed errors.
+        var settings = CreateSettings();
+        int requestCount = 0;
+        var mock = new Mock<IDownloadClient>();
+        mock.Setup(c => c.MakeRequest(It.IsAny<string>(), It.IsAny<RequestType>(), It.IsAny<string>(), It.IsAny<CancellationToken?>()))
+            .ReturnsAsync(() => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("{\"result\":\"ok\",\"total\":1000000,\"data\":[]}", Encoding.UTF8, "application/json")
+            })
+            .Callback(() => requestCount++);
+
+        var mangaDex = new MangaDex(settings, CreateRateLimitHandler())
+        {
+            downloadClient = mock.Object
+        };
+
+        await mangaDex.SearchManga("Test");
+
+        Assert.True(requestCount <= 100, $"Expected at most 100 page requests (offset cap), but made {requestCount}.");
+    }
+
     [Fact]
     public async Task SearchManga_Contract_IsAsync()
     {

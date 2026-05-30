@@ -26,9 +26,11 @@ public class MangaDex : MangaConnector
         Log.InfoFormat("Searching Obj: {0}", mangaSearchName);
         List<(Manga, MangaConnectorId<Manga>)> mangas = new ();
 
+        // MangaDex hard-caps the paging offset; requesting beyond it only returns errors.
+        const int maxOffset = 10000;
         int offset = 0;
         int total = int.MaxValue;
-        while(offset < total)
+        while(offset < total && offset < maxOffset)
         {
             string requestUrl =
                 $"https://api.mangadex.org/manga?limit={Limit}&offset={offset}&title={HttpUtility.UrlEncode(mangaSearchName)}" +
@@ -36,30 +38,32 @@ public class MangaDex : MangaConnector
                 $"&order%5Brelevance%5D=desc&availableTranslatedLanguage%5B%5D=" + Settings.DownloadLanguage + "&includes%5B%5D=manga&includes%5B%5D=cover_art&includes%5B%5D=author&includes%5B%5D=artist&includes%5B%5D=tag";
             offset += Limit;
 
-            HttpResponseMessage result = await downloadClient.MakeRequest(requestUrl, RequestType.MangaDexFeed);
+            using HttpResponseMessage result = await downloadClient.MakeRequest(requestUrl, RequestType.MangaDexFeed);
             if ((int)result.StatusCode < 200 || (int)result.StatusCode >= 300)
             {
-                Log.Error("Request failed");
-                return [];
+                // Keep whatever earlier pages returned instead of discarding the whole search.
+                Log.ErrorFormat("Request failed; returning {0} results gathered so far", mangas.Count);
+                break;
             }
 
-            using StreamReader sr = new (result.Content.ReadAsStream());
-            JObject jObject = JObject.Parse(sr.ReadToEnd());
+            string body = await result.Content.ReadAsStringAsync();
+            JObject jObject = JObject.Parse(body);
 
             if (jObject.Value<string>("result") != "ok")
             {
                 JArray? errors = jObject["errors"] as JArray;
                 Log.ErrorFormat("Request failed: {0}", string.Join(',', errors?.Select(e => e.Value<string>("title")) ?? []));
-                return [];
+                break;
             }
 
-            total = jObject.Value<int>("total");
+            // Clamp to the offset cap so a huge reported total cannot drive endless requests.
+            total = Math.Min(jObject.Value<int>("total"), maxOffset);
 
             JArray? data = jObject.Value<JArray>("data");
             if (data is null)
             {
                 Log.Error("Data was null");
-                return [];
+                break;
             }
 
             mangas.AddRange(data.Select(ParseMangaFromJToken));
@@ -97,15 +101,15 @@ public class MangaDex : MangaConnector
             $"https://api.mangadex.org/manga/{mangaIdOnSite}" +
             $"?includes%5B%5D=manga&includes%5B%5D=cover_art&includes%5B%5D=author&includes%5B%5D=artist&includes%5B%5D=tag'";
 
-        HttpResponseMessage result = await downloadClient.MakeRequest(requestUrl, RequestType.MangaDexFeed);
+        using HttpResponseMessage result = await downloadClient.MakeRequest(requestUrl, RequestType.MangaDexFeed);
         if ((int)result.StatusCode < 200 || (int)result.StatusCode >= 300)
         {
             Log.Error("Request failed");
             return null;
         }
 
-        using StreamReader sr = new (result.Content.ReadAsStream());
-        JObject jObject = JObject.Parse(sr.ReadToEnd());
+        string body = await result.Content.ReadAsStringAsync();
+        JObject jObject = JObject.Parse(body);
 
         if (jObject.Value<string>("result") != "ok")
         {
@@ -142,21 +146,21 @@ public class MangaDex : MangaConnector
                 $"includeEmptyPages=0"; // remove entries with no available pages e.g. externally hosted chapters
             offset += Limit;
 
-            HttpResponseMessage result = await downloadClient.MakeRequest(requestUrl, RequestType.MangaDexFeed);
+            using HttpResponseMessage result = await downloadClient.MakeRequest(requestUrl, RequestType.MangaDexFeed);
             if ((int)result.StatusCode < 200 || (int)result.StatusCode >= 300)
             {
-                Log.Error("Request failed");
-                return [];
+                Log.ErrorFormat("Request failed; returning {0} chapters gathered so far", chapters.Count);
+                break;
             }
 
-            using StreamReader sr = new (result.Content.ReadAsStream());
-            JObject jObject = JObject.Parse(sr.ReadToEnd());
+            string body = await result.Content.ReadAsStringAsync();
+            JObject jObject = JObject.Parse(body);
 
             if (jObject.Value<string>("result") != "ok")
             {
                 JArray? errors = jObject["errors"] as JArray;
                 Log.ErrorFormat("Request failed: {0}", string.Join(',', errors?.Select(e => e.Value<string>("title")) ?? []));
-                return [];
+                break;
             }
 
             total = jObject.Value<int>("total");
@@ -165,7 +169,7 @@ public class MangaDex : MangaConnector
             if (data is null)
             {
                 Log.Error("Data was null");
-                return [];
+                break;
             }
 
             chapters.AddRange(data.Select(d => ParseChapterFromJToken(mangaId, d)));
@@ -195,15 +199,15 @@ public class MangaDex : MangaConnector
         string id = match.Groups[1].Value;
         string requestUrl = $"https://api.mangadex.org/at-home/server/{id}";
 
-        HttpResponseMessage result = await downloadClient.MakeRequest(requestUrl, RequestType.Default);
+        using HttpResponseMessage result = await downloadClient.MakeRequest(requestUrl, RequestType.Default);
         if ((int)result.StatusCode < 200 || (int)result.StatusCode >= 300)
         {
             Log.Error("Request failed");
             return [];
         }
 
-        using StreamReader sr = new (result.Content.ReadAsStream());
-        JObject jObject = JObject.Parse(sr.ReadToEnd());
+        string body = await result.Content.ReadAsStringAsync();
+        JObject jObject = JObject.Parse(body);
 
         if (jObject.Value<string>("result") != "ok")
         {
