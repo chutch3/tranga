@@ -42,18 +42,26 @@ internal class HttpDownloadClient : IDownloadClient
                 return await _flareSolverrClient.MakeRequest(url, requestType, referrer);
             }
 
-            Log.Debug($"Request returned status code {(int)response.StatusCode} {response.StatusCode}:\n" +
-                      $"=====\n" +
-                      $"Request:\n" +
-                      $"{requestMessage.Method} {requestMessage.RequestUri}\n" +
-                      $"{requestMessage.Version} {requestMessage.VersionPolicy}\n" +
-                      $"Headers:\n\t{string.Join("\n\t", requestMessage.Headers.Select(h => $"{h.Key}: <{string.Join(">, <", h.Value)}"))}>\n" +
-                      $"{requestMessage.Content?.ReadAsStringAsync().Result}" +
-                      $"=====\n" +
-                      $"Response:\n" +
-                      $"{response.Version}\n" +
-                      $"Headers:\n\t{string.Join("\n\t", response.Headers.Select(h => $"{h.Key}: <{string.Join(">, <", h.Value)}"))}>\n" +
-                      $"{response.Content.ReadAsStringAsync().Result}");
+            // Only read bodies (async, never .Result) when debug logging is actually enabled. Blocking on
+            // .Result here risked thread-pool starvation / sync-over-async deadlocks on every failed request.
+            if (Log.IsDebugEnabled)
+            {
+                CancellationToken ct = cancellationToken ?? CancellationToken.None;
+                string requestBody = requestMessage.Content is null ? "" : await requestMessage.Content.ReadAsStringAsync(ct);
+                string responseBody = await response.Content.ReadAsStringAsync(ct);
+                Log.Debug($"Request returned status code {(int)response.StatusCode} {response.StatusCode}:\n" +
+                          $"=====\n" +
+                          $"Request:\n" +
+                          $"{requestMessage.Method} {requestMessage.RequestUri}\n" +
+                          $"{requestMessage.Version} {requestMessage.VersionPolicy}\n" +
+                          $"Headers:\n\t{string.Join("\n\t", requestMessage.Headers.Select(h => $"{h.Key}: <{string.Join(">, <", h.Value)}"))}>\n" +
+                          $"{requestBody}" +
+                          $"=====\n" +
+                          $"Response:\n" +
+                          $"{response.Version}\n" +
+                          $"Headers:\n\t{string.Join("\n\t", response.Headers.Select(h => $"{h.Key}: <{string.Join(">, <", h.Value)}"))}>\n" +
+                          $"{responseBody}");
+            }
             return new(HttpStatusCode.InternalServerError);
         }
         catch (HttpRequestException e)
