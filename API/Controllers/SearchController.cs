@@ -64,7 +64,11 @@ public class SearchController(
             [
                 new DTOs.MangaConnectorId<DTOs.Manga>(id.Key, id.MangaConnectorName, id.ObjId, id.IdOnConnectorSite, id.WebsiteUrl, id.UseForDownload)
             ];
-            return new MinimalManga(m.Key, m.Name, m.Description, m.ReleaseStatus, ids, m.CoverUrl);
+            return new MinimalManga(
+                m.Key, m.Name, m.Description, m.ReleaseStatus, ids,
+                FileLibraryId: m.Library?.Key,
+                Language: connector.SupportedLanguages.FirstOrDefault(),
+                CoverUrl: m.CoverUrl);
         });
 
         return TypedResults.Ok(result.ToList());
@@ -97,7 +101,7 @@ public class SearchController(
             manga.Key, manga.Name, manga.Description, manga.ReleaseStatus, ids,
             manga.IgnoreChaptersBefore, manga.Year, manga.OriginalLanguage,
             authors, tags, links, altTitles,
-            FileLibraryId: null,
+            FileLibraryId: manga.Library?.Key,
             CoverUrl: manga.CoverUrl);
 
         return TypedResults.Ok(result);
@@ -134,7 +138,11 @@ public class SearchController(
 
         IEnumerable<DTOs.MangaConnectorId<DTOs.Manga>> ids = added.manga.MangaConnectorIds.Select(id =>
             new DTOs.MangaConnectorId<DTOs.Manga>(id.Key, id.MangaConnectorName, id.ObjId, id.IdOnConnectorSite, id.WebsiteUrl, id.UseForDownload));
-        MinimalManga result = new(added.manga.Key, added.manga.Name, added.manga.Description, added.manga.ReleaseStatus, ids, added.manga.CoverUrl);
+        MinimalManga result = new(
+            added.manga.Key, added.manga.Name, added.manga.Description, added.manga.ReleaseStatus, ids,
+            FileLibraryId: added.manga.Library?.Key,
+            Language: connector.SupportedLanguages.FirstOrDefault(),
+            CoverUrl: added.manga.CoverUrl);
 
         return TypedResults.Ok(result);
     }
