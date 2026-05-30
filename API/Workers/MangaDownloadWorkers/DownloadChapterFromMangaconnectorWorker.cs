@@ -221,6 +221,7 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
         if (!settings.BlackWhiteImages && settings.ImageCompression == 100)
         {
             Log.Debug("No processing requested for image");
+            // No new stream is created; the caller still owns and disposes imageStream.
             return imageStream;
         }
 
@@ -240,8 +241,13 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
         catch (Exception e)
         {
             Log.Error(e);
+            // Processing failed: fall back to the raw source stream (caller disposes it).
+            await processedImage.DisposeAsync();
             return imageStream;
         }
+        // Processing succeeded: a new stream now holds the image data, so dispose the source to avoid
+        // leaking the underlying network stream/handle.
+        await imageStream.DisposeAsync();
         processedImage.Position = 0;
         return processedImage;
     }
