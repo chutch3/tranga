@@ -24,7 +24,7 @@ public class WeebCentral : MangaConnector
         Log.InfoFormat("Searching: {0}", mangaSearchName);
         string sanitizedTitle = string.Join(' ', Regex.Matches(mangaSearchName, @"[A-Za-z]+").Where(m => m.Value.Length > 0)).ToLowerInvariant();
         string requestUrl = $"https://weebcentral.com/search/data?limit=32&offset=0&text={HttpUtility.UrlEncode(sanitizedTitle)}&sort=Best+Match&order=Ascending&official=Any&display_mode=Minimal%20Display";
-        HttpResponseMessage response = await downloadClient.MakeRequest(requestUrl, RequestType.Default);
+        using HttpResponseMessage response = await downloadClient.MakeRequest(requestUrl, RequestType.Default);
 
         if (!response.IsSuccessStatusCode)
         {
@@ -86,7 +86,7 @@ public class WeebCentral : MangaConnector
         string storedUrl = $"https://weebcentral.com/series/{coreSlug}";  // Stable wildcard
 
         // Fetch once using full url (no double fetch)
-        HttpResponseMessage response = await downloadClient.MakeRequest(url, RequestType.MangaInfo);
+        using HttpResponseMessage response = await downloadClient.MakeRequest(url, RequestType.MangaInfo);
         if (!response.IsSuccessStatusCode)
         {
             Log.Error("Failed to retrieve manga page");
@@ -103,7 +103,7 @@ public class WeebCentral : MangaConnector
     public override async Task<(Manga, MangaConnectorId<Manga>)?> GetMangaFromId(string mangaIdOnSite)
     {
         string url = $"https://weebcentral.com/series/{mangaIdOnSite}";
-        HttpResponseMessage response = await downloadClient.MakeRequest(url, RequestType.MangaInfo);
+        using HttpResponseMessage response = await downloadClient.MakeRequest(url, RequestType.MangaInfo);
         if (!response.IsSuccessStatusCode)
         {
             Log.Error("Failed to retrieve manga page");
@@ -190,7 +190,7 @@ public class WeebCentral : MangaConnector
 
         string websiteUrl = $"https://weebcentral.com/series/{baseSlug}/full-chapter-list";
 
-        HttpResponseMessage response = await downloadClient.MakeRequest(websiteUrl, RequestType.Default);
+        using HttpResponseMessage response = await downloadClient.MakeRequest(websiteUrl, RequestType.Default);
         if (!response.IsSuccessStatusCode)
         {
             Log.Error("Failed to load chapters page");
@@ -281,7 +281,7 @@ public class WeebCentral : MangaConnector
 
 	private async Task<string[]> GetChapterImageUrlsAsync(MangaConnectorId<Chapter> chapterId, string? referrer)
 	{
-		HttpResponseMessage response = await downloadClient.MakeRequest(chapterId.WebsiteUrl!, RequestType.Default, referrer);
+		using HttpResponseMessage response = await downloadClient.MakeRequest(chapterId.WebsiteUrl!, RequestType.Default, referrer);
 
 		if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300)
 		{

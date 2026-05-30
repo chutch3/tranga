@@ -29,7 +29,7 @@ public class AsuraComic : MangaConnector
         Log.InfoFormat("Searching: {0}", mangaSearchName);
         string sanitizedTitle = string.Join(' ', Regex.Matches(mangaSearchName, @"[A-Za-z]+").Where(m => m.Value.Length > 0)).ToLowerInvariant();
         string requestUrl = $"https://asuracomic.net/series?name={HttpUtility.UrlEncode(sanitizedTitle)}";
-        HttpResponseMessage response = await downloadClient.MakeRequest(requestUrl, RequestType.Default);
+        using HttpResponseMessage response = await downloadClient.MakeRequest(requestUrl, RequestType.Default);
 
         if (!response.IsSuccessStatusCode)
         {
@@ -94,7 +94,7 @@ public class AsuraComic : MangaConnector
         string storedUrl = $"https://asuracomic.net/series/{coreSlug}-*";  // Stable wildcard
 
         // Fetch once using full url (no double fetch)
-        HttpResponseMessage response = await downloadClient.MakeRequest(url, RequestType.MangaInfo);
+        using HttpResponseMessage response = await downloadClient.MakeRequest(url, RequestType.MangaInfo);
         if (!response.IsSuccessStatusCode)
         {
             Log.Error("Failed to retrieve manga page");
@@ -111,7 +111,7 @@ public class AsuraComic : MangaConnector
     public override async Task<(Manga, MangaConnectorId<Manga>)?> GetMangaFromId(string mangaIdOnSite)
     {
         string url = $"https://asuracomic.net/series/{mangaIdOnSite}";
-        HttpResponseMessage response = await downloadClient.MakeRequest(url, RequestType.MangaInfo);
+        using HttpResponseMessage response = await downloadClient.MakeRequest(url, RequestType.MangaInfo);
         if (!response.IsSuccessStatusCode)
         {
             Log.Error("Failed to retrieve manga page");
@@ -197,7 +197,7 @@ public class AsuraComic : MangaConnector
 
         string websiteUrl = manga.WebsiteUrl ?? $"https://asuracomic.net/series/{baseSlug}";
 
-        HttpResponseMessage response = await downloadClient.MakeRequest(websiteUrl, RequestType.Default);
+        using HttpResponseMessage response = await downloadClient.MakeRequest(websiteUrl, RequestType.Default);
         if (!response.IsSuccessStatusCode)
         {
             Log.Error("Failed to load chapters page");
@@ -339,7 +339,7 @@ public class AsuraComic : MangaConnector
         ChromiumDownloadClient chromium = new(_settings, _rateLimitHandler);
         try
         {
-            HttpResponseMessage response = await chromium.MakeRequest(chapterId.WebsiteUrl!, RequestType.Default, referrer);
+            using HttpResponseMessage response = await chromium.MakeRequest(chapterId.WebsiteUrl!, RequestType.Default, referrer);
 
             if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300)
             {

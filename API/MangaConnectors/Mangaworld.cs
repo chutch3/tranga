@@ -53,8 +53,7 @@ public sealed class Mangaworld : MangaConnector
         if ((int)res.StatusCode < 200 || (int)res.StatusCode >= 300)
             return [];
 
-        using StreamReader sr = new(res.Content.ReadAsStream());
-        string html = sr.ReadToEnd();
+        string html = await res.Content.ReadAsStringAsync();
 
         HtmlDocument doc = new();
         doc.LoadHtml(html);
@@ -112,8 +111,7 @@ public sealed class Mangaworld : MangaConnector
         if ((int)res.StatusCode < 200 || (int)res.StatusCode >= 300)
             return null;
 
-        using StreamReader sr = new StreamReader(res.Content.ReadAsStream());
-        string html = sr.ReadToEnd();
+        string html = await res.Content.ReadAsStringAsync();
 
         HtmlDocument doc = new HtmlDocument();
         doc.LoadHtml(html);
@@ -397,7 +395,9 @@ public sealed class Mangaworld : MangaConnector
         {
             return ("", baseUri);
         }
-        using StreamReader sr = new StreamReader(res.Content.ReadAsStream());
-        return (await sr.ReadToEndAsync(), baseUri);
+        using (res)
+        {
+            return (await res.Content.ReadAsStringAsync(), baseUri);
+        }
     }
 }
