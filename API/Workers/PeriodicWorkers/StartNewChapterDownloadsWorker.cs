@@ -32,17 +32,23 @@ public class StartNewChapterDownloadsWorker(TrangaSettings settings, IWorkerQueu
         List<MangaConnectorId<Chapter>> missingChapters = await GetMissingChapters(MangaContext, CancellationToken);
         
         Log.DebugFormat("Found {0} missing chapters.", missingChapters.Count);
-        List<string> chaptersDownloading = workerQueue.GetRunningWorkers()
-            .Where(w => w is DownloadChapterFromMangaconnectorWorker)
-            .Select(w => ((DownloadChapterFromMangaconnectorWorker)w).ChapterIdId).ToList();
-        missingChapters.RemoveAll(ch => chaptersDownloading.Contains(ch.Key));
+
+        // Consider ALL in-flight download workers (queued AND running), not just running ones. A worker
+        // created by a previous tick may still be queued (registration is asynchronous); de-duping only
+        // against running workers would schedule a duplicate download for the same chapter.
+        List<DownloadChapterFromMangaconnectorWorker> inFlightDownloadWorkers = workerQueue.GetKnownWorkers()
+            .OfType<DownloadChapterFromMangaconnectorWorker>()
+            .ToList();
+        HashSet<string> inFlightChapterIds = inFlightDownloadWorkers.Select(w => w.ChapterIdId).ToHashSet();
+        missingChapters.RemoveAll(ch => inFlightChapterIds.Contains(ch.Key));
         Log.DebugFormat("{0} chapter not being downloaded", missingChapters.Count);
-        
-        // Maximum Concurrent workers
-        int downloadWorkers = workerQueue.GetRunningWorkers().Count(w => w.GetType() == typeof(DownloadChapterFromMangaconnectorWorker));
-        int amountNewWorkers = Math.Min(settings.MaxConcurrentDownloads, settings.MaxConcurrentDownloads - downloadWorkers);
-        
-        Log.DebugFormat("{0} running download Workers. {1} available new download Workers.", downloadWorkers, amountNewWorkers);
+
+        // Maximum Concurrent workers. Clamp at 0: if more downloads are already in-flight than the limit
+        // we must not schedule more (and must never pass a negative count downstream).
+        int downloadWorkers = inFlightDownloadWorkers.Count;
+        int amountNewWorkers = Math.Max(0, settings.MaxConcurrentDownloads - downloadWorkers);
+
+        Log.DebugFormat("{0} in-flight download Workers. {1} available new download Workers.", downloadWorkers, amountNewWorkers);
         IEnumerable<MangaConnectorId<Chapter>> newDownloadChapters = missingChapters.OrderBy(ch => ch.Obj, new Chapter.ChapterComparer()).Take(amountNewWorkers);
 
         // Create new jobs
