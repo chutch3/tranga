@@ -86,13 +86,17 @@ public abstract class BaseWorker : Identifiable
             _cancellationTokenSource = new(Constants.WorkerTimeout);
             State = WorkerExecutionState.Waiting;
             
-            // Wait for dependencies, start them if necessary
+            // Wait for dependencies, start them if necessary.
+            // Return hot (already-scheduled) tasks here; a cold `new Task(...)` would never run, so the
+            // worker would never complete and its concurrency slot would leak (deadlocking the queue).
             BaseWorker[] missingDependenciesThatNeedStarting = MissingDependencies.Where(d => d.State < WorkerExecutionState.Waiting).ToArray();
             if(missingDependenciesThatNeedStarting.Any())
-                return new (() => missingDependenciesThatNeedStarting);
+                // Hand the unstarted dependencies back to the queue to be started, and re-queue ourselves
+                // so we re-evaluate once they have begun/completed.
+                return Task.FromResult(missingDependenciesThatNeedStarting.Append(this).ToArray());
 
             if (MissingDependencies.Any())
-                return new (WaitForDependencies);
+                return Task.Run(WaitForDependencies);
             
             // Run the actual work
             Log.InfoFormat("Running {0}", ToString());
@@ -129,12 +133,22 @@ public abstract class BaseWorker : Identifiable
     
     protected abstract Task<BaseWorker[]> DoWorkInternal();
 
-    private BaseWorker[] WaitForDependencies()
+    private async Task<BaseWorker[]> WaitForDependencies()
     {
         Log.InfoFormat("Waiting for {0} Dependencies {1}:\n\t{2}", MissingDependencies.Count(), this, string.Join("\n\t", MissingDependencies.Select(d => d.ToString())));
-        while (!_cancellationTokenSource.IsCancellationRequested && MissingDependencies.Any())
+        try
         {
-            Thread.Sleep(20000);
+            // Async, non-blocking wait: a synchronous Thread.Sleep here would block a thread-pool thread
+            // while still holding a concurrency slot.
+            while (MissingDependencies.Any())
+            {
+                _cancellationTokenSource.Token.ThrowIfCancellationRequested();
+                await Task.Delay(Constants.DependencyPollInterval, _cancellationTokenSource.Token);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            return [];
         }
         return [this];
     }

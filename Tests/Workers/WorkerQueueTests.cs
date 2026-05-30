@@ -21,6 +21,75 @@ public class WorkerQueueTests
         public void Complete() => _tcs.TrySetResult([]);
     }
 
+    /// <summary>A worker that records whether its body ran, and completes immediately.</summary>
+    private sealed class RecordingWorker : BaseWorker
+    {
+        public bool HasRun { get; private set; }
+
+        public RecordingWorker(string key, IEnumerable<BaseWorker>? dependsOn = null) : base(key, dependsOn)
+        {
+        }
+
+        protected override Task<BaseWorker[]> DoWorkInternal()
+        {
+            HasRun = true;
+            return Task.FromResult(Array.Empty<BaseWorker>());
+        }
+    }
+
+    private static async Task<bool> WaitUntilAsync(Func<bool> condition, TimeSpan timeout)
+    {
+        var deadline = DateTime.UtcNow.Add(timeout);
+        while (DateTime.UtcNow < deadline)
+        {
+            if (condition())
+                return true;
+            await Task.Delay(50);
+        }
+        return condition();
+    }
+
+    [Fact]
+    public async Task AddWorker_WithUnstartedDependency_RunsDependencyThenCompletesDependent()
+    {
+        var settings = new TrangaSettings { AppData = Path.GetTempPath(), MaxConcurrentWorkers = 5 };
+        var queue = CreateQueue(settings);
+
+        var dependency = new RecordingWorker("dep");
+        var dependent = new RecordingWorker("dependent", dependsOn: [dependency]);
+
+        queue.AddWorker(dependent);
+
+        var completed = await WaitUntilAsync(
+            () => dependency.HasRun && dependent.State == WorkerExecutionState.Completed,
+            TimeSpan.FromSeconds(10));
+
+        Assert.True(dependency.HasRun, "Dependency should have been started and run.");
+        Assert.True(dependent.HasRun, "Dependent should have run after its dependency completed.");
+        Assert.Equal(WorkerExecutionState.Completed, dependent.State);
+    }
+
+    [Fact]
+    public async Task AddWorker_WithUnstartedDependency_DoesNotLeakConcurrencySlots()
+    {
+        // With MaxConcurrentWorkers = 1, a dependent worker must not permanently hold the only
+        // concurrency slot while resolving its dependency, or the queue deadlocks.
+        var settings = new TrangaSettings { AppData = Path.GetTempPath(), MaxConcurrentWorkers = 2 };
+        var queue = CreateQueue(settings);
+
+        var dependency = new RecordingWorker("dep2");
+        var dependent = new RecordingWorker("dependent2", dependsOn: [dependency]);
+
+        queue.AddWorker(dependent);
+        Assert.True(await WaitUntilAsync(() => dependent.State == WorkerExecutionState.Completed, TimeSpan.FromSeconds(10)));
+
+        // A subsequent independent worker must still be able to run (slots were released).
+        var after = new RecordingWorker("after");
+        queue.AddWorker(after);
+        Assert.True(await WaitUntilAsync(() => after.HasRun, TimeSpan.FromSeconds(10)),
+            "A worker added after dependency resolution should still acquire a concurrency slot.");
+    }
+
     private static WorkerQueue CreateQueue(TrangaSettings? settings = null)
     {
         settings ??= new TrangaSettings { AppData = Path.GetTempPath() };
@@ -64,11 +133,15 @@ public class WorkerQueueTests
     }
 
     [Fact]
-    public void StopWorker_RemovesWorkerFromRunningWorkers()
+    public async Task StopWorker_RemovesWorkerFromRunningWorkers()
     {
         var queue = CreateQueue();
         var worker = new FakeWorker("w-stop");
         queue.AddWorker(worker);
+
+        // AddWorker starts the worker asynchronously; wait until it is actually running before stopping,
+        // otherwise StopWorker races the background StartWorker.
+        Assert.True(await WaitUntilAsync(() => queue.GetRunningWorkers().Contains(worker), TimeSpan.FromSeconds(5)));
 
         queue.StopWorker(worker);
 
@@ -76,11 +149,13 @@ public class WorkerQueueTests
     }
 
     [Fact]
-    public void StopWorker_CallsCancelOnWorker()
+    public async Task StopWorker_CallsCancelOnWorker()
     {
         var queue = CreateQueue();
         var worker = new FakeWorker("w-cancel");
         queue.AddWorker(worker);
+
+        Assert.True(await WaitUntilAsync(() => queue.GetRunningWorkers().Contains(worker), TimeSpan.FromSeconds(5)));
 
         // Cancel is called by StopWorker
         queue.StopWorker(worker);

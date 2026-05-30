@@ -15,7 +15,9 @@ public class WorkerQueue : IWorkerQueue
     private readonly TrangaSettings _settings;
 
     internal readonly ConcurrentDictionary<IPeriodic, Task> PeriodicWorkers = new();
-    private readonly HashSet<BaseWorker> _knownWorkers = new();
+    // Thread-safe set: known workers are mutated from background start/cleanup tasks while being read
+    // concurrently by worker threads (e.g. StartNewChapterDownloadsWorker). A plain HashSet would tear.
+    private readonly ConcurrentDictionary<BaseWorker, byte> _knownWorkers = new();
     private readonly ConcurrentDictionary<BaseWorker, Task<BaseWorker[]>> _runningWorkers = new();
     private readonly SemaphoreSlim _concurrencySemaphore;
 
@@ -37,7 +39,7 @@ public class WorkerQueue : IWorkerQueue
         foreach (var worker in workerList)
         {
             Log.DebugFormat("Registering Worker {0}", worker);
-            _knownWorkers.Add(worker);
+            _knownWorkers.TryAdd(worker, 0);
         }
 
         // Fire and forget ONE task to start the workers sequentially in background
@@ -63,7 +65,7 @@ public class WorkerQueue : IWorkerQueue
         });
     }
 
-    public BaseWorker[] GetKnownWorkers() => _knownWorkers.ToArray();
+    public BaseWorker[] GetKnownWorkers() => _knownWorkers.Keys.ToArray();
 
     public BaseWorker[] GetRunningWorkers() => _runningWorkers.Keys.ToArray();
 
@@ -99,23 +101,23 @@ public class WorkerQueue : IWorkerQueue
             }
 
             Log.DebugFormat("Starting {0}", worker);
-            Action afterWorkCallback = DefaultAfterWork(worker, finishedCallback);
 
-            Task<BaseWorker[]> workTask;
-            if (worker is BaseWorkerWithContexts withContexts)
-            {
-                workTask = withContexts.DoWork(_serviceProvider.CreateScope(), afterWorkCallback);
-            }
-            else
-            {
-                workTask = worker.DoWork(afterWorkCallback);
-            }
+            Task<BaseWorker[]> workTask = worker is BaseWorkerWithContexts withContexts
+                ? withContexts.DoWork(_serviceProvider.CreateScope())
+                : worker.DoWork();
 
             if (!_runningWorkers.TryAdd(worker, workTask))
             {
                 Log.WarnFormat("Failed to add worker {0} to running list. It might be a duplicate.", worker);
                 _concurrencySemaphore.Release();
+                finishedCallback?.Invoke();
+                return;
             }
+
+            // Attach cleanup + follow-up scheduling to the returned task itself. This fires for EVERY
+            // return path of DoWork (work done, dependency-waiting, dependency-starting), so the
+            // concurrency slot is always released and follow-up workers are always queued.
+            _ = workTask.ContinueWith(t => OnWorkerFinished(worker, t, finishedCallback), TaskScheduler.Default);
         }
         catch (Exception e)
         {
@@ -123,6 +125,40 @@ public class WorkerQueue : IWorkerQueue
             _concurrencySemaphore.Release();
             throw;
         }
+    }
+
+    private async Task OnWorkerFinished(BaseWorker worker, Task<BaseWorker[]> task, Action? finishedCallback)
+    {
+        Log.DebugFormat("Worker finished {0}", worker);
+        BaseWorker[] newWorkers = [];
+        try
+        {
+            if (task.IsCompletedSuccessfully)
+            {
+                newWorkers = await task;
+                Log.DebugFormat("{0} created {1} new Workers.", worker, newWorkers.Length);
+            }
+            else
+            {
+                Log.WarnFormat("Worker did not complete successfully: {0} ({1})", worker, task.Exception?.Message);
+            }
+        }
+        catch (Exception e)
+        {
+            Log.Error(e);
+        }
+        finally
+        {
+            // Free the slot and de-register BEFORE enqueuing follow-up work, so the new workers can
+            // acquire the slot and a re-queued worker is not skipped as "already running".
+            _runningWorkers.Remove(worker, out _);
+            _concurrencySemaphore.Release();
+        }
+
+        if (newWorkers.Length > 0)
+            AddWorkers(newWorkers);
+
+        finishedCallback?.Invoke();
     }
 
     private void AddPeriodicWorker(BaseWorker worker, IPeriodic periodic)
@@ -153,44 +189,7 @@ public class WorkerQueue : IWorkerQueue
 
     private Action RemoveFromKnownWorkers(BaseWorker worker) => () =>
     {
-        if (_knownWorkers.Contains(worker))
-            _knownWorkers.Remove(worker);
+        _knownWorkers.TryRemove(worker, out _);
     };
 
-    private Action DefaultAfterWork(BaseWorker worker, Action? callback = null) => async () =>
-    {
-        Log.DebugFormat("DefaultAfterWork {0}", worker);
-        try
-        {
-            if (_runningWorkers.TryGetValue(worker, out Task<BaseWorker[]>? task))
-            {
-                if (task.IsCompletedSuccessfully)
-                {
-                    Log.DebugFormat("Children done {0}", worker);
-                    BaseWorker[] newWorkers = await task;
-                    Log.DebugFormat("{0} created {1} new Workers.", worker, newWorkers.Length);
-                    AddWorkers(newWorkers);
-                }
-                else
-                {
-                    if (!task.IsCompleted)
-                    {
-                        Log.DebugFormat("Waiting for Children to exit {0}", worker);
-                        await task;
-                    }
-                    Log.WarnFormat("Children failed: {0}", worker);
-                }
-            }
-        }
-        catch (Exception e)
-        {
-            Log.Error(e);
-        }
-        finally
-        {
-            _runningWorkers.Remove(worker, out _);
-            _concurrencySemaphore.Release();
-        }
-        callback?.Invoke();
-    };
 }
