@@ -41,6 +41,17 @@ public static class Utils
     }
 
     /// <summary>
+    /// Returns a uniformly random element of <paramref name="list"/>. Every element, including the last,
+    /// is reachable (the upper bound is exclusive, so it must be the count — not count-1).
+    /// </summary>
+    public static T RandomElement<T>(this IReadOnlyList<T> list, Random? random = null)
+    {
+        if (list.Count == 0)
+            throw new ArgumentException("List must not be empty", nameof(list));
+        return list[(random ?? Random.Shared).Next(0, list.Count)];
+    }
+
+    /// <summary>
     /// Builds a URI
     /// </summary>
     public static Uri BuildUri(string basePath, string relativePath) => BuildUri(new Uri(basePath), relativePath);

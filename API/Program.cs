@@ -231,7 +231,7 @@ try //Connect to DB and apply migrations
             "(\u02c3ᆺ\u02c2)", "(=\ud83d\udf66 \u0f1d \ud83d\udf66=)"
         ];
         await context.Notifications.AddAsync(
-            new("Tranga Started", emojis[Random.Shared.Next(0, emojis.Length - 1)], NotificationUrgency.High),
+            new("Tranga Started", emojis.RandomElement(), NotificationUrgency.High),
             CancellationToken.None);
 
         if(await context.Sync(CancellationToken.None, reason: "Startup notification") is { success: false } contextException)
