@@ -43,13 +43,14 @@ public abstract class MangaConnector(string name, string[] supportedLanguages, s
         Regex urlRex = new (@"https?:\/\/((?:[a-zA-Z0-9-]+\.)+[a-zA-Z0-9]+)\/(?:.+\/)*(.+\.([a-zA-Z]+))");
         //https?:\/\/[a-zA-Z0-9-]+\.([a-zA-Z0-9-]+\.[a-zA-Z0-9]+)\/(?:.+\/)*(.+\.([a-zA-Z]+)) for only second level domains
         Match match = urlRex.Match(mangaId.Obj.CoverUrl);
-        string filename = $"{match.Groups[1].Value}-{mangaId.ObjId}.{mangaId.MangaConnectorName}.{match.Groups[3].Value}";
+        // Clean ONCE up front so the file written to disk and the value returned are always identical.
+        string filename = $"{match.Groups[1].Value}-{mangaId.ObjId}.{mangaId.MangaConnectorName}.{match.Groups[3].Value}".CleanNameForWindows();
         string saveImagePath = Path.Join(settings.CoverImageCacheOriginal, filename);
 
         if (File.Exists(saveImagePath))
             return filename;
 
-        HttpResponseMessage coverResult = await downloadClient.MakeRequest(mangaId.Obj.CoverUrl, RequestType.MangaCover, $"https://{match.Groups[1].Value}");
+        using HttpResponseMessage coverResult = await downloadClient.MakeRequest(mangaId.Obj.CoverUrl, RequestType.MangaCover, $"https://{match.Groups[1].Value}");
         if ((int)coverResult.StatusCode < 200 || (int)coverResult.StatusCode >= 300)
             return await SaveCoverImageToCache(mangaId, retries - 1);
 
@@ -83,7 +84,7 @@ public abstract class MangaConnector(string name, string[] supportedLanguages, s
         }
 
 
-        return filename.CleanNameForWindows();
+        return filename;
     }
 
     public virtual async Task<Stream?> DownloadImage(string imageUrl, CancellationToken ct)
