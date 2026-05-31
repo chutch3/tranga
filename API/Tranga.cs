@@ -65,6 +65,7 @@ public class Tranga
     internal void AddDefaultWorkers()
     {
         _workerQueue.AddWorker(GetWorker<UpdateMetadataWorker>());
+        _workerQueue.AddWorker(GetWorker<NotifyOnNewDownloadsWorker>());
         _workerQueue.AddWorker(GetWorker<CheckForNewChaptersWorker>());
         _workerQueue.AddWorker(GetWorker<StartNewChapterDownloadsWorker>());
         _workerQueue.AddWorker(GetWorker<RemoveOldNotificationsWorker>());

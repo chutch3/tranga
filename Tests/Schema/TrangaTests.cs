@@ -60,6 +60,7 @@ public class TrangaTests
         services.AddTransient<CleanupOrphanedFilesWorker>();
         services.AddTransient<ResolveMissingVolumesWorker>(_ => new ResolveMissingVolumesWorker(testSettings, Mock.Of<IBatchWorkerFactory<string>>()));
         services.AddTransient<SyncChapterFileNamesWorker>(_ => new SyncChapterFileNamesWorker(testSettings));
+        services.AddTransient<NotifyOnNewDownloadsWorker>(_ => new NotifyOnNewDownloadsWorker(Mock.Of<API.Notifications.INotificationDispatcher>()));
 
         // 4. Inject empty fetchers, rate limiter, worker queue, and SeriesContext
         services.AddSingleton<IEnumerable<MetadataFetcher>>(emptyFetchers);
@@ -124,6 +125,7 @@ public class TrangaTests
         trangaManager.AddDefaultWorkers();
 
         mockQueue.Verify(x => x.AddWorker(It.IsAny<UpdateMetadataWorker>()), Times.Once);
+        mockQueue.Verify(x => x.AddWorker(It.IsAny<NotifyOnNewDownloadsWorker>()), Times.Once);
         mockQueue.Verify(x => x.AddWorker(It.IsAny<CheckForNewChaptersWorker>()), Times.Once);
         mockQueue.Verify(x => x.AddWorker(It.IsAny<StartNewChapterDownloadsWorker>()), Times.Once);
         mockQueue.Verify(x => x.AddWorker(It.IsAny<RemoveOldNotificationsWorker>()), Times.Once);

@@ -4,7 +4,6 @@ using API.MangaConnectors;
 using API.Schema.ActionsContext;
 using API.Schema.ActionsContext.Actions;
 using API.Schema.SeriesContext;
-using API.Schema.NotificationsContext;
 using API.Workers.PeriodicWorkers;
 using Microsoft.EntityFrameworkCore;
 
@@ -31,14 +30,11 @@ public class DownloadChapterFromSourceWorker(
     private SeriesContext SeriesContext = null!;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     private ActionsContext ActionsContext = null!;
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
-    private NotificationsContext NotificationsContext = null!;
 
     protected override void SetContexts(IServiceScope serviceScope)
     {
         SeriesContext = GetContext<SeriesContext>(serviceScope);
         ActionsContext = GetContext<ActionsContext>(serviceScope);
-        NotificationsContext = GetContext<NotificationsContext>(serviceScope);
     }
 
     protected override async Task<BaseWorker[]> DoWorkInternal()
@@ -96,20 +92,14 @@ public class DownloadChapterFromSourceWorker(
             Log.Debug($"Downloaded chapter {chapter}.");
 
             await ActionsContext.Actions.AddAsync(new ChapterDownloadedActionRecord(chapter.ParentManga, chapter));
-            if (await ActionsContext.Sync(CancellationToken, GetType(), "Download complete") is { success: false } actionsContextException)
-                Log.Error($"Failed to save database changes: {actionsContextException.exceptionMessage}");
 
-            await NotificationsContext.Notifications.AddAsync(new Notification(
-                "Chapter downloaded",
-                $"{chapter.ParentManga.Name} Ch. {chapter.ChapterNumber} - {chapter.FileName}"
-                ), CancellationToken);
-
-            // Consolidated sync for all contexts
+            // Notification emission has moved to NotifyOnNewDownloadsWorker which observes the
+            // ChapterDownloadedActionRecord rows produced here — keeps a single emission point that
+            // covers both image-list and torrent download paths.
             var syncTasks = new List<Task<(bool success, string? exceptionMessage)>>
             {
                 SeriesContext.Sync(CancellationToken, GetType(), "Download Success"),
-                ActionsContext.Sync(CancellationToken, GetType(), "Download Success"),
-                NotificationsContext.Sync(CancellationToken, GetType(), "Download Success")
+                ActionsContext.Sync(CancellationToken, GetType(), "Download Success")
             };
             var results = await Task.WhenAll(syncTasks);
             foreach (var result in results)

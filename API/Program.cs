@@ -130,6 +130,8 @@ builder.Services.AddSingleton<API.Acquirers.IChapterAcquirer>(sp =>
 });
 
 // 4. Register your Workers
+builder.Services.AddSingleton<API.Notifications.INotificationDispatcher, API.Notifications.DbNotificationDispatcher>();
+builder.Services.AddSingleton<NotifyOnNewDownloadsWorker>();
 builder.Services.AddSingleton<UpdateMetadataWorker>();
 builder.Services.AddSingleton<SendNotificationsWorker>();
 builder.Services.AddSingleton<UpdateChaptersDownloadedWorker>();
