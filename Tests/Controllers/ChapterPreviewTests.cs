@@ -53,7 +53,7 @@ public class ChapterPreviewTests : IDisposable
     private ChaptersController CreateController(MangaContext ctx, IChapterThumbnailService? thumbnailService = null)
     {
         var mockWorkerQueue = new Mock<IWorkerQueue>();
-        var connectors = Enumerable.Empty<API.MangaConnectors.MangaConnector>();
+        var connectors = Enumerable.Empty<API.MangaConnectors.SeriesSource>();
         thumbnailService ??= new ChapterThumbnailService();
 
         var controller = new ChaptersController(ctx, _settings, connectors, mockWorkerQueue.Object, thumbnailService);
@@ -190,7 +190,7 @@ public class ChapterPreviewTests : IDisposable
         var service = new ChapterThumbnailService();
 
         var controller = new ChaptersController(ctx, _settings,
-            Enumerable.Empty<API.MangaConnectors.MangaConnector>(),
+            Enumerable.Empty<API.MangaConnectors.SeriesSource>(),
             new Mock<IWorkerQueue>().Object, service);
         controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
 

@@ -106,8 +106,8 @@ public class ResolveMissingVolumesWorkerIntegrationTests : IAsyncLifetime
             setupDb.FileLibraries.Add(library);
             var manga = new Series("Berserk", "Dark fantasy", "url", MangaReleaseStatus.Continuing,
                 [], [], [], [], library);
-            manga.MangaConnectorIds.Add(
-                new MangaConnectorId<Series>(manga, "MangaDex", berserkUuid, null));
+            manga.SourceIds.Add(
+                new SourceId<Series>(manga, "MangaDex", berserkUuid, null));
             setupDb.Series.Add(manga);
             setupDb.Chapters.Add(new Chapter(manga, "1", null, "Black Swordsman")
                 { Downloaded = true, FileName = "berserk_ch1.cbz" });
@@ -143,8 +143,8 @@ public class ResolveMissingVolumesWorkerIntegrationTests : IAsyncLifetime
             setupDb.FileLibraries.Add(library);
             var manga = new Series("Berserk", "Dark fantasy", "url", MangaReleaseStatus.Continuing,
                 [], [], [], [], library);
-            manga.MangaConnectorIds.Add(
-                new MangaConnectorId<Series>(manga, "MangaDex", berserkUuid, null));
+            manga.SourceIds.Add(
+                new SourceId<Series>(manga, "MangaDex", berserkUuid, null));
             setupDb.Series.Add(manga);
             // Constructor normalizes "0.01" → "0.1"
             setupDb.Chapters.Add(new Chapter(manga, "0.01", null, "The Black Swordsman")
@@ -173,8 +173,8 @@ public class ResolveMissingVolumesWorkerIntegrationTests : IAsyncLifetime
         var library = new FileLibrary(_tempDir, "Integration Library");
         var manga = new Series("Berserk", "Dark fantasy", "url", MangaReleaseStatus.Continuing,
             [], [], [], [], library);
-        manga.MangaConnectorIds.Add(
-            new MangaConnectorId<Series>(manga, "MangaDex", berserkUuid, null));
+        manga.SourceIds.Add(
+            new SourceId<Series>(manga, "MangaDex", berserkUuid, null));
 
         var resolver = new MangaDexVolumeResolver(_httpClient);
         var map = await resolver.GetChapterToVolumeMapAsync(manga);
@@ -204,8 +204,8 @@ public class ResolveMissingVolumesWorkerIntegrationTests : IAsyncLifetime
             setupDb.FileLibraries.Add(library);
             manga = new Series("One Punch-Man", "Superhero comedy", "url",
                 MangaReleaseStatus.Continuing, [], [], [], [], library);
-            manga.MangaConnectorIds.Add(
-                new MangaConnectorId<Series>(manga, "MangaDex", opmMangaDexUuid, null));
+            manga.SourceIds.Add(
+                new SourceId<Series>(manga, "MangaDex", opmMangaDexUuid, null));
             setupDb.Series.Add(manga);
             setupDb.Chapters.Add(new Chapter(manga, "1", null, "Punch 1")
                 { Downloaded = true, FileName = "chap1.cbz" });

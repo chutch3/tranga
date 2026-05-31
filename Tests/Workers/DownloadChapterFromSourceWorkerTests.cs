@@ -11,7 +11,7 @@ using Xunit;
 
 namespace API.Tests.Workers;
 
-public class DownloadChapterFromMangaconnectorWorkerTests
+public class DownloadChapterFromSourceWorkerTests
 {
     /// <summary>A MemoryStream that records whether it was disposed.</summary>
     private sealed class TrackingStream : MemoryStream
@@ -76,12 +76,12 @@ public class DownloadChapterFromMangaconnectorWorkerTests
             context.Series.Add(manga);
             var chapter = new Chapter(manga, "1", null, "Title");
             context.Chapters.Add(chapter);
-            var connectorId = new MangaConnectorId<Chapter>(chapter, "MockConnector", "site1", "url1", true);
+            var connectorId = new SourceId<Chapter>(chapter, "MockConnector", "site1", "url1", true);
             context.MangaConnectorToChapter.Add(connectorId);
             await context.SaveChangesAsync();
 
-            var mockConnector = new Mock<MangaConnector>("MockConnector", new[] { "en" }, new[] { "mock.com" }, "icon", settings);
-            mockConnector.Setup(c => c.GetChapterImageUrls(It.IsAny<MangaConnectorId<Chapter>>()))
+            var mockConnector = new Mock<SeriesSource>("MockConnector", new[] { "en" }, new[] { "mock.com" }, "icon", settings);
+            mockConnector.Setup(c => c.GetChapterImageUrls(It.IsAny<SourceId<Chapter>>()))
                 .ReturnsAsync(["http://img/1.jpg"]);
 
             var sourceStream = new TrackingStream(CreateJpegBytes());
@@ -94,7 +94,7 @@ public class DownloadChapterFromMangaconnectorWorkerTests
             services.AddDbContext<API.Schema.NotificationsContext.NotificationsContext>(o => o.UseInMemoryDatabase("Notifications-" + Guid.NewGuid().ToString("N")));
             var serviceProvider = services.BuildServiceProvider();
 
-            var worker = new DownloadChapterFromMangaconnectorWorker(connectorId, new[] { mockConnector.Object }, settings);
+            var worker = new DownloadChapterFromSourceWorker(connectorId, new[] { mockConnector.Object }, settings);
 
             await worker.DoWork(serviceProvider.CreateScope());
 
@@ -129,16 +129,16 @@ public class DownloadChapterFromMangaconnectorWorkerTests
         var chapter = new Chapter(manga, "1", null, "Title");
         context.Chapters.Add(chapter);
         
-        var connectorId = new MangaConnectorId<Chapter>(chapter, "MockConnector", "site1", "url1", true);
+        var connectorId = new SourceId<Chapter>(chapter, "MockConnector", "site1", "url1", true);
         context.MangaConnectorToChapter.Add(connectorId);
         await context.SaveChangesAsync();
 
         var settings = new TrangaSettings { AppData = "/tmp", ChapterNamingScheme = "%M - %C" };
         
-        var mockConnector = new Mock<MangaConnector>("MockConnector", new[] { "en" }, new[] { "mock.com" }, "icon", settings);
+        var mockConnector = new Mock<SeriesSource>("MockConnector", new[] { "en" }, new[] { "mock.com" }, "icon", settings);
         
         // Simulate a crash during image URL retrieval
-        mockConnector.Setup(c => c.GetChapterImageUrls(It.IsAny<MangaConnectorId<Chapter>>()))
+        mockConnector.Setup(c => c.GetChapterImageUrls(It.IsAny<SourceId<Chapter>>()))
             .ThrowsAsync(new Exception("Network failure during image retrieval"));
 
         var services = new ServiceCollection();
@@ -148,7 +148,7 @@ public class DownloadChapterFromMangaconnectorWorkerTests
 
         var serviceProvider = services.BuildServiceProvider();
 
-        var worker = new DownloadChapterFromMangaconnectorWorker(connectorId, new[] { mockConnector.Object }, settings);
+        var worker = new DownloadChapterFromSourceWorker(connectorId, new[] { mockConnector.Object }, settings);
         
         // 2. Act - Try to download
         await worker.DoWork(serviceProvider.CreateScope());

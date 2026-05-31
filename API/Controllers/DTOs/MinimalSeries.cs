@@ -7,7 +7,7 @@ namespace API.Controllers.DTOs;
 /// <summary>
 /// Shortened Version of <see cref="Series"/>
 /// </summary>
-public record MinimalSeries(string Key, string Name, string Description, MangaReleaseStatus ReleaseStatus, IEnumerable<MangaConnectorId<Series>> MangaConnectorIds, string? FileLibraryId = null, string? Language = null, string CoverUrl = "") : Identifiable(Key)
+public record MinimalSeries(string Key, string Name, string Description, MangaReleaseStatus ReleaseStatus, IEnumerable<SourceId<Series>> SourceIds, string? FileLibraryId = null, string? Language = null, string CoverUrl = "") : Identifiable(Key)
 {
     /// <summary>
     /// Name of the Series
@@ -35,7 +35,7 @@ public record MinimalSeries(string Key, string Name, string Description, MangaRe
     /// </summary>
     [Required]
     [Description("Ids of the Series on MangaConnectors")]
-    public IEnumerable<MangaConnectorId<Series>> MangaConnectorIds { get; init; } = MangaConnectorIds;
+    public IEnumerable<SourceId<Series>> SourceIds { get; init; } = SourceIds;
 
     /// <summary>
     /// External cover image URL from the connector

@@ -10,7 +10,7 @@ namespace API.Workers.MangaDownloadWorkers;
 /// <summary>
 /// Downloads the cover for Series from Mangaconnector
 /// </summary>
-public class DownloadCoverFromMangaconnectorWorker(MangaConnectorId<Series> mcId, IEnumerable<MangaConnector> connectors, IEnumerable<BaseWorker>? dependsOn = null)
+public class DownloadCoverFromSourceWorker(SourceId<Series> mcId, IEnumerable<SeriesSource> connectors, IEnumerable<BaseWorker>? dependsOn = null)
     : BaseWorkerWithContexts(dependsOn)
 {
     private readonly string _mangaConnectorIdId = mcId.Key;
@@ -28,27 +28,27 @@ public class DownloadCoverFromMangaconnectorWorker(MangaConnectorId<Series> mcId
     
     protected override async Task<BaseWorker[]> DoWorkInternal()
     {
-        Log.Debug($"Getting Cover for MangaConnectorId {_mangaConnectorIdId}...");
-        // Getting MangaConnector info
+        Log.Debug($"Getting Cover for SourceId {_mangaConnectorIdId}...");
+        // Getting SeriesSource info
         if (await MangaContext.MangaConnectorToManga
                 .Include(id => id.Obj)
                 .FirstOrDefaultAsync(c => c.Key == _mangaConnectorIdId, CancellationToken) is not { } mangaConnectorId)
         {
-            Log.Error("Could not get MangaConnectorId.");
+            Log.Error("Could not get SourceId.");
             return []; //TODO Exception?
         }
-        MangaConnector? mangaConnector = connectors.FirstOrDefault(c => c.Name.Equals(mangaConnectorId.MangaConnectorName, StringComparison.InvariantCultureIgnoreCase));
-        if (mangaConnector is null)
+        SeriesSource? seriesSource = connectors.FirstOrDefault(c => c.Name.Equals(mangaConnectorId.MangaConnectorName, StringComparison.InvariantCultureIgnoreCase));
+        if (seriesSource is null)
         {
-            Log.Error("Could not get MangaConnector.");
+            Log.Error("Could not get SeriesSource.");
             return []; //TODO Exception?
         }
-        Log.Debug($"Getting Cover for MangaConnectorId {mangaConnectorId}...");
+        Log.Debug($"Getting Cover for SourceId {mangaConnectorId}...");
 
-        string? coverFileName = await mangaConnector.SaveCoverImageToCache(mangaConnectorId);
+        string? coverFileName = await seriesSource.SaveCoverImageToCache(mangaConnectorId);
         if (coverFileName is null)
         {
-            Log.Error($"Could not get Cover for MangaConnectorId {mangaConnectorId}.");
+            Log.Error($"Could not get Cover for SourceId {mangaConnectorId}.");
             return [];
         }
         

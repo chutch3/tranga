@@ -25,12 +25,12 @@ public class Tranga
     private readonly TrangaSettings _settings;
     private readonly IWorkerQueue _workerQueue;
 
-    public IEnumerable<MangaConnector> Connectors { get; }
+    public IEnumerable<SeriesSource> Connectors { get; }
     public IEnumerable<MetadataFetcher> MetadataFetchers { get; }
 
     public Tranga(
         IServiceProvider serviceProvider,
-        IEnumerable<MangaConnector> connectors,
+        IEnumerable<SeriesSource> connectors,
         IEnumerable<MetadataFetcher> fetchers,
         RateLimitHandler rateLimitHandler,
         TrangaSettings settings,
@@ -51,7 +51,7 @@ public class Tranga
     {
         // 3. Pulling workers directly from the DI container
         _workerQueue.AddWorker(GetWorker<SendNotificationsWorker>());
-        _workerQueue.AddWorker(GetWorker<CleanupMangaconnectorIdsWithoutConnector>());
+        _workerQueue.AddWorker(GetWorker<CleanupSourceIdsWithoutSource>());
         _workerQueue.AddWorker(GetWorker<CleanupMangaCoversWorker>());
 
         // Moved to AddDefaultWorkers
@@ -77,47 +77,47 @@ public class Tranga
             _workerQueue.AddWorker(GetWorker<UpdateChaptersDownloadedWorker>());
     }
 
-    internal bool TryGetMangaConnector(string name, [NotNullWhen(true)]out MangaConnector? mangaConnector)
+    internal bool TryGetSeriesSource(string name, [NotNullWhen(true)]out SeriesSource? seriesSource)
     {
-        mangaConnector = Connectors.FirstOrDefault(c => c.Name.Equals(name, StringComparison.InvariantCultureIgnoreCase));
-        return mangaConnector != null;
+        seriesSource = Connectors.FirstOrDefault(c => c.Name.Equals(name, StringComparison.InvariantCultureIgnoreCase));
+        return seriesSource != null;
     }
 
     // 5. Removed 'this' from MangaContext. It is now just a normal method you call on Tranga.
-    internal async Task<(Series manga, MangaConnectorId<Series> id)?> AddMangaToContext(MangaContext context, (Series, MangaConnectorId<Series>) addManga, CancellationToken token) =>
+    internal async Task<(Series manga, SourceId<Series> id)?> AddMangaToContext(MangaContext context, (Series, SourceId<Series>) addManga, CancellationToken token) =>
         await AddMangaToContext(context, addManga.Item1, addManga.Item2, token);
 
-    internal async Task<(Series manga, MangaConnectorId<Series> id)?> AddMangaToContext(MangaContext context, Series addManga, MangaConnectorId<Series> addMcId, CancellationToken token)
+    internal async Task<(Series manga, SourceId<Series> id)?> AddMangaToContext(MangaContext context, Series addManga, SourceId<Series> addMcId, CancellationToken token)
     {
         context.ChangeTracker.Clear();
         Log.DebugFormat("Adding Series to Context: {0}", addManga);
-        (Series, MangaConnectorId<Series>)? result;
+        (Series, SourceId<Series>)? result;
         if (await context.FindMangaLike(addManga, token) is { } mangaId)
         {
             Series manga = await context.MangaIncludeAll().FirstAsync(m => m.Key == mangaId, token);
             Log.DebugFormat("Merging with existing Series: {0}", manga);
 
-            var existingMcId = manga.MangaConnectorIds
+            var existingMcId = manga.SourceIds
                 .FirstOrDefault(id => id.MangaConnectorName == addMcId.MangaConnectorName
                                       && id.IdOnConnectorSite == addMcId.IdOnConnectorSite);
 
-            MangaConnectorId<Series> mcIdToUse;
+            SourceId<Series> mcIdToUse;
             if (existingMcId == null)
             {
-                mcIdToUse = new MangaConnectorId<Series>(manga, addMcId.MangaConnectorName, addMcId.IdOnConnectorSite, addMcId.WebsiteUrl, addMcId.UseForDownload);
-                manga.MangaConnectorIds.Add(mcIdToUse);
-                Log.DebugFormat("Added new MangaConnectorId for {0}", addMcId.MangaConnectorName);
+                mcIdToUse = new SourceId<Series>(manga, addMcId.MangaConnectorName, addMcId.IdOnConnectorSite, addMcId.WebsiteUrl, addMcId.UseForDownload);
+                manga.SourceIds.Add(mcIdToUse);
+                Log.DebugFormat("Added new SourceId for {0}", addMcId.MangaConnectorName);
             }
             else
             {
                 mcIdToUse = existingMcId;
                 if (existingMcId.WebsiteUrl != addMcId.WebsiteUrl)
                 {
-                    var updatedMcId = new MangaConnectorId<Series>(manga, existingMcId.MangaConnectorName, existingMcId.IdOnConnectorSite, addMcId.WebsiteUrl, existingMcId.UseForDownload);
-                    manga.MangaConnectorIds.Remove(existingMcId);
-                    manga.MangaConnectorIds.Add(updatedMcId);
+                    var updatedMcId = new SourceId<Series>(manga, existingMcId.MangaConnectorName, existingMcId.IdOnConnectorSite, addMcId.WebsiteUrl, existingMcId.UseForDownload);
+                    manga.SourceIds.Remove(existingMcId);
+                    manga.SourceIds.Add(updatedMcId);
                     mcIdToUse = updatedMcId;
-                    Log.DebugFormat("Updated/Recreated MangaConnectorId for {0} (URL changed)", addMcId.MangaConnectorName);
+                    Log.DebugFormat("Updated/Recreated SourceId for {0} (URL changed)", addMcId.MangaConnectorName);
                 }
             }
 
@@ -141,14 +141,14 @@ public class Tranga
             addManga.Authors = mergedAuthors.ToList();
 
             context.Series.Add(addManga);
-            context.Set<MangaConnectorId<Series>>().Add(addMcId);
+            context.Set<SourceId<Series>>().Add(addMcId);
             result = (addManga, addMcId);
         }
 
         if (await context.Sync(token, reason: "AddMangaToContext") is { success: false })
             return null;
 
-        DownloadCoverFromMangaconnectorWorker downloadCoverWorker = new (result.Value.Item2, Connectors);
+        DownloadCoverFromSourceWorker downloadCoverWorker = new (result.Value.Item2, Connectors);
         _workerQueue.AddWorker(downloadCoverWorker);
 
         return result;

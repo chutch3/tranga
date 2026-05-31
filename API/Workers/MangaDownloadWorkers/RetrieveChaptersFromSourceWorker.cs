@@ -13,7 +13,7 @@ namespace API.Workers.MangaDownloadWorkers;
 /// <param name="mcId"></param>
 /// <param name="language"></param>
 /// <param name="dependsOn"></param>
-public class RetrieveMangaChaptersFromMangaconnectorWorker(MangaConnectorId<Series> mcId, string language, IEnumerable<MangaConnector> connectors, IEnumerable<BaseWorker>? dependsOn = null)
+public class RetrieveChaptersFromSourceWorker(SourceId<Series> mcId, string language, IEnumerable<SeriesSource> connectors, IEnumerable<BaseWorker>? dependsOn = null)
     : BaseWorkerWithContexts(dependsOn)
 {
     private readonly string _mangaConnectorIdId = mcId.Key;
@@ -31,34 +31,34 @@ public class RetrieveMangaChaptersFromMangaconnectorWorker(MangaConnectorId<Seri
     
     protected override async Task<BaseWorker[]> DoWorkInternal()
     {
-        Log.DebugFormat("Getting Chapters for MangaConnectorId {0}...", _mangaConnectorIdId);
-        // Getting MangaConnector info
+        Log.DebugFormat("Getting Chapters for SourceId {0}...", _mangaConnectorIdId);
+        // Getting SeriesSource info
         if (await MangaContext.MangaConnectorToManga
                 .Include(id => id.Obj)
                 .ThenInclude(m => m.Chapters)
-                .ThenInclude(ch => ch.MangaConnectorIds)
+                .ThenInclude(ch => ch.SourceIds)
                 .FirstOrDefaultAsync(c => c.Key == _mangaConnectorIdId, CancellationToken) is not { } mangaConnectorId)
         {
-            Log.Error("Could not get MangaConnectorId.");
+            Log.Error("Could not get SourceId.");
             return []; //TODO Exception?
         }
-        MangaConnector? mangaConnector = connectors.FirstOrDefault(c => c.Name.Equals(mangaConnectorId.MangaConnectorName, StringComparison.InvariantCultureIgnoreCase));
-        if (mangaConnector is null)
+        SeriesSource? seriesSource = connectors.FirstOrDefault(c => c.Name.Equals(mangaConnectorId.MangaConnectorName, StringComparison.InvariantCultureIgnoreCase));
+        if (seriesSource is null)
         {
-            Log.Error("Could not get MangaConnector.");
+            Log.Error("Could not get SeriesSource.");
             return []; //TODO Exception?
         }
-        Log.DebugFormat("Getting Chapters for MangaConnectorId {0}...", mangaConnectorId);
+        Log.DebugFormat("Getting Chapters for SourceId {0}...", mangaConnectorId);
         
         Series manga = mangaConnectorId.Obj;
         
         // Retrieve available Chapters from Connector
-        (Chapter chapter, MangaConnectorId<Chapter> chapterId)[] allChapters =
-            (await mangaConnector.GetChapters(mangaConnectorId, language)).DistinctBy(c => c.Item1.Key).ToArray();
+        (Chapter chapter, SourceId<Chapter> chapterId)[] allChapters =
+            (await seriesSource.GetChapters(mangaConnectorId, language)).DistinctBy(c => c.Item1.Key).ToArray();
         Log.DebugFormat("Got {0} chapters from connector.", allChapters.Length);
         
         // Filter for new Chapters
-        List<(Chapter chapter, MangaConnectorId<Chapter> chapterId)> newChapters = allChapters.Where<(Chapter chapter, MangaConnectorId<Chapter> chapterId)>(ch =>
+        List<(Chapter chapter, SourceId<Chapter> chapterId)> newChapters = allChapters.Where<(Chapter chapter, SourceId<Chapter> chapterId)>(ch =>
             manga.Chapters.All(c => c.Key != ch.chapter.Key)).ToList();
         Log.DebugFormat("Got {0} new chapters.", newChapters.Count);
 
@@ -77,14 +77,14 @@ public class RetrieveMangaChaptersFromMangaconnectorWorker(MangaConnectorId<Seri
         manga.Chapters = manga.Chapters.Union(newChapters.Select(ch => ch.chapter)).ToList();
         
         // Filter for new ChapterIds
-        List<MangaConnectorId<Chapter>> existingChapterIds = manga.Chapters.SelectMany(c => c.MangaConnectorIds).ToList();
-        List<MangaConnectorId<Chapter>> newIds = allChapters.Select(ch => ch.chapterId)
+        List<SourceId<Chapter>> existingChapterIds = manga.Chapters.SelectMany(c => c.SourceIds).ToList();
+        List<SourceId<Chapter>> newIds = allChapters.Select(ch => ch.chapterId)
             .Where(newCh => !existingChapterIds.Any(existing =>
                 existing.MangaConnectorName == newCh.MangaConnectorName &&
                 existing.IdOnConnectorSite == newCh.IdOnConnectorSite))
             .ToList();
         // Match tracked entities of Chapters
-        foreach (MangaConnectorId<Chapter> newId in newIds)
+        foreach (SourceId<Chapter> newId in newIds)
             newId.Obj = manga.Chapters.First(ch => ch.Key == newId.ObjId);
         Log.DebugFormat("Got {0} new download-Ids.", newIds.Count);
         
@@ -94,7 +94,7 @@ public class RetrieveMangaChaptersFromMangaconnectorWorker(MangaConnectorId<Seri
         // If Series is marked for Download from Connector, mark the new Chapters as UseForDownload
         if (mangaConnectorId.UseForDownload)
         {
-            foreach ((Chapter _, MangaConnectorId<Chapter> chapterId) in newChapters)
+            foreach ((Chapter _, SourceId<Chapter> chapterId) in newChapters)
             {
                 chapterId.UseForDownload = mangaConnectorId.UseForDownload;
             }

@@ -9,10 +9,10 @@ using Xunit;
 
 namespace API.Tests.MangaConnectors;
 
-public class MangaConnectorCoverCacheTests
+public class SeriesSourceCoverCacheTests
 {
     /// <summary>Minimal connector whose download client is backed by a faked HTTP boundary.</summary>
-    private sealed class FakeConnector : MangaConnector
+    private sealed class FakeConnector : SeriesSource
     {
         public FakeConnector(TrangaSettings settings, IDownloadClient client)
             : base("Fake:Conn", ["en"], ["fake.com"], "icon", settings)
@@ -20,11 +20,11 @@ public class MangaConnectorCoverCacheTests
             downloadClient = client;
         }
 
-        public override Task<(Series, MangaConnectorId<Series>)[]> SearchManga(string mangaSearchName) => throw new NotSupportedException();
-        public override Task<(Series, MangaConnectorId<Series>)?> GetMangaFromUrl(string url) => throw new NotSupportedException();
-        public override Task<(Series, MangaConnectorId<Series>)?> GetMangaFromId(string mangaIdOnSite) => throw new NotSupportedException();
-        public override Task<(Chapter, MangaConnectorId<Chapter>)[]> GetChapters(MangaConnectorId<Series> mangaId, string? language = null) => throw new NotSupportedException();
-        internal override Task<string[]> GetChapterImageUrls(MangaConnectorId<Chapter> chapterId) => throw new NotSupportedException();
+        public override Task<(Series, SourceId<Series>)[]> SearchManga(string mangaSearchName) => throw new NotSupportedException();
+        public override Task<(Series, SourceId<Series>)?> GetMangaFromUrl(string url) => throw new NotSupportedException();
+        public override Task<(Series, SourceId<Series>)?> GetMangaFromId(string mangaIdOnSite) => throw new NotSupportedException();
+        public override Task<(Chapter, SourceId<Chapter>)[]> GetChapters(SourceId<Series> mangaId, string? language = null) => throw new NotSupportedException();
+        internal override Task<string[]> GetChapterImageUrls(SourceId<Chapter> chapterId) => throw new NotSupportedException();
     }
 
     private static byte[] CreateJpegBytes()
@@ -59,7 +59,7 @@ public class MangaConnectorCoverCacheTests
                 library, 0f, 2024, "en");
             // Connector name contains a Windows-forbidden character (':') so a cleaned-vs-uncleaned
             // mismatch in the returned filename is observable.
-            var mcId = new MangaConnectorId<Series>(manga, "Fake:Conn", "site-id", "https://fake.com/x", true);
+            var mcId = new SourceId<Series>(manga, "Fake:Conn", "site-id", "https://fake.com/x", true);
 
             string? returned = await connector.SaveCoverImageToCache(mcId);
 

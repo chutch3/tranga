@@ -7,7 +7,7 @@ using Newtonsoft.Json.Linq;
 
 namespace API.MangaConnectors;
 
-public class MangaDex : MangaConnector
+public class MangaDex : SeriesSource
 {
     //https://api.mangadex.org/docs/3-enumerations/#language-codes--localization
     //https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes
@@ -21,10 +21,10 @@ public class MangaDex : MangaConnector
     }
 
     private const int Limit = 100;
-    public override async Task<(Series, MangaConnectorId<Series>)[]> SearchManga(string mangaSearchName)
+    public override async Task<(Series, SourceId<Series>)[]> SearchManga(string mangaSearchName)
     {
         Log.InfoFormat("Searching Obj: {0}", mangaSearchName);
-        List<(Series, MangaConnectorId<Series>)> mangas = new ();
+        List<(Series, SourceId<Series>)> mangas = new ();
 
         // MangaDex hard-caps the paging offset; requesting beyond it only returns errors.
         const int maxOffset = 10000;
@@ -74,7 +74,7 @@ public class MangaDex : MangaConnector
     }
 
     private static readonly Regex GetMangaIdFromUrl = new(@"https?:\/\/mangadex\.org\/title\/([a-z0-9-]+)\/?.*");
-    public override async Task<(Series, MangaConnectorId<Series>)?> GetMangaFromUrl(string url)
+    public override async Task<(Series, SourceId<Series>)?> GetMangaFromUrl(string url)
     {
         Log.InfoFormat("Getting Obj: {0}", url);
         if (!UrlMatchesConnector(url))
@@ -94,7 +94,7 @@ public class MangaDex : MangaConnector
         return await GetMangaFromId(id);
     }
 
-    public override async Task<(Series, MangaConnectorId<Series>)?> GetMangaFromId(string mangaIdOnSite)
+    public override async Task<(Series, SourceId<Series>)?> GetMangaFromId(string mangaIdOnSite)
     {
         Log.InfoFormat("Getting Obj: {0}", mangaIdOnSite);
         string requestUrl =
@@ -128,10 +128,10 @@ public class MangaDex : MangaConnector
         return ParseMangaFromJToken(data);
     }
 
-    public override async Task<(Chapter, MangaConnectorId<Chapter>)[]> GetChapters(MangaConnectorId<Series> mangaId, string? language = null)
+    public override async Task<(Chapter, SourceId<Chapter>)[]> GetChapters(SourceId<Series> mangaId, string? language = null)
     {
         Log.InfoFormat("Getting Chapters: {0}", mangaId.IdOnConnectorSite);
-        List<(Chapter, MangaConnectorId<Chapter>)> chapters = new ();
+        List<(Chapter, SourceId<Chapter>)> chapters = new ();
 
         int offset = 0;
         int total = int.MaxValue;
@@ -180,7 +180,7 @@ public class MangaDex : MangaConnector
     }
 
     private static readonly Regex GetChapterIdFromUrl = new(@"https?:\/\/mangadex\.org\/chapter\/([a-z0-9-]+)\/?.*");
-    internal override async Task<string[]> GetChapterImageUrls(MangaConnectorId<Chapter> chapterId)
+    internal override async Task<string[]> GetChapterImageUrls(SourceId<Chapter> chapterId)
     {
         Log.InfoFormat("Getting Chapter Image-Urls: {0}", chapterId.Obj);
         if (chapterId.WebsiteUrl is null || !UrlMatchesConnector(chapterId.WebsiteUrl))
@@ -232,7 +232,7 @@ public class MangaDex : MangaConnector
         return urls.ToArray();
     }
 
-    private (Series manga, MangaConnectorId<Series> id) ParseMangaFromJToken(JToken jToken)
+    private (Series manga, SourceId<Series> id) ParseMangaFromJToken(JToken jToken)
     {
         string? id = jToken.Value<string>("id");
         if(id is null || jToken["attributes"] is not JObject attributes)
@@ -321,12 +321,12 @@ public class MangaDex : MangaConnector
 
         Series manga = new (name, description, coverUrl, releaseStatus, authors, tags, links,altTitles,
             null, 0f, year, originalLanguage);
-        MangaConnectorId<Series> mcId = new (manga, this, id, websiteUrl);
-        manga.MangaConnectorIds.Add(mcId);
+        SourceId<Series> mcId = new (manga, this, id, websiteUrl);
+        manga.SourceIds.Add(mcId);
         return (manga, mcId);
     }
 
-    private (Chapter chapter, MangaConnectorId<Chapter> id) ParseChapterFromJToken(MangaConnectorId<Series> mcIdManga, JToken jToken)
+    private (Chapter chapter, SourceId<Chapter> id) ParseChapterFromJToken(SourceId<Series> mcIdManga, JToken jToken)
     {
         string? id = jToken.Value<string>("id");
         JToken? attributes = jToken["attributes"];
@@ -342,8 +342,8 @@ public class MangaDex : MangaConnector
 
         string websiteUrl = $"https://mangadex.org/chapter/{id}";
         Chapter chapter = new (mcIdManga.Obj, chapterStr, volumeNumber, title);
-        MangaConnectorId<Chapter> mcId = new(chapter, this, id, websiteUrl);
-        chapter.MangaConnectorIds.Add(mcId);
+        SourceId<Chapter> mcId = new(chapter, this, id, websiteUrl);
+        chapter.SourceIds.Add(mcId);
         return (chapter, mcId);
     }
 }

@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 namespace API.Schema.MangaContext;
 
 [PrimaryKey("Key")]
-public class MangaConnectorId<T> : Identifiable where T : Identifiable
+public class SourceId<T> : Identifiable where T : Identifiable
 {
     public T Obj = null!;
     [StringLength(64)] public string ObjId { get; internal set; }
@@ -16,9 +16,9 @@ public class MangaConnectorId<T> : Identifiable where T : Identifiable
     [Url] [StringLength(512)] public string? WebsiteUrl { get; internal init; }
     public bool UseForDownload { get; internal set; }
 
-    public MangaConnectorId(T obj, string mangaConnectorName, string idOnConnectorSite, string? websiteUrl,
+    public SourceId(T obj, string mangaConnectorName, string idOnConnectorSite, string? websiteUrl,
         bool useForDownload = false)
-        : base(TokenGen.CreateToken(typeof(MangaConnectorId<T>), mangaConnectorName, idOnConnectorSite))
+        : base(TokenGen.CreateToken(typeof(SourceId<T>), mangaConnectorName, idOnConnectorSite))
     {
         this.Obj = obj;
         this.ObjId = obj.Key;
@@ -28,13 +28,13 @@ public class MangaConnectorId<T> : Identifiable where T : Identifiable
         this.UseForDownload = useForDownload;
     }
 
-    public MangaConnectorId(T obj, MangaConnector mangaConnector, string idOnConnectorSite, string? websiteUrl, bool useForDownload = false)
-        : this(obj, mangaConnector.Name, idOnConnectorSite, websiteUrl, useForDownload) { }
+    public SourceId(T obj, SeriesSource seriesSource, string idOnConnectorSite, string? websiteUrl, bool useForDownload = false)
+        : this(obj, seriesSource.Name, idOnConnectorSite, websiteUrl, useForDownload) { }
 
     /// <summary>
     /// EF CORE ONLY!!!
     /// </summary>
-    public MangaConnectorId(string key, string objId, string mangaConnectorName, string idOnConnectorSite, bool useForDownload, string? websiteUrl)
+    public SourceId(string key, string objId, string mangaConnectorName, string idOnConnectorSite, bool useForDownload, string? websiteUrl)
         : base(key)
     {
         this.ObjId = objId;

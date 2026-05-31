@@ -7,8 +7,8 @@ namespace API.Controllers.DTOs;
 /// <summary>
 /// <see cref="Schema.MangaContext.Series"/> DTO
 /// </summary>
-public sealed record Series(string Key, string Name, string Description, MangaReleaseStatus ReleaseStatus, IEnumerable<MangaConnectorId<Series>> MangaConnectorIds, float IgnoreChaptersBefore, uint? Year, string? OriginalLanguage, IEnumerable<Author> Authors, IEnumerable<string> Tags, IEnumerable<Link> Links, IEnumerable<AltTitle> AltTitles, string? FileLibraryId, string CoverUrl = "")
-    : MinimalSeries(Key, Name, Description, ReleaseStatus, MangaConnectorIds, FileLibraryId, OriginalLanguage, CoverUrl)
+public sealed record Series(string Key, string Name, string Description, MangaReleaseStatus ReleaseStatus, IEnumerable<SourceId<Series>> SourceIds, float IgnoreChaptersBefore, uint? Year, string? OriginalLanguage, IEnumerable<Author> Authors, IEnumerable<string> Tags, IEnumerable<Link> Links, IEnumerable<AltTitle> AltTitles, string? FileLibraryId, string CoverUrl = "")
+    : MinimalSeries(Key, Name, Description, ReleaseStatus, SourceIds, FileLibraryId, OriginalLanguage, CoverUrl)
 {
     /// <summary>
     /// Chapter cutoff for Downloads (Chapters before this will not be downloaded)

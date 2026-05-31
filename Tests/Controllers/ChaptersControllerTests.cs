@@ -36,7 +36,7 @@ public class ChaptersControllerTests: IDisposable
         var testSettings = new API.TrangaSettings { AppData = Path.GetTempPath() };
 
         var mockWorkerQueue = new Mock<IWorkerQueue>();
-        var connectors = Enumerable.Empty<API.MangaConnectors.MangaConnector>();
+        var connectors = Enumerable.Empty<API.MangaConnectors.SeriesSource>();
         var mockThumbnailService = new Mock<API.Services.IChapterThumbnailService>();
 
         var controller = new ChaptersController(ctx, testSettings, connectors, mockWorkerQueue.Object, mockThumbnailService.Object);

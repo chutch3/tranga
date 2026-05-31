@@ -11,7 +11,7 @@ namespace API.Workers.PeriodicWorkers;
 /// </summary>
 /// <param name="interval"></param>
 /// <param name="dependsOn"></param>
-public class UpdateCoversWorker(IEnumerable<MangaConnector> connectors, TimeSpan? interval = null, IEnumerable<BaseWorker>? dependsOn = null)
+public class UpdateCoversWorker(IEnumerable<SeriesSource> connectors, TimeSpan? interval = null, IEnumerable<BaseWorker>? dependsOn = null)
     : BaseWorkerWithContexts(dependsOn), IPeriodic
 {
     public DateTime LastExecution { get; set; } = DateTime.UnixEpoch;
@@ -27,8 +27,8 @@ public class UpdateCoversWorker(IEnumerable<MangaConnector> connectors, TimeSpan
     
     protected override async Task<BaseWorker[]> DoWorkInternal()
     {
-        List<MangaConnectorId<Series>> manga = await MangaContext.MangaConnectorToManga.Where(mcId => mcId.UseForDownload).ToListAsync(CancellationToken);
-        List<BaseWorker> newWorkers = manga.Select(m => new DownloadCoverFromMangaconnectorWorker(m, connectors)).ToList<BaseWorker>();
+        List<SourceId<Series>> manga = await MangaContext.MangaConnectorToManga.Where(mcId => mcId.UseForDownload).ToListAsync(CancellationToken);
+        List<BaseWorker> newWorkers = manga.Select(m => new DownloadCoverFromSourceWorker(m, connectors)).ToList<BaseWorker>();
         return newWorkers.ToArray();
     }
 }

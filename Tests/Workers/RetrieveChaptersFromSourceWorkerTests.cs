@@ -8,18 +8,18 @@ using Moq;
 using Xunit;
 using Chapter = API.Schema.MangaContext.Chapter;
 using Series = API.Schema.MangaContext.Series;
-using MangaConnectorId = API.Schema.MangaContext.MangaConnectorId<API.Schema.MangaContext.Series>;
-using ChapterConnectorId = API.Schema.MangaContext.MangaConnectorId<API.Schema.MangaContext.Chapter>;
+using SourceId = API.Schema.MangaContext.SourceId<API.Schema.MangaContext.Series>;
+using ChapterConnectorId = API.Schema.MangaContext.SourceId<API.Schema.MangaContext.Chapter>;
 
 namespace API.Tests.Workers;
 
-public class RetrieveMangaChaptersFromMangaconnectorWorkerTests : IDisposable
+public class RetrieveChaptersFromSourceWorkerTests : IDisposable
 {
     private readonly Mock<IServiceScope> _mockScope;
     private readonly MangaContext _mangaContext;
     private readonly ActionsContext _actionsContext;
 
-    public RetrieveMangaChaptersFromMangaconnectorWorkerTests()
+    public RetrieveChaptersFromSourceWorkerTests()
     {
         var mangaOptions = new DbContextOptionsBuilder<MangaContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
@@ -51,16 +51,16 @@ public class RetrieveMangaChaptersFromMangaconnectorWorkerTests : IDisposable
         var manga = new Series("Test Series", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], []);
         _mangaContext.Series.Add(manga);
 
-        var mockConnector = new Mock<MangaConnector>("MangaDex", new[] { "en" }, new[] { "mangadex.org" }, "icon.png", new TrangaSettings());
+        var mockConnector = new Mock<SeriesSource>("MangaDex", new[] { "en" }, new[] { "mangadex.org" }, "icon.png", new TrangaSettings());
         
-        var mangaMcId = new MangaConnectorId(manga, "MangaDex", "manga-id", "url");
-        manga.MangaConnectorIds.Add(mangaMcId);
+        var mangaMcId = new SourceId(manga, "MangaDex", "manga-id", "url");
+        manga.SourceIds.Add(mangaMcId);
         _mangaContext.MangaConnectorToManga.Add(mangaMcId);
 
         // Existing chapter with NO volume
         var existingChapter = new Chapter(manga, "1", null, "Title");
         var existingChMcId = new ChapterConnectorId(existingChapter, "MangaDex", "chap-1", "url");
-        existingChapter.MangaConnectorIds.Add(existingChMcId);
+        existingChapter.SourceIds.Add(existingChMcId);
         _mangaContext.Chapters.Add(existingChapter);
         _mangaContext.MangaConnectorToChapter.Add(existingChMcId);
         
@@ -69,13 +69,13 @@ public class RetrieveMangaChaptersFromMangaconnectorWorkerTests : IDisposable
         // Connector returns the SAME chapter but WITH a volume
         var fetchedChapter = new Chapter(manga, "1", 5, "Title");
         var fetchedChMcId = new ChapterConnectorId(fetchedChapter, "MangaDex", "chap-1", "url");
-        fetchedChapter.MangaConnectorIds.Add(fetchedChMcId);
+        fetchedChapter.SourceIds.Add(fetchedChMcId);
 
-        mockConnector.Setup(c => c.GetChapters(It.IsAny<MangaConnectorId>(), It.IsAny<string>()))
+        mockConnector.Setup(c => c.GetChapters(It.IsAny<SourceId>(), It.IsAny<string>()))
             .ReturnsAsync([(fetchedChapter, fetchedChMcId)]);
         // Name is set via constructor parameter
 
-        var worker = new RetrieveMangaChaptersFromMangaconnectorWorker(mangaMcId, "en", new[] { mockConnector.Object });
+        var worker = new RetrieveChaptersFromSourceWorker(mangaMcId, "en", new[] { mockConnector.Object });
 
         await worker.DoWork(_mockScope.Object);
 

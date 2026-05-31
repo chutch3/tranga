@@ -9,7 +9,7 @@ namespace API.Workers.PeriodicWorkers;
 /// <summary>
 /// Create new Workers for Chapters on Series marked for Download, that havent been downloaded yet.
 /// </summary>
-public class StartNewChapterDownloadsWorker(TrangaSettings settings, IWorkerQueue workerQueue, IEnumerable<MangaConnector> connectors, TimeSpan? interval = null, IEnumerable<BaseWorker>? dependsOn = null)
+public class StartNewChapterDownloadsWorker(TrangaSettings settings, IWorkerQueue workerQueue, IEnumerable<SeriesSource> connectors, TimeSpan? interval = null, IEnumerable<BaseWorker>? dependsOn = null)
     : BaseWorkerWithContexts(dependsOn), IPeriodic
 {
 
@@ -29,15 +29,15 @@ public class StartNewChapterDownloadsWorker(TrangaSettings settings, IWorkerQueu
         Log.Debug("Checking for missing chapters...");
         
         // Get missing chapters
-        List<MangaConnectorId<Chapter>> missingChapters = await GetMissingChapters(MangaContext, CancellationToken);
+        List<SourceId<Chapter>> missingChapters = await GetMissingChapters(MangaContext, CancellationToken);
         
         Log.DebugFormat("Found {0} missing chapters.", missingChapters.Count);
 
         // Consider ALL in-flight download workers (queued AND running), not just running ones. A worker
         // created by a previous tick may still be queued (registration is asynchronous); de-duping only
         // against running workers would schedule a duplicate download for the same chapter.
-        List<DownloadChapterFromMangaconnectorWorker> inFlightDownloadWorkers = workerQueue.GetKnownWorkers()
-            .OfType<DownloadChapterFromMangaconnectorWorker>()
+        List<DownloadChapterFromSourceWorker> inFlightDownloadWorkers = workerQueue.GetKnownWorkers()
+            .OfType<DownloadChapterFromSourceWorker>()
             .ToList();
         HashSet<string> inFlightChapterIds = inFlightDownloadWorkers.Select(w => w.ChapterIdId).ToHashSet();
         missingChapters.RemoveAll(ch => inFlightChapterIds.Contains(ch.Key));
@@ -49,15 +49,15 @@ public class StartNewChapterDownloadsWorker(TrangaSettings settings, IWorkerQueu
         int amountNewWorkers = Math.Max(0, settings.MaxConcurrentDownloads - downloadWorkers);
 
         Log.DebugFormat("{0} in-flight download Workers. {1} available new download Workers.", downloadWorkers, amountNewWorkers);
-        IEnumerable<MangaConnectorId<Chapter>> newDownloadChapters = missingChapters.OrderBy(ch => ch.Obj, new Chapter.ChapterComparer()).Take(amountNewWorkers);
+        IEnumerable<SourceId<Chapter>> newDownloadChapters = missingChapters.OrderBy(ch => ch.Obj, new Chapter.ChapterComparer()).Take(amountNewWorkers);
 
         // Create new jobs
-        List<BaseWorker> newWorkers = newDownloadChapters.Select(mcId => new DownloadChapterFromMangaconnectorWorker(mcId, connectors, settings)).ToList<BaseWorker>();
+        List<BaseWorker> newWorkers = newDownloadChapters.Select(mcId => new DownloadChapterFromSourceWorker(mcId, connectors, settings)).ToList<BaseWorker>();
         
         return newWorkers.ToArray();
     }
     
-    internal static async Task<List<MangaConnectorId<Chapter>>> GetMissingChapters(MangaContext ctx, CancellationToken cancellationToken) => await ctx.MangaConnectorToChapter
+    internal static async Task<List<SourceId<Chapter>>> GetMissingChapters(MangaContext ctx, CancellationToken cancellationToken) => await ctx.MangaConnectorToChapter
         .Include(id => id.Obj)
         .Where(id => !id.Obj.Downloaded && id.UseForDownload)
         .ToListAsync(cancellationToken);

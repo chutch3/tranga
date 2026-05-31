@@ -12,14 +12,14 @@ using System.Threading;
 
 namespace API.MangaConnectors;
 
-public class WeebCentral : MangaConnector
+public class WeebCentral : SeriesSource
 {
     public WeebCentral(TrangaSettings settings, RateLimitHandler rateLimitHandler) : base("WeebCentral", new[] { "en" }, new[] { "weebcentral.com" }, "https://weebcentral.com/static/images/brand.png", settings)
     {
         this.downloadClient = new HttpDownloadClient(rateLimitHandler, settings);
     }
 
-    public override async Task<(Series, MangaConnectorId<Series>)[]> SearchManga(string mangaSearchName)
+    public override async Task<(Series, SourceId<Series>)[]> SearchManga(string mangaSearchName)
     {
         Log.InfoFormat("Searching: {0}", mangaSearchName);
         string sanitizedTitle = string.Join(' ', Regex.Matches(mangaSearchName, @"[A-Za-z]+").Where(m => m.Value.Length > 0)).ToLowerInvariant();
@@ -46,7 +46,7 @@ public class WeebCentral : MangaConnector
         }
 
         HashSet<string> seenUrls = new(); // Dedup URLs
-        List<(Series, MangaConnectorId<Series>)> mangas = new();
+        List<(Series, SourceId<Series>)> mangas = new();
         foreach (HtmlNode node in nodes)
         {
             string href = node.GetAttributeValue("href", "");
@@ -56,7 +56,7 @@ public class WeebCentral : MangaConnector
                 if (seenUrls.Add(fullUrl))
                 {
                     Log.DebugFormat("Fetching from {0}", fullUrl); // Debug URL
-                    (Series, MangaConnectorId<Series>)? manga = await GetMangaFromUrl(fullUrl);
+                    (Series, SourceId<Series>)? manga = await GetMangaFromUrl(fullUrl);
                     if (manga.HasValue)
                     {
                         mangas.Add(manga.Value);
@@ -74,7 +74,7 @@ public class WeebCentral : MangaConnector
         return mangas.DistinctBy(r => r.Item1.Key).ToArray(); // Dedup by manga Key
     }
 
-   public override async Task<(Series, MangaConnectorId<Series>)?> GetMangaFromUrl(string url)
+   public override async Task<(Series, SourceId<Series>)?> GetMangaFromUrl(string url)
     {
         Log.InfoFormat("Fetching manga from URL: {0}", url);
         // Robust regex: Capture full slug before optional UID
@@ -100,7 +100,7 @@ public class WeebCentral : MangaConnector
         return ParseMangaFromHtml(doc, coreSlug, storedUrl);
     }
 
-    public override async Task<(Series, MangaConnectorId<Series>)?> GetMangaFromId(string mangaIdOnSite)
+    public override async Task<(Series, SourceId<Series>)?> GetMangaFromId(string mangaIdOnSite)
     {
         string url = $"https://weebcentral.com/series/{mangaIdOnSite}";
         using HttpResponseMessage response = await downloadClient.MakeRequest(url, RequestType.MangaInfo);
@@ -117,7 +117,7 @@ public class WeebCentral : MangaConnector
         return ParseMangaFromHtml(doc, mangaIdOnSite, url); // Use full slug as ID
     }
 
-    private (Series, MangaConnectorId<Series>) ParseMangaFromHtml(HtmlDocument doc, string mangaIdOnSite, string url)
+    private (Series, SourceId<Series>) ParseMangaFromHtml(HtmlDocument doc, string mangaIdOnSite, string url)
     {
         // Title with cleanup (kept for robustness, but simple decode to match original)
         HtmlNode? titleNode = doc.DocumentNode.SelectSingleNode("//title");
@@ -174,13 +174,13 @@ public class WeebCentral : MangaConnector
         Series manga = new(cleanTitle, description, coverUrl, releaseStatus, authors, tags, links, altTitles, null, 0f, year, null);
 
         // Use mangaIdOnSite for ID (core slug, consistent)
-        MangaConnectorId<Series> mcId = new(manga, this, mangaIdOnSite, url);
-        manga.MangaConnectorIds.Add(mcId);
+        SourceId<Series> mcId = new(manga, this, mangaIdOnSite, url);
+        manga.SourceIds.Add(mcId);
 
         return (manga, mcId);
     }
 
-    public override async Task<(Chapter, MangaConnectorId<Chapter>)[]> GetChapters(MangaConnectorId<Series> manga, string? language = null)
+    public override async Task<(Chapter, SourceId<Chapter>)[]> GetChapters(SourceId<Series> manga, string? language = null)
     {
         Log.InfoFormat("Fetching chapters for: {0}", manga.IdOnConnectorSite);
 
@@ -206,7 +206,7 @@ public class WeebCentral : MangaConnector
         if (chapterNodes is null)
             return [];
 
-        List<(Chapter, MangaConnectorId<Chapter>)> chapters = new();
+        List<(Chapter, SourceId<Chapter>)> chapters = new();
 
         foreach (HtmlNode node in chapterNodes)
         {
@@ -251,8 +251,8 @@ public class WeebCentral : MangaConnector
             Chapter ch = new(manga.Obj, chapterNumber, volumeNumber, title);
 			string chapterIdOnSite = new Uri(href).Segments.Last();
 			string canonicalChapterUrl = $"https://weebcentral.com/chapters/{chapterIdOnSite}";
-            MangaConnectorId<Chapter> mcId = new(ch, this, chapterIdOnSite, canonicalChapterUrl);
-            ch.MangaConnectorIds.Add(mcId);
+            SourceId<Chapter> mcId = new(ch, this, chapterIdOnSite, canonicalChapterUrl);
+            ch.SourceIds.Add(mcId);
             chapters.Add((ch, mcId));
         }
 
@@ -260,7 +260,7 @@ public class WeebCentral : MangaConnector
         return chapters.OrderBy(c => c.Item1, new Chapter.ChapterComparer()).ToArray();
     }
 
-    internal override async Task<string[]> GetChapterImageUrls(MangaConnectorId<Chapter> chapterId)
+    internal override async Task<string[]> GetChapterImageUrls(SourceId<Chapter> chapterId)
     {
         Log.InfoFormat("Getting Chapter Image-Urls: {0}", chapterId.Obj);
         if (chapterId.WebsiteUrl is null)
@@ -270,16 +270,16 @@ public class WeebCentral : MangaConnector
         }
 
         string? referrer = null;
-        if (chapterId.Obj.ParentManga.MangaConnectorIds is not null && chapterId.Obj.ParentManga.MangaConnectorIds.Any())
+        if (chapterId.Obj.ParentManga.SourceIds is not null && chapterId.Obj.ParentManga.SourceIds.Any())
         {
-            referrer = chapterId.Obj.ParentManga.MangaConnectorIds
+            referrer = chapterId.Obj.ParentManga.SourceIds
                 .FirstOrDefault(id => id.MangaConnectorName == this.Name)?.WebsiteUrl;
         }
 
 		return await GetChapterImageUrlsAsync(chapterId, referrer);
 	}
 
-	private async Task<string[]> GetChapterImageUrlsAsync(MangaConnectorId<Chapter> chapterId, string? referrer)
+	private async Task<string[]> GetChapterImageUrlsAsync(SourceId<Chapter> chapterId, string? referrer)
 	{
 		using HttpResponseMessage response = await downloadClient.MakeRequest(chapterId.WebsiteUrl!, RequestType.Default, referrer);
 

@@ -21,7 +21,7 @@ public class TrangaTests
 {
     // Helper to build our Fake Dependency Injection Container
     private IServiceProvider BuildMockServiceProvider(
-        List<MangaConnector>? connectors = null,
+        List<SeriesSource>? connectors = null,
         TrangaSettings? settings = null,
         Mock<IWorkerQueue>? workerQueueMock = null)
     {
@@ -39,10 +39,10 @@ public class TrangaTests
                 services.AddSingleton(connector);
             }
         }
-        services.AddSingleton<IEnumerable<MangaConnector>>(_ =>
-            connectors ?? new List<MangaConnector>());
+        services.AddSingleton<IEnumerable<SeriesSource>>(_ =>
+            connectors ?? new List<SeriesSource>());
 
-        var emptyConnectors = new List<MangaConnector>();
+        var emptyConnectors = new List<SeriesSource>();
         var emptyFetchers = new List<MetadataFetcher>();
         var mockWorkerQueue = workerQueueMock?.Object ?? new Mock<IWorkerQueue>().Object;
 
@@ -56,7 +56,7 @@ public class TrangaTests
         services.AddTransient<StartNewChapterDownloadsWorker>(_ => new StartNewChapterDownloadsWorker(testSettings, mockWorkerQueue, emptyConnectors));
         services.AddTransient<RemoveOldNotificationsWorker>(_ => new RemoveOldNotificationsWorker());
         services.AddTransient<UpdateCoversWorker>(_ => new UpdateCoversWorker(emptyConnectors));
-        services.AddTransient<CleanupMangaconnectorIdsWithoutConnector>(_ => new CleanupMangaconnectorIdsWithoutConnector(emptyConnectors, testSettings));
+        services.AddTransient<CleanupSourceIdsWithoutSource>(_ => new CleanupSourceIdsWithoutSource(emptyConnectors, testSettings));
         services.AddTransient<CleanupOrphanedFilesWorker>();
         services.AddTransient<ResolveMissingVolumesWorker>(_ => new ResolveMissingVolumesWorker(testSettings, Mock.Of<IBatchWorkerFactory<string>>()));
         services.AddTransient<SyncChapterFileNamesWorker>(_ => new SyncChapterFileNamesWorker(testSettings));
@@ -88,11 +88,11 @@ public class TrangaTests
     {
         var mockSettings = new TrangaSettings { AppData = "./test_data" };
 
-        // We have to mock the abstract base class MangaConnector
-        var mockMangaworld = new Mock<MangaConnector>("Mangaworld", new[] {"it"}, new[] {"mangaworld.cx"}, "icon.png", mockSettings);
-        var mockMangaDex = new Mock<MangaConnector>("MangaDex", new[] {"en"}, new[] {"mangadex.org"}, "icon.png", mockSettings);
+        // We have to mock the abstract base class SeriesSource
+        var mockMangaworld = new Mock<SeriesSource>("Mangaworld", new[] {"it"}, new[] {"mangaworld.cx"}, "icon.png", mockSettings);
+        var mockMangaDex = new Mock<SeriesSource>("MangaDex", new[] {"en"}, new[] {"mangadex.org"}, "icon.png", mockSettings);
 
-        var provider = BuildMockServiceProvider(new List<MangaConnector>
+        var provider = BuildMockServiceProvider(new List<SeriesSource>
         {
             mockMangaworld.Object,
             mockMangaDex.Object
@@ -100,9 +100,9 @@ public class TrangaTests
 
         var trangaManager = provider.GetRequiredService<Tranga>();
 
-        bool foundMangaworld = trangaManager.TryGetMangaConnector("mangaWORLD", out var resolvedMangaworld);
-        bool foundMangaDex = trangaManager.TryGetMangaConnector("mangadex", out var resolvedMangaDex);
-        bool foundMissing = trangaManager.TryGetMangaConnector("FakeSite", out var resolvedMissing);
+        bool foundMangaworld = trangaManager.TryGetSeriesSource("mangaWORLD", out var resolvedMangaworld);
+        bool foundMangaDex = trangaManager.TryGetSeriesSource("mangadex", out var resolvedMangaDex);
+        bool foundMissing = trangaManager.TryGetSeriesSource("FakeSite", out var resolvedMissing);
 
         Assert.True(foundMangaworld);
         Assert.Equal("Mangaworld", resolvedMangaworld?.Name);
@@ -142,17 +142,17 @@ public class TrangaTests
         using var dbContext = GetInMemoryDbContext();
 
         var newManga = new Series("Berserk", "A dark fantasy", "cover.jpg", MangaReleaseStatus.Continuing, [], [], [], []);
-        var newConnectorId = new MangaConnectorId<Series>(newManga, "MangaDex", "12345", "https://mangadex.org/title/12345");
+        var newConnectorId = new SourceId<Series>(newManga, "MangaDex", "12345", "https://mangadex.org/title/12345");
 
         var result = await trangaManager.AddMangaToContext(dbContext, newManga, newConnectorId, CancellationToken.None);
 
         Assert.NotNull(result);
         Assert.Equal("Berserk", result.Value.manga.Name);
 
-        var mangaInDb = await dbContext.Series.Include(m => m.MangaConnectorIds).FirstOrDefaultAsync(m => m.Name == "Berserk");
+        var mangaInDb = await dbContext.Series.Include(m => m.SourceIds).FirstOrDefaultAsync(m => m.Name == "Berserk");
         Assert.NotNull(mangaInDb);
-        Assert.Single(mangaInDb.MangaConnectorIds);
-        Assert.Equal("MangaDex", mangaInDb.MangaConnectorIds.First().MangaConnectorName);
+        Assert.Single(mangaInDb.SourceIds);
+        Assert.Equal("MangaDex", mangaInDb.SourceIds.First().MangaConnectorName);
 
         // The worker may complete quickly and be removed from KnownWorkers, so we verify
         // it was tracked at some point by checking AddWorker was called (worker count >= 0 is always true).

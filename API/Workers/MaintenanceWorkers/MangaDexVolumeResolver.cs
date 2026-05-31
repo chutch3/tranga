@@ -25,7 +25,7 @@ public class MangaDexVolumeResolver(HttpClient httpClient) : IMangaDexVolumeReso
         else
         {
             // 2. Fall back to connector-ID walk
-            var mdConnector = manga.MangaConnectorIds.FirstOrDefault(c => c.MangaConnectorName.Equals("MangaDex", StringComparison.OrdinalIgnoreCase));
+            var mdConnector = manga.SourceIds.FirstOrDefault(c => c.MangaConnectorName.Equals("MangaDex", StringComparison.OrdinalIgnoreCase));
             if (mdConnector != null)
             {
                 mangadexUuid = mdConnector.IdOnConnectorSite;

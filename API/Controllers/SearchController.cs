@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using API.Controllers.DTOs;
 using API.MangaConnectors;
-using MangaConnectorImpl = API.MangaConnectors.MangaConnector;
+using MangaConnectorImpl = API.MangaConnectors.SeriesSource;
 using API.Schema.MangaContext;
 using API.Workers;
 using API.Workers.MangaDownloadWorkers;
@@ -22,10 +22,10 @@ public class SearchController(
     MangaContext context,
     IEnumerable<MangaConnectorImpl> connectors,
     IWorkerQueue workerQueue,
-    Func<string, string, (Series, Schema.MangaContext.MangaConnectorId<Series>)?>? connectorLookup = null)
+    Func<string, string, (Series, Schema.MangaContext.SourceId<Series>)?>? connectorLookup = null)
     : ControllerBase
 {
-    private async Task<(Series, Schema.MangaContext.MangaConnectorId<Series>)?> LookupFromConnector(string connectorName, string mangaIdOnSite)
+    private async Task<(Series, Schema.MangaContext.SourceId<Series>)?> LookupFromConnector(string connectorName, string mangaIdOnSite)
     {
         if (connectorLookup is not null)
             return connectorLookup(connectorName, mangaIdOnSite);
@@ -36,13 +36,13 @@ public class SearchController(
     }
 
     /// <summary>
-    /// Initiate a search for a <see cref="Schema.MangaContext.Series"/> on <see cref="MangaConnector"/> with searchTerm
+    /// Initiate a search for a <see cref="Schema.MangaContext.Series"/> on <see cref="SeriesSource"/> with searchTerm
     /// </summary>
-    /// <param name="MangaConnectorName"><see cref="MangaConnector"/>.Name</param>
+    /// <param name="MangaConnectorName"><see cref="SeriesSource"/>.Name</param>
     /// <param name="Query">searchTerm</param>
     /// <response code="200"><see cref="MinimalSeries"/> exert of <see cref="Schema.MangaContext.Series"/></response>
-    /// <response code="404"><see cref="MangaConnector"/> with Name not found</response>
-    /// <response code="412"><see cref="MangaConnector"/> with Name is disabled</response>
+    /// <response code="404"><see cref="SeriesSource"/> with Name not found</response>
+    /// <response code="412"><see cref="SeriesSource"/> with Name is disabled</response>
     [HttpGet("{MangaConnectorName}/{Query}")]
     [ProducesResponseType<List<MinimalSeries>>(Status200OK, "application/json")]
     [ProducesResponseType<string>(Status404NotFound, "text/plain")]
@@ -54,15 +54,15 @@ public class SearchController(
         if (!connector.Enabled)
             return TypedResults.StatusCode(Status412PreconditionFailed);
 
-        (Series manga, Schema.MangaContext.MangaConnectorId<Series> id)[] mangas = await connector.SearchManga(Query);
+        (Series manga, Schema.MangaContext.SourceId<Series> id)[] mangas = await connector.SearchManga(Query);
 
         IEnumerable<MinimalSeries> result = mangas.Select(kv =>
         {
             Series m = kv.manga;
-            Schema.MangaContext.MangaConnectorId<Series> id = kv.id;
-            IEnumerable<DTOs.MangaConnectorId<DTOs.Series>> ids =
+            Schema.MangaContext.SourceId<Series> id = kv.id;
+            IEnumerable<DTOs.SourceId<DTOs.Series>> ids =
             [
-                new DTOs.MangaConnectorId<DTOs.Series>(id.Key, id.MangaConnectorName, id.ObjId, id.IdOnConnectorSite, id.WebsiteUrl, id.UseForDownload)
+                new DTOs.SourceId<DTOs.Series>(id.Key, id.MangaConnectorName, id.ObjId, id.IdOnConnectorSite, id.WebsiteUrl, id.UseForDownload)
             ];
             return new MinimalSeries(
                 m.Key, m.Name, m.Description, m.ReleaseStatus, ids,
@@ -75,22 +75,22 @@ public class SearchController(
     }
 
     /// <summary>
-    /// Returns full <see cref="Schema.MangaContext.Series"/> detail from a <see cref="MangaConnector"/> by its site ID, without saving to the database
+    /// Returns full <see cref="Schema.MangaContext.Series"/> detail from a <see cref="SeriesSource"/> by its site ID, without saving to the database
     /// </summary>
-    /// <param name="MangaConnectorName"><see cref="MangaConnector"/>.Name</param>
-    /// <param name="ConnectorMangaId">The manga's ID on the connector site</param>
+    /// <param name="MangaConnectorName"><see cref="SeriesSource"/>.Name</param>
+    /// <param name="ConnectorSeriesId">The manga's ID on the connector site</param>
     /// <response code="200">Full <see cref="DTOs.Series"/> detail</response>
     /// <response code="404">Series not found on connector</response>
     [HttpGet("{MangaConnectorName}/Series")]
     [ProducesResponseType<DTOs.Series>(Status200OK, "application/json")]
     [ProducesResponseType<string>(Status404NotFound, "text/plain")]
-    public async Task<Results<Ok<DTOs.Series>, NotFound<string>>> GetMangaFromConnector(string MangaConnectorName, [FromQuery] string ConnectorMangaId)
+    public async Task<Results<Ok<DTOs.Series>, NotFound<string>>> GetMangaFromConnector(string MangaConnectorName, [FromQuery] string ConnectorSeriesId)
     {
-        if (await LookupFromConnector(MangaConnectorName, ConnectorMangaId) is not ({ } manga, { } id))
-            return TypedResults.NotFound(nameof(ConnectorMangaId));
-        IEnumerable<DTOs.MangaConnectorId<DTOs.Series>> ids =
+        if (await LookupFromConnector(MangaConnectorName, ConnectorSeriesId) is not ({ } manga, { } id))
+            return TypedResults.NotFound(nameof(ConnectorSeriesId));
+        IEnumerable<DTOs.SourceId<DTOs.Series>> ids =
         [
-            new DTOs.MangaConnectorId<DTOs.Series>(id.Key, id.MangaConnectorName, id.ObjId, id.IdOnConnectorSite, id.WebsiteUrl, id.UseForDownload)
+            new DTOs.SourceId<DTOs.Series>(id.Key, id.MangaConnectorName, id.ObjId, id.IdOnConnectorSite, id.WebsiteUrl, id.UseForDownload)
         ];
         IEnumerable<DTOs.Author> authors = manga.Authors.Select(a => new DTOs.Author(a.Key, a.AuthorName));
         IEnumerable<string> tags = manga.MangaTags.Select(t => t.Tag);
@@ -108,7 +108,7 @@ public class SearchController(
     }
 
     /// <summary>
-    /// Returns <see cref="Schema.MangaContext.Series"/> from the <see cref="MangaConnector"/> associated with <paramref name="url"/>
+    /// Returns <see cref="Schema.MangaContext.Series"/> from the <see cref="SeriesSource"/> associated with <paramref name="url"/>
     /// </summary>
     /// <param name="url"></param>
     /// <response code="200"><see cref="MinimalSeries"/> exert of <see cref="Schema.MangaContext.Series"/>.</response>
@@ -134,10 +134,10 @@ public class SearchController(
         await context.SaveChangesAsync(HttpContext.RequestAborted);
 
         // Kick off cover download worker
-        workerQueue.AddWorker(new DownloadCoverFromMangaconnectorWorker(added.id, connectors));
+        workerQueue.AddWorker(new DownloadCoverFromSourceWorker(added.id, connectors));
 
-        IEnumerable<DTOs.MangaConnectorId<DTOs.Series>> ids = added.manga.MangaConnectorIds.Select(id =>
-            new DTOs.MangaConnectorId<DTOs.Series>(id.Key, id.MangaConnectorName, id.ObjId, id.IdOnConnectorSite, id.WebsiteUrl, id.UseForDownload));
+        IEnumerable<DTOs.SourceId<DTOs.Series>> ids = added.manga.SourceIds.Select(id =>
+            new DTOs.SourceId<DTOs.Series>(id.Key, id.MangaConnectorName, id.ObjId, id.IdOnConnectorSite, id.WebsiteUrl, id.UseForDownload));
         MinimalSeries result = new(
             added.manga.Key, added.manga.Name, added.manga.Description, added.manga.ReleaseStatus, ids,
             FileLibraryId: added.manga.Library?.Key,

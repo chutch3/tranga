@@ -80,7 +80,7 @@ public class MaintenanceControllerIntegrationTests : IAsyncLifetime
             for (int i = 1; i <= 3; i++)
             {
                 var manga = new Series($"Series {i}", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
-                manga.MangaConnectorIds.Add(new MangaConnectorId<Series>(manga, "MangaDex", $"uuid-{i}", null));
+                manga.SourceIds.Add(new SourceId<Series>(manga, "MangaDex", $"uuid-{i}", null));
                 setupDb.Series.Add(manga);
                 setupDb.Chapters.Add(new Chapter(manga, "1", null, null)
                     { Downloaded = true, FileName = $"manga{i}_ch1.cbz" });
@@ -141,8 +141,8 @@ public class MaintenanceControllerIntegrationTests : IAsyncLifetime
             setupDb.FileLibraries.Add(library);
             manga = new Series("One-Punch Man", "Superhero comedy", "url",
                 MangaReleaseStatus.Continuing, [], [], [], [], library);
-            manga.MangaConnectorIds.Add(
-                new MangaConnectorId<Series>(manga, "MangaDex", "some-uuid", null));
+            manga.SourceIds.Add(
+                new SourceId<Series>(manga, "MangaDex", "some-uuid", null));
             setupDb.Series.Add(manga);
             setupDb.Chapters.Add(new Chapter(manga, "1", 5, null)
                 { Downloaded = true, FileName = "One-Punch Man Vol 5/One-Punch Man - Ch.1.cbz" });

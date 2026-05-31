@@ -37,8 +37,8 @@ public class MangaTests
         await using var ctx = CreateContext();
         var manga = MakeTestManga();
         ctx.Series.Add(manga);
-        var connectorId = new MangaConnectorId<Series>(manga, "TestConnector", "ext-id-1", null, useForDownload: true);
-        ctx.Set<MangaConnectorId<Series>>().Add(connectorId);
+        var connectorId = new SourceId<Series>(manga, "TestConnector", "ext-id-1", null, useForDownload: true);
+        ctx.Set<SourceId<Series>>().Add(connectorId);
         await ctx.SaveChangesAsync();
 
         var result = await ctx.GetTrackedMangas().ToArrayAsync();
@@ -81,8 +81,8 @@ public class MangaTests
         await using var ctx = CreateContext();
         var manga = MakeTestManga();
         ctx.Series.Add(manga);
-        var connectorId = new MangaConnectorId<Series>(manga, "TestConnector", "ext-id-2", null, useForDownload: false);
-        ctx.Set<MangaConnectorId<Series>>().Add(connectorId);
+        var connectorId = new SourceId<Series>(manga, "TestConnector", "ext-id-2", null, useForDownload: false);
+        ctx.Set<SourceId<Series>>().Add(connectorId);
         await ctx.SaveChangesAsync();
 
         var result = await ctx.GetTrackedMangas().ToArrayAsync();

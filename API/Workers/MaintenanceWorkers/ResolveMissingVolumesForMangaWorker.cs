@@ -29,7 +29,7 @@ public class ResolveMissingVolumesForMangaWorker(
     protected override async Task<IEnumerable<BaseWorker>> ProcessItem(string mangaId)
     {
         var manga = await _mangaContext.Series
-            .Include(m => m.MangaConnectorIds)
+            .Include(m => m.SourceIds)
             .Include(m => m.Library)
             .Include(m => m.MetadataSource)
             .FirstOrDefaultAsync(m => m.Key == mangaId, CancellationToken);

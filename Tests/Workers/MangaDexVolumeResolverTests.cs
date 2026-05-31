@@ -20,7 +20,7 @@ public class MangaDexVolumeResolverTests
     public async Task GetChapterToVolumeMap_WhenMangaHasMangaDexConnector_UsesConnectorIdWithoutSearch()
     {
         var manga = new Series("Test Series", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], Library);
-        manga.MangaConnectorIds.Add(new MangaConnectorId<Series>(manga, "MangaDex", "direct-uuid", null));
+        manga.SourceIds.Add(new SourceId<Series>(manga, "MangaDex", "direct-uuid", null));
 
         var requestedUrls = new List<string>();
         var handler = new FakeHttpMessageHandler(req =>
@@ -88,7 +88,7 @@ public class MangaDexVolumeResolverTests
     public async Task GetChapterToVolumeMap_WhenAggregateRequestFails_ReturnsEmpty()
     {
         var manga = new Series("Test Series", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], Library);
-        manga.MangaConnectorIds.Add(new MangaConnectorId<Series>(manga, "MangaDex", "some-uuid", null));
+        manga.SourceIds.Add(new SourceId<Series>(manga, "MangaDex", "some-uuid", null));
 
         var handler = new FakeHttpMessageHandler(_ => Fail());
 
@@ -102,7 +102,7 @@ public class MangaDexVolumeResolverTests
     public async Task GetChapterToVolumeMap_WhenVolumesIsArray_ReturnsEmpty()
     {
         var manga = new Series("Test Series", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], Library);
-        manga.MangaConnectorIds.Add(new MangaConnectorId<Series>(manga, "MangaDex", "some-uuid", null));
+        manga.SourceIds.Add(new SourceId<Series>(manga, "MangaDex", "some-uuid", null));
 
         var handler = new FakeHttpMessageHandler(_ => Json("""{ "volumes": [] }"""));
 
@@ -116,7 +116,7 @@ public class MangaDexVolumeResolverTests
     public async Task GetChapterToVolumeMap_WhenVolumeHasNonNumericLabel_SkipsIt()
     {
         var manga = new Series("Test Series", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], Library);
-        manga.MangaConnectorIds.Add(new MangaConnectorId<Series>(manga, "MangaDex", "some-uuid", null));
+        manga.SourceIds.Add(new SourceId<Series>(manga, "MangaDex", "some-uuid", null));
 
         var handler = new FakeHttpMessageHandler(_ => Json("""
             {
@@ -138,7 +138,7 @@ public class MangaDexVolumeResolverTests
     public async Task GetChapterToVolumeMap_WhenConnectorNameIsLowercase_MatchesMangaDex()
     {
         var manga = new Series("Test Series", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], Library);
-        manga.MangaConnectorIds.Add(new MangaConnectorId<Series>(manga, "mangadex", "lower-uuid", null));
+        manga.SourceIds.Add(new SourceId<Series>(manga, "mangadex", "lower-uuid", null));
 
         var requestedUrls = new List<string>();
         var handler = new FakeHttpMessageHandler(req =>
@@ -166,7 +166,7 @@ public class MangaDexVolumeResolverTests
     public async Task GetChapterToVolumeMap_WhenVolumesObjectIsEmpty_ReturnsEmpty()
     {
         var manga = new Series("Test Series", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], Library);
-        manga.MangaConnectorIds.Add(new MangaConnectorId<Series>(manga, "MangaDex", "some-uuid", null));
+        manga.SourceIds.Add(new SourceId<Series>(manga, "MangaDex", "some-uuid", null));
 
         var handler = new FakeHttpMessageHandler(_ => Json("""{ "volumes": {} }"""));
 
@@ -180,7 +180,7 @@ public class MangaDexVolumeResolverTests
     public async Task GetChapterToVolumeMap_WhenMultipleVolumes_ChaptersMapToCorrectVolumes()
     {
         var manga = new Series("Test Series", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], Library);
-        manga.MangaConnectorIds.Add(new MangaConnectorId<Series>(manga, "MangaDex", "multi-uuid", null));
+        manga.SourceIds.Add(new SourceId<Series>(manga, "MangaDex", "multi-uuid", null));
 
         var handler = new FakeHttpMessageHandler(_ => Json("""
             {
@@ -209,7 +209,7 @@ public class MangaDexVolumeResolverTests
         // Chapter constructor normalizes "0.01" → "0.1" via int.Parse.
         // The resolver must apply the same normalization so TryGetValue succeeds.
         var manga = new Series("Test Series", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], Library);
-        manga.MangaConnectorIds.Add(new MangaConnectorId<Series>(manga, "MangaDex", "some-uuid", null));
+        manga.SourceIds.Add(new SourceId<Series>(manga, "MangaDex", "some-uuid", null));
 
         var handler = new FakeHttpMessageHandler(_ => Json("""
             {
@@ -236,7 +236,7 @@ public class MangaDexVolumeResolverTests
         manga.MetadataSource!.ExternalId = "confirmed-external-uuid";
         manga.MetadataSource.Status = MetadataSourceStatus.Confirmed;
         // Also add a connector ID to verify it's NOT used
-        manga.MangaConnectorIds.Add(new MangaConnectorId<Series>(manga, "MangaDex", "connector-uuid", null));
+        manga.SourceIds.Add(new SourceId<Series>(manga, "MangaDex", "connector-uuid", null));
 
         var requestedUrls = new List<string>();
         var handler = new FakeHttpMessageHandler(req =>
@@ -296,7 +296,7 @@ public class MangaDexVolumeResolverTests
         // ExternalId is null → resolver must fall through to connector-ID walk
         var manga = new Series("Test Series", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], Library);
         // MetadataSource starts Unlinked with null ExternalId (default from constructor)
-        manga.MangaConnectorIds.Add(new MangaConnectorId<Series>(manga, "MangaDex", "fallback-uuid", null));
+        manga.SourceIds.Add(new SourceId<Series>(manga, "MangaDex", "fallback-uuid", null));
 
         var requestedUrls = new List<string>();
         var handler = new FakeHttpMessageHandler(req =>
@@ -326,7 +326,7 @@ public class MangaDexVolumeResolverTests
         var manga = new Series("Test Series", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], Library);
         manga.MetadataSource!.Status = MetadataSourceStatus.Unlinked;
         manga.MetadataSource.ExternalId = null;
-        manga.MangaConnectorIds.Add(new MangaConnectorId<Series>(manga, "MangaDex", "connector-only-uuid", null));
+        manga.SourceIds.Add(new SourceId<Series>(manga, "MangaDex", "connector-only-uuid", null));
 
         var requestedUrls = new List<string>();
         var handler = new FakeHttpMessageHandler(req =>

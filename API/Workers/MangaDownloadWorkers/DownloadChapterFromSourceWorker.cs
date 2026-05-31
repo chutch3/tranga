@@ -23,7 +23,7 @@ namespace API.Workers.MangaDownloadWorkers;
 /// </summary>
 /// <param name="chId"></param>
 /// <param name="dependsOn"></param>
-public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> chId, IEnumerable<MangaConnector> connectors, TrangaSettings settings, IEnumerable<BaseWorker>? dependsOn = null)
+public class DownloadChapterFromSourceWorker(SourceId<Chapter> chId, IEnumerable<SeriesSource> connectors, TrangaSettings settings, IEnumerable<BaseWorker>? dependsOn = null)
     : BaseWorkerWithContexts(dependsOn)
 {
     public readonly string ChapterIdId = chId.Key;
@@ -44,15 +44,15 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
 
     protected override async Task<BaseWorker[]> DoWorkInternal()
     {
-        Log.Debug($"Downloading chapter for MangaConnectorId {ChapterIdId}...");
-        // Getting MangaConnector info
+        Log.Debug($"Downloading chapter for SourceId {ChapterIdId}...");
+        // Getting SeriesSource info
         if (await MangaContext.MangaConnectorToChapter
                 .Include(id => id.Obj)
                 .ThenInclude(c => c.ParentManga)
                 .ThenInclude(m => m.Library)
                 .FirstOrDefaultAsync(c => c.Key == ChapterIdId, CancellationToken) is not { } mangaConnectorId)
         {
-            Log.Error("Could not get MangaConnectorId.");
+            Log.Error("Could not get SourceId.");
             return [];
         }
 
@@ -63,14 +63,14 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
             return [];
         }
 
-        MangaConnector? mangaConnector = connectors.FirstOrDefault(c => c.Name.Equals(mangaConnectorId.MangaConnectorName, StringComparison.InvariantCultureIgnoreCase));
-        if (mangaConnector is null)
+        SeriesSource? seriesSource = connectors.FirstOrDefault(c => c.Name.Equals(mangaConnectorId.MangaConnectorName, StringComparison.InvariantCultureIgnoreCase));
+        if (seriesSource is null)
         {
-            Log.Error("Could not get MangaConnector.");
+            Log.Error("Could not get SeriesSource.");
             return [];
         }
 
-        Log.Debug($"Downloading chapter for MangaConnectorId {mangaConnectorId}...");
+        Log.Debug($"Downloading chapter for SourceId {mangaConnectorId}...");
 
         Chapter chapter = mangaConnectorId.Obj;
         if (chapter.ParentManga.LibraryId is null)
@@ -82,10 +82,10 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
         List<Stream> images = new();
         try
         {
-            string[] imageUrls = await mangaConnector.GetChapterImageUrls(mangaConnectorId);
+            string[] imageUrls = await seriesSource.GetChapterImageUrls(mangaConnectorId);
             foreach (string imageUrl in imageUrls)
             {
-                Stream? imageStream = await mangaConnector.DownloadImage(imageUrl, CancellationToken);
+                Stream? imageStream = await seriesSource.DownloadImage(imageUrl, CancellationToken);
                 if (imageStream is not null)
                     images.Add(await ProcessImage(imageStream, CancellationToken));
             }
@@ -150,9 +150,9 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
             
             if (directoryPath != null)
             {
-                var mangaConnectorIdForManga = chapter.ParentManga.MangaConnectorIds.FirstOrDefault(id => id.MangaConnectorName == mangaConnector.Name);
-                if (mangaConnectorIdForManga != null)
-                    await EnsureCoverInPublicationFolder(chapter.ParentManga, mangaConnector, mangaConnectorIdForManga, directoryPath);
+                var sourceIdForSeries = chapter.ParentManga.SourceIds.FirstOrDefault(id => id.MangaConnectorName == seriesSource.Name);
+                if (sourceIdForSeries != null)
+                    await EnsureCoverInPublicationFolder(chapter.ParentManga, seriesSource, sourceIdForSeries, directoryPath);
             }
         }
         catch (Exception ex)
@@ -171,7 +171,7 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
         return refreshLibrary ? [new RefreshLibrariesWorker()] : [];
     }
 
-    private async Task EnsureCoverInPublicationFolder(Series manga, MangaConnector mangaConnector, MangaConnectorId<Series> mangaConnectorId, string publicationFolder)
+    private async Task EnsureCoverInPublicationFolder(Series manga, SeriesSource seriesSource, SourceId<Series> mangaConnectorId, string publicationFolder)
     {
         if (File.Exists(Path.Join(publicationFolder, "cover.jpg"))) return;
         
@@ -179,7 +179,7 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
         if (coverFileNameInCache is null)
         {
             Log.Debug("Cover filename in cache is null. Attempting to download...");
-            coverFileNameInCache = await mangaConnector.SaveCoverImageToCache(mangaConnectorId);
+            coverFileNameInCache = await seriesSource.SaveCoverImageToCache(mangaConnectorId);
             manga.CoverFileNameInCache = coverFileNameInCache;
             if (await MangaContext.Sync(CancellationToken, reason: "Update cover filename") is { success: false } result)
                 Log.Error($"Couldn't update cover filename {result.exceptionMessage}");

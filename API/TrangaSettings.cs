@@ -65,7 +65,7 @@ public class TrangaSettings
     public int RefreshLibraryWhileDownloadingEveryMinutes { get; set; } = 10;
 
     /// <summary>
-    /// Names of <see cref="API.MangaConnectors.MangaConnector"/> instances that have been explicitly disabled.
+    /// Names of <see cref="API.MangaConnectors.SeriesSource"/> instances that have been explicitly disabled.
     /// Connectors absent from this set are considered enabled (opt-out model).
     /// </summary>
     public HashSet<string> DisabledConnectors { get; set; } = [];
@@ -190,7 +190,7 @@ public class TrangaSettings
     /// Applies the persisted <see cref="DisabledConnectors"/> set to a collection of connector instances.
     /// Call this once at startup after the DI container is built.
     /// </summary>
-    public void ApplyDisabledConnectors(IEnumerable<MangaConnectors.MangaConnector> connectors)
+    public void ApplyDisabledConnectors(IEnumerable<MangaConnectors.SeriesSource> connectors)
     {
         foreach (var connector in connectors)
             connector.Enabled = !DisabledConnectors.Contains(connector.Name);

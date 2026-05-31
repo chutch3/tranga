@@ -110,12 +110,12 @@ NpgsqlConnectionStringBuilder connectionStringBuilder = new()
 // Settings already loaded and registered above (before CORS configuration).
 
 // 2. Register all your MangaConnectors
-// By registering them all as the base type 'MangaConnector', DI will group them.
-builder.Services.AddSingleton<MangaConnector, Global>();
-builder.Services.AddSingleton<MangaConnector, AsuraComic>();
-builder.Services.AddSingleton<MangaConnector, MangaDex>();
-builder.Services.AddSingleton<MangaConnector, Mangaworld>();
-builder.Services.AddSingleton<MangaConnector, WeebCentral>();
+// By registering them all as the base type 'SeriesSource', DI will group them.
+builder.Services.AddSingleton<SeriesSource, Global>();
+builder.Services.AddSingleton<SeriesSource, AsuraComic>();
+builder.Services.AddSingleton<SeriesSource, MangaDex>();
+builder.Services.AddSingleton<SeriesSource, Mangaworld>();
+builder.Services.AddSingleton<SeriesSource, WeebCentral>();
 
 // 3. Register your Metadata Fetchers
 builder.Services.AddSingleton<MetadataFetcher, MyAnimeList>();
@@ -129,7 +129,7 @@ builder.Services.AddSingleton<CleanupMangaCoversWorker>();
 builder.Services.AddSingleton<StartNewChapterDownloadsWorker>();
 builder.Services.AddSingleton<RemoveOldNotificationsWorker>();
 builder.Services.AddSingleton<UpdateCoversWorker>();
-builder.Services.AddSingleton<CleanupMangaconnectorIdsWithoutConnector>();
+builder.Services.AddSingleton<CleanupSourceIdsWithoutSource>();
 builder.Services.AddSingleton<CleanupOrphanedFilesWorker>();
 builder.Services.AddHttpClient<MangaDexVolumeResolver>();
 builder.Services.AddSingleton<IMangaDexVolumeResolver>(sp => sp.GetRequiredService<MangaDexVolumeResolver>());
@@ -267,7 +267,7 @@ var trangaManager = app.Services.GetRequiredService<Tranga>();
 
 // Apply persisted connector enable/disable state from settings
 var trangaSettings = app.Services.GetRequiredService<TrangaSettings>();
-var mangaConnectors = app.Services.GetRequiredService<IEnumerable<MangaConnector>>();
+var mangaConnectors = app.Services.GetRequiredService<IEnumerable<SeriesSource>>();
 trangaSettings.ApplyDisabledConnectors(mangaConnectors);
 
 await trangaManager.StartupTasks();

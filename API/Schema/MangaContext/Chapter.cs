@@ -15,8 +15,8 @@ public class Chapter : Identifiable, IComparable<Chapter>
     public Series ParentManga = null!;
 
     [NotMapped] public Dictionary<string, string> IdsOnMangaConnectors =>
-        MangaConnectorIds.ToDictionary(id => id.MangaConnectorName, id => id.IdOnConnectorSite);
-    public ICollection<MangaConnectorId<Chapter>> MangaConnectorIds = null!;
+        SourceIds.ToDictionary(id => id.MangaConnectorName, id => id.IdOnConnectorSite);
+    public ICollection<SourceId<Chapter>> SourceIds = null!;
 
     public int? VolumeNumber { get; internal set; }
     [StringLength(10)] public string ChapterNumber { get; private set; }
@@ -45,11 +45,11 @@ public class Chapter : Identifiable, IComparable<Chapter>
         chapterNumber = string.Join('.', chapterNumber.Split('.').Select(p => int.Parse(p).ToString()));
         this.ChapterNumber = chapterNumber;
         this.ParentManga = parentManga;
-        this.MangaConnectorIds = [];
+        this.SourceIds = [];
         this.VolumeNumber = volumeNumber;
         this.Title = title;
         this.Downloaded = false;
-        this.MangaConnectorIds = [];
+        this.SourceIds = [];
     }
 
     /// <summary>

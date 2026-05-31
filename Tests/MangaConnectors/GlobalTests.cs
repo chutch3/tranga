@@ -14,19 +14,19 @@ public class GlobalTests
         var settings = new TrangaSettings { DownloadLanguage = "en" };
         var services = new ServiceCollection();
 
-        var mockItConnector = new Mock<MangaConnector>("Mangaworld", new[] { "it" }, new[] { "mangaworld.mx" }, "icon", settings);
+        var mockItConnector = new Mock<SeriesSource>("Mangaworld", new[] { "it" }, new[] { "mangaworld.mx" }, "icon", settings);
         var mangaIt = new Series("Dan Da Dan IT", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], []);
-        var idIt = new MangaConnectorId<Series>(mangaIt, mockItConnector.Object, "it-id", "url");
+        var idIt = new SourceId<Series>(mangaIt, mockItConnector.Object, "it-id", "url");
         mockItConnector.Setup(c => c.SearchManga(It.IsAny<string>())).ReturnsAsync([(mangaIt, idIt)]);
         mockItConnector.Object.Enabled = true;
 
-        var mockEnConnector = new Mock<MangaConnector>("WeebCentral", new[] { "en" }, new[] { "weebcentral.com" }, "icon", settings);
+        var mockEnConnector = new Mock<SeriesSource>("WeebCentral", new[] { "en" }, new[] { "weebcentral.com" }, "icon", settings);
         var mangaEn = new Series("Dan Da Dan EN", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], []);
-        var idEn = new MangaConnectorId<Series>(mangaEn, mockEnConnector.Object, "en-id", "url");
+        var idEn = new SourceId<Series>(mangaEn, mockEnConnector.Object, "en-id", "url");
         mockEnConnector.Setup(c => c.SearchManga(It.IsAny<string>())).ReturnsAsync([(mangaEn, idEn)]);
         mockEnConnector.Object.Enabled = true;
 
-        var mockAllConnector = new Mock<MangaConnector>("Global", new[] { "all" }, new[] { "" }, "icon", settings);
+        var mockAllConnector = new Mock<SeriesSource>("Global", new[] { "all" }, new[] { "" }, "icon", settings);
 
         services.AddSingleton(mockItConnector.Object);
         services.AddSingleton(mockEnConnector.Object);

@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SchemaManga = API.Schema.MangaContext.Series;
-using SchemaConnectorId = API.Schema.MangaContext.MangaConnectorId<API.Schema.MangaContext.Series>;
+using SchemaConnectorId = API.Schema.MangaContext.SourceId<API.Schema.MangaContext.Series>;
 
 namespace API.Tests.Controllers;
 
@@ -28,7 +28,7 @@ public class SearchControllerTests
         MangaContext ctx,
         Func<string, string, (SchemaManga, SchemaConnectorId)?>? connectorLookup = null)
     {
-        var connectors = Enumerable.Empty<API.MangaConnectors.MangaConnector>();
+        var connectors = Enumerable.Empty<API.MangaConnectors.SeriesSource>();
         var workerQueue = new Mock<API.Workers.IWorkerQueue>().Object;
         var controller = new SearchController(ctx, connectors, workerQueue, connectorLookup ?? ((_, _) => null));
         controller.ControllerContext = new ControllerContext
@@ -62,7 +62,7 @@ public class SearchControllerTests
 
         var ok = Assert.IsType<Ok<MangaDto>>(result.Result);
         Assert.Equal("Berserk", ok.Value!.Name);
-        var dtoId = Assert.Single(ok.Value.MangaConnectorIds);
+        var dtoId = Assert.Single(ok.Value.SourceIds);
         Assert.Equal("berserk-id-123", dtoId.ObjId);
     }
 
@@ -93,7 +93,7 @@ public class SearchControllerTests
     [Fact]
     public async Task GetMangaFromConnector_IdContainingSlash_ReturnsMangaDto()
     {
-        // IDs like "2003/one-punch-man" must work; routing must accept ConnectorMangaId as a query param
+        // IDs like "2003/one-punch-man" must work; routing must accept ConnectorSeriesId as a query param
         // so that ASP.NET Core doesn't reject the encoded slash (%2F) in a path segment.
         using var ctx = CreateContext();
         var manga = MakeTestManga("One Punch Man");
@@ -109,14 +109,14 @@ public class SearchControllerTests
     [Fact]
     public async Task GetMangaFromConnector_ConnectorMangaIdIsFromQueryParameter()
     {
-        // Verifies the routing fix: ConnectorMangaId must be a query param so that
+        // Verifies the routing fix: ConnectorSeriesId must be a query param so that
         // IDs containing slashes (e.g. "2003/one-punch-man") are not rejected by ASP.NET Core routing.
         var method = typeof(SearchController).GetMethod(nameof(SearchController.GetMangaFromConnector));
         Assert.NotNull(method);
-        var param = method!.GetParameters().Single(p => p.Name == "ConnectorMangaId");
+        var param = method!.GetParameters().Single(p => p.Name == "ConnectorSeriesId");
         Assert.True(
             param.GetCustomAttributes(typeof(FromQueryAttribute), inherit: false).Length > 0,
-            "ConnectorMangaId must be decorated with [FromQuery] to allow slash-containing IDs");
+            "ConnectorSeriesId must be decorated with [FromQuery] to allow slash-containing IDs");
     }
 
     [Fact]
@@ -126,7 +126,7 @@ public class SearchControllerTests
         var manga = MakeTestManga("One Punch Man", "http://example.com/opm.jpg");
         var connectorId = MakeConnectorId(manga, "MangaDex", "opm-id");
 
-        var mockConnector = new Mock<API.MangaConnectors.MangaConnector>("MangaDex", new[] { "en" }, new[] { "mangadex.org" }, "icon.png", new TrangaSettings());
+        var mockConnector = new Mock<API.MangaConnectors.SeriesSource>("MangaDex", new[] { "en" }, new[] { "mangadex.org" }, "icon.png", new TrangaSettings());
         mockConnector.Setup(c => c.SearchManga(It.IsAny<string>())).ReturnsAsync([(manga, connectorId)]);
         // Enabled is true by default, and Name is set in constructor.
 
@@ -182,7 +182,7 @@ public class SearchControllerTests
         ctx.MangaConnectorToManga.Add(connectorId);
         ctx.SaveChanges();
 
-        var mockConnector = new Mock<API.MangaConnectors.MangaConnector>("MangaDex", new[] { "en" }, new[] { "mangadex.org" }, "icon.png", new TrangaSettings());
+        var mockConnector = new Mock<API.MangaConnectors.SeriesSource>("MangaDex", new[] { "en" }, new[] { "mangadex.org" }, "icon.png", new TrangaSettings());
         mockConnector.Setup(c => c.SearchManga(It.IsAny<string>())).ReturnsAsync([(manga, connectorId)]);
 
         var controller = CreateController(ctx);

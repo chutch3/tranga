@@ -1,7 +1,7 @@
 using API;
 using API.Controllers;
 using API.Controllers.DTOs;
-using ConnectorDto = API.Controllers.DTOs.MangaConnector;
+using ConnectorDto = API.Controllers.DTOs.SeriesSource;
 using API.MangaConnectors;
 using API.Schema.MangaContext;
 using Microsoft.AspNetCore.Http;
@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Moq;
-using MangaConnectorImpl = API.MangaConnectors.MangaConnector;
+using MangaConnectorImpl = API.MangaConnectors.SeriesSource;
 
 namespace API.Tests.Controllers;
 

@@ -17,7 +17,7 @@ using Author = API.Controllers.DTOs.Author;
 using Chapter = API.Schema.MangaContext.Chapter;
 using Link = API.Controllers.DTOs.Link;
 using Series = API.Controllers.DTOs.Series;
-using MangaConnectorImpl = API.MangaConnectors.MangaConnector;
+using MangaConnectorImpl = API.MangaConnectors.SeriesSource;
 
 // ReSharper disable InconsistentNaming
 
@@ -47,13 +47,13 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
         
         return TypedResults.Ok(result.Select(m =>
         {
-            IEnumerable<DTOs.MangaConnectorId<Series>> ids = m.MangaConnectorIds.Select(id => new DTOs.MangaConnectorId<Series>(id.Key, id.MangaConnectorName, id.ObjId, id.IdOnConnectorSite, id.WebsiteUrl, id.UseForDownload));
+            IEnumerable<DTOs.SourceId<Series>> ids = m.SourceIds.Select(id => new DTOs.SourceId<Series>(id.Key, id.MangaConnectorName, id.ObjId, id.IdOnConnectorSite, id.WebsiteUrl, id.UseForDownload));
             return new MinimalSeries(m.Key, m.Name, m.Description, m.ReleaseStatus, ids, m.LibraryId, m.OriginalLanguage, m.CoverUrl);
         }).ToList());
     }
     
     /// <summary>
-    /// Returns all <see cref="Schema.MangaContext.Series"/> that are being downloaded from at least one <see cref="API.MangaConnectors.MangaConnector"/>
+    /// Returns all <see cref="Schema.MangaContext.Series"/> that are being downloaded from at least one <see cref="API.MangaConnectors.SeriesSource"/>
     /// </summary>
     /// <response code="200"><see cref="MinimalSeries"/> exert of <see cref="Schema.MangaContext.Series"/>. Use <see cref="GetManga"/> for more information</response>
     /// <response code="500">Error during Database Operation</response>
@@ -63,15 +63,15 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
     public async Task<Results<Ok<List<MinimalSeries>>, InternalServerError>> GetMangaDownloading()
     {
         if (await context.Series
-                .Include(m => m.MangaConnectorIds)
-                .Where(m => m.MangaConnectorIds.Any(id => id.UseForDownload))
+                .Include(m => m.SourceIds)
+                .Where(m => m.SourceIds.Any(id => id.UseForDownload))
                 .OrderBy(m => m.Name)
                 .ToArrayAsync(HttpContext.RequestAborted) is not { } result)
             return TypedResults.InternalServerError();
 
         return TypedResults.Ok(result.Select(m =>
         {
-            IEnumerable<DTOs.MangaConnectorId<Series>> ids = m.MangaConnectorIds.Select(id => new DTOs.MangaConnectorId<Series>(id.Key, id.MangaConnectorName, id.ObjId, id.IdOnConnectorSite, id.WebsiteUrl, id.UseForDownload));
+            IEnumerable<DTOs.SourceId<Series>> ids = m.SourceIds.Select(id => new DTOs.SourceId<Series>(id.Key, id.MangaConnectorName, id.ObjId, id.IdOnConnectorSite, id.WebsiteUrl, id.UseForDownload));
             return new MinimalSeries(m.Key, m.Name, m.Description, m.ReleaseStatus, ids, m.LibraryId, m.OriginalLanguage, m.CoverUrl);
         }).ToList());
     }
@@ -87,10 +87,10 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
     [ProducesResponseType<string>(Status404NotFound, "text/plain")]
     public async Task<Results<Ok<Series>, NotFound<string>>> GetManga (string MangaId)
     {
-        if (await context.MangaWithMetadata().Include(m => m.MangaConnectorIds).FirstOrDefaultAsync(m => m.Key == MangaId, HttpContext.RequestAborted) is not { } manga)
+        if (await context.MangaWithMetadata().Include(m => m.SourceIds).FirstOrDefaultAsync(m => m.Key == MangaId, HttpContext.RequestAborted) is not { } manga)
             return TypedResults.NotFound(nameof(MangaId));
         
-        IEnumerable<DTOs.MangaConnectorId<Series>> ids = manga.MangaConnectorIds.Select(id => new DTOs.MangaConnectorId<Series>(id.Key, id.MangaConnectorName, id.ObjId, id.IdOnConnectorSite, id.WebsiteUrl, id.UseForDownload));
+        IEnumerable<DTOs.SourceId<Series>> ids = manga.SourceIds.Select(id => new DTOs.SourceId<Series>(id.Key, id.MangaConnectorName, id.ObjId, id.IdOnConnectorSite, id.WebsiteUrl, id.UseForDownload));
         IEnumerable<Author> authors = manga.Authors.Select(a => new Author(a.Key, a.AuthorName));
         IEnumerable<string> tags = manga.MangaTags.Select(t => t.Tag);
         IEnumerable<Link> links = manga.Links.Select(l => new Link(l.Key, l.LinkProvider, l.LinkUrl));
@@ -198,7 +198,7 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
     /// <param name="MangaId"><see cref="Series"/>.Key</param>
     /// <param name="LibraryId"><see cref="DTOs.FileLibrary"/>.Key</param>
     /// <param name="connectorName">(Optional) Name of the connector to fetch manga from if not in DB</param>
-    /// <param name="connectorMangaId">(Optional) ID of the manga on the connector site</param>
+    /// <param name="connectorSeriesId">(Optional) ID of the manga on the connector site</param>
     /// <response code="202">Folder is going to be moved</response>
     /// <response code="404"><paramref name="MangaId"/> or <paramref name="LibraryId"/> not found</response>
     /// <response code="500">Error during Database Operation</response>
@@ -206,7 +206,7 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
     [ProducesResponseType(Status200OK)]
     [ProducesResponseType<string>(Status404NotFound, "text/plain")]
     [ProducesResponseType<string>(Status500InternalServerError,  "text/plain")]
-    public async Task<Results<Ok, NotFound<string>, InternalServerError<string>>> ChangeLibrary(string MangaId, string LibraryId, [FromQuery] string? connectorName = null, [FromQuery] string? connectorMangaId = null)
+    public async Task<Results<Ok, NotFound<string>, InternalServerError<string>>> ChangeLibrary(string MangaId, string LibraryId, [FromQuery] string? connectorName = null, [FromQuery] string? connectorSeriesId = null)
     {
         if (await context.FileLibraries.FirstOrDefaultAsync(l => l.Key == LibraryId, HttpContext.RequestAborted) is not { } library)
             return TypedResults.NotFound(nameof(LibraryId));
@@ -218,14 +218,14 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
 
         if (manga is null)
         {
-            if (string.IsNullOrWhiteSpace(connectorName) || string.IsNullOrWhiteSpace(connectorMangaId))
+            if (string.IsNullOrWhiteSpace(connectorName) || string.IsNullOrWhiteSpace(connectorSeriesId))
                 return TypedResults.NotFound(nameof(MangaId));
 
             if (connectors.FirstOrDefault(c => c.Name.Equals(connectorName, StringComparison.InvariantCultureIgnoreCase)) is not { } connector)
                 return TypedResults.NotFound(nameof(connectorName));
 
-            if (await connector.GetMangaFromId(connectorMangaId) is not ({ } m, { } id))
-                return TypedResults.NotFound(nameof(connectorMangaId));
+            if (await connector.GetMangaFromId(connectorSeriesId) is not ({ } m, { } id))
+                return TypedResults.NotFound(nameof(connectorSeriesId));
 
             if (await context.UpsertManga(m, id, HttpContext.RequestAborted) is not { } added)
                 return TypedResults.InternalServerError("Could not add Series to context");
@@ -258,15 +258,15 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
     }
 
     /// <summary>
-    /// (Un-)Marks <see cref="Series"/> as requested for Download from <see cref="API.MangaConnectors.MangaConnector"/>
+    /// (Un-)Marks <see cref="Series"/> as requested for Download from <see cref="API.MangaConnectors.SeriesSource"/>
     /// </summary>
     /// <param name="MangaId"><see cref="Series"/> with <paramref name="MangaId"/></param>
-    /// <param name="MangaConnectorName"><see cref="API.MangaConnectors.MangaConnector"/> with <paramref name="MangaConnectorName"/></param>
+    /// <param name="MangaConnectorName"><see cref="API.MangaConnectors.SeriesSource"/> with <paramref name="MangaConnectorName"/></param>
     /// <param name="IsRequested">true to mark as requested, false to mark as not-requested</param>
     /// <response code="200"></response>
     /// <response code="404"><paramref name="MangaId"/> or <paramref name="MangaConnectorName"/> not found</response>
-    /// <response code="412"><see cref="Series"/> was not linked to <see cref="API.MangaConnectors.MangaConnector"/>, so nothing changed</response>
-    /// <response code="428"><see cref="Series"/> is not linked to <see cref="API.MangaConnectors.MangaConnector"/> yet. Search for <see cref="Series"/> on <see cref="API.MangaConnectors.MangaConnector"/> first (to create a <see cref="DTOs.MangaConnectorId{T}"/>).</response>
+    /// <response code="412"><see cref="Series"/> was not linked to <see cref="API.MangaConnectors.SeriesSource"/>, so nothing changed</response>
+    /// <response code="428"><see cref="Series"/> is not linked to <see cref="API.MangaConnectors.SeriesSource"/> yet. Search for <see cref="Series"/> on <see cref="API.MangaConnectors.SeriesSource"/> first (to create a <see cref="DTOs.SourceId{T}"/>).</response>
     /// <response code="500">Error during Database Operation</response>
     [HttpPatch("{MangaId}/DownloadFrom/{MangaConnectorName}/{IsRequested}")]
     [ProducesResponseType(Status200OK)]
@@ -278,14 +278,14 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
     {
         if (await context.Series
                 .Include(m => m.Chapters)
-                .ThenInclude(c => c.MangaConnectorIds.Where(chID => chID.MangaConnectorName == MangaConnectorName))
-                .Include(m => m.MangaConnectorIds.Where(mId => mId.MangaConnectorName == MangaConnectorName))
+                .ThenInclude(c => c.SourceIds.Where(chID => chID.MangaConnectorName == MangaConnectorName))
+                .Include(m => m.SourceIds.Where(mId => mId.MangaConnectorName == MangaConnectorName))
                 .FirstOrDefaultAsync(m => m.Key == MangaId, HttpContext.RequestAborted) is not { } manga)
             return TypedResults.NotFound(nameof(MangaId));
         if(!connectors.Any(c => c.Name.Equals(MangaConnectorName, StringComparison.InvariantCultureIgnoreCase)))
             return TypedResults.NotFound(nameof(MangaConnectorName));
 
-        if (manga.MangaConnectorIds.FirstOrDefault(mId => mId.MangaConnectorName == MangaConnectorName) is not { } mcId)
+        if (manga.SourceIds.FirstOrDefault(mId => mId.MangaConnectorName == MangaConnectorName) is not { } mcId)
         {
             if(IsRequested)
                 return TypedResults.StatusCode(Status428PreconditionRequired);
@@ -298,32 +298,32 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
         }
 
         if (manga.Chapters.SelectMany(ch =>
-                ch.MangaConnectorIds.Where(chID => chID.MangaConnectorName == MangaConnectorName)) is { } chIds)
+                ch.SourceIds.Where(chID => chID.MangaConnectorName == MangaConnectorName)) is { } chIds)
         {
-            foreach (Schema.MangaContext.MangaConnectorId<Chapter> chId in chIds)
+            foreach (Schema.MangaContext.SourceId<Chapter> chId in chIds)
             {
                 chId.UseForDownload = IsRequested;
             }
         }
 
-        if(await context.Sync(HttpContext.RequestAborted, GetType(), "Update download from MangaConnector.") is { success: false } result)
+        if(await context.Sync(HttpContext.RequestAborted, GetType(), "Update download from SeriesSource.") is { success: false } result)
             return TypedResults.InternalServerError(result.exceptionMessage);
 
-        DownloadCoverFromMangaconnectorWorker downloadCover = new(mcId, connectors);
-        RetrieveMangaChaptersFromMangaconnectorWorker retrieveChapters = new(mcId, settings.DownloadLanguage, connectors);
+        DownloadCoverFromSourceWorker downloadCover = new(mcId, connectors);
+        RetrieveChaptersFromSourceWorker retrieveChapters = new(mcId, settings.DownloadLanguage, connectors);
         workerQueue.AddWorkers([downloadCover, retrieveChapters]);
         
         return TypedResults.Ok();
     }
     
     /// <summary>
-    /// Initiate a search for <see cref="API.Schema.MangaContext.Series"/> on a different <see cref="API.MangaConnectors.MangaConnector"/>
+    /// Initiate a search for <see cref="API.Schema.MangaContext.Series"/> on a different <see cref="API.MangaConnectors.SeriesSource"/>
     /// </summary>
     /// <param name="MangaId"><see cref="API.Schema.MangaContext.Series"/> with <paramref name="MangaId"/></param>
-    /// <param name="MangaConnectorName"><see cref="API.MangaConnectors.MangaConnector"/>.Name</param>
+    /// <param name="MangaConnectorName"><see cref="API.MangaConnectors.SeriesSource"/>.Name</param>
     /// <response code="200"><see cref="MinimalSeries"/> exert of <see cref="Schema.MangaContext.Series"/></response>
-    /// <response code="404"><see cref="API.MangaConnectors.MangaConnector"/> with Name not found</response>
-    /// <response code="412"><see cref="API.MangaConnectors.MangaConnector"/> with Name is disabled</response>
+    /// <response code="404"><see cref="API.MangaConnectors.SeriesSource"/> with Name not found</response>
+    /// <response code="412"><see cref="API.MangaConnectors.SeriesSource"/> with Name is disabled</response>
     [HttpGet("{MangaId}/OnMangaConnector/{MangaConnectorName}")]
     [ProducesResponseType<List<MinimalSeries>>(Status200OK, "application/json")]
     [ProducesResponseType<string>(Status404NotFound, "text/plain")]
@@ -351,7 +351,7 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
         if (await context.Authors.FirstOrDefaultAsync(a => a.Key == AuthorId, HttpContext.RequestAborted) is not { } _)
             return TypedResults.NotFound(nameof(AuthorId));
 
-        if (await context.MangaWithMetadata().Include(m => m.MangaConnectorIds)
+        if (await context.MangaWithMetadata().Include(m => m.SourceIds)
                 .Where(m => m.Authors.Any(a => a.Key == AuthorId))
                 .OrderBy(m => m.Name)
                 .ToListAsync(HttpContext.RequestAborted) is not { } result)
@@ -359,7 +359,7 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
 
         return TypedResults.Ok(result.Select(m =>
         {
-            IEnumerable<DTOs.MangaConnectorId<Series>> ids = m.MangaConnectorIds.Select(id => new DTOs.MangaConnectorId<Series>(id.Key, id.MangaConnectorName, id.ObjId, id.IdOnConnectorSite, id.WebsiteUrl, id.UseForDownload));
+            IEnumerable<DTOs.SourceId<Series>> ids = m.SourceIds.Select(id => new DTOs.SourceId<Series>(id.Key, id.MangaConnectorName, id.ObjId, id.IdOnConnectorSite, id.WebsiteUrl, id.UseForDownload));
             IEnumerable<Author> authors = m.Authors.Select(a => new Author(a.Key, a.AuthorName));
             IEnumerable<string> tags = m.MangaTags.Select(t => t.Tag);
             IEnumerable<Link> links = m.Links.Select(l => new Link(l.Key, l.LinkProvider, l.LinkUrl));
@@ -382,7 +382,7 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
     public async Task<Results<Ok<List<MinimalSeries>>, NotFound<string>, InternalServerError>> GetMangasWithTag (string Tag)
     {
         if (await context.Series
-                .Include(m => m.MangaConnectorIds)
+                .Include(m => m.SourceIds)
                 .Include(m => m.MangaTags)
                 .Where(m => m.MangaTags.Any(t => t.Tag == Tag))
                 .OrderBy(m => m.Name)
@@ -391,7 +391,7 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
         
         return TypedResults.Ok(result.Select(m =>
         {
-            IEnumerable<DTOs.MangaConnectorId<Series>> ids = m.MangaConnectorIds.Select(id => new DTOs.MangaConnectorId<Series>(id.Key, id.MangaConnectorName, id.ObjId, id.IdOnConnectorSite, id.WebsiteUrl, id.UseForDownload));
+            IEnumerable<DTOs.SourceId<Series>> ids = m.SourceIds.Select(id => new DTOs.SourceId<Series>(id.Key, id.MangaConnectorName, id.ObjId, id.IdOnConnectorSite, id.WebsiteUrl, id.UseForDownload));
             return new MinimalSeries(m.Key, m.Name, m.Description, m.ReleaseStatus, ids, m.LibraryId, m.OriginalLanguage, m.CoverUrl);
         }).ToList());
     }
@@ -427,20 +427,20 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
     }
 
     /// <summary>
-    /// Returns the <see cref="DTOs.MangaConnectorId{T}"/> with <see cref="DTOs.MangaConnectorId{T}"/>.Key
+    /// Returns the <see cref="DTOs.SourceId{T}"/> with <see cref="DTOs.SourceId{T}"/>.Key
     /// </summary>
-    /// <param name="MangaConnectorIdId">Key of <see cref="DTOs.MangaConnectorId{T}"/></param>
+    /// <param name="MangaConnectorIdId">Key of <see cref="DTOs.SourceId{T}"/></param>
     /// <response code="200"></response>
-    /// <response code="404"><see cref="DTOs.MangaConnectorId{T}"/> with <paramref name="MangaConnectorIdId"/> not found</response>
+    /// <response code="404"><see cref="DTOs.SourceId{T}"/> with <paramref name="MangaConnectorIdId"/> not found</response>
     [HttpGet("ConnectorId/{MangaConnectorIdId}")]
-    [ProducesResponseType<DTOs.MangaConnectorId<Series>>(Status200OK, "application/json")]
+    [ProducesResponseType<DTOs.SourceId<Series>>(Status200OK, "application/json")]
     [ProducesResponseType<string>(Status404NotFound, "text/plain")]
-    public async Task<Results<Ok<DTOs.MangaConnectorId<Series>>, NotFound<string>>> GetMangaMangaConnectorId (string MangaConnectorIdId)
+    public async Task<Results<Ok<DTOs.SourceId<Series>>, NotFound<string>>> GetMangaMangaConnectorId (string MangaConnectorIdId)
     {
         if (await context.MangaConnectorToManga.FirstOrDefaultAsync(c => c.Key == MangaConnectorIdId, HttpContext.RequestAborted) is not { } mcIdManga)
             return TypedResults.NotFound(nameof(MangaConnectorIdId));
 
-        DTOs.MangaConnectorId<Series> result = new (mcIdManga.Key, mcIdManga.MangaConnectorName, mcIdManga.ObjId, mcIdManga.IdOnConnectorSite, mcIdManga.WebsiteUrl, mcIdManga.UseForDownload);
+        DTOs.SourceId<Series> result = new (mcIdManga.Key, mcIdManga.MangaConnectorName, mcIdManga.ObjId, mcIdManga.IdOnConnectorSite, mcIdManga.WebsiteUrl, mcIdManga.UseForDownload);
         
         return TypedResults.Ok(result);
     }
@@ -455,7 +455,7 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
     [ProducesResponseType<int>(Status200OK, "text/plain")]
     public async Task<Ok<int>> ForceRecheckMangaChapters(string? mangaId = null)
     {
-        IQueryable<Schema.MangaContext.MangaConnectorId<Chapter>> queryable = context.MangaConnectorToChapter.Where(chId  => chId.Obj!.Downloaded);
+        IQueryable<Schema.MangaContext.SourceId<Chapter>> queryable = context.MangaConnectorToChapter.Where(chId  => chId.Obj!.Downloaded);
         if(mangaId is not null)
             queryable = queryable.Where(chId => chId.Obj!.ParentMangaId == mangaId);
         
@@ -473,7 +473,7 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
     [ProducesResponseType<int>(Status200OK, "text/plain")]
     public async Task<Ok<int>> ForceRecheckChapter(string chapterId)
     {
-        IQueryable<Schema.MangaContext.MangaConnectorId<Chapter>> queryable = context.MangaConnectorToChapter.Where(chId  => chId.ObjId == chapterId);
+        IQueryable<Schema.MangaContext.SourceId<Chapter>> queryable = context.MangaConnectorToChapter.Where(chId  => chId.ObjId == chapterId);
         
         int rowsAffected = await queryable.ExecuteDeleteAsync(HttpContext.RequestAborted);
 

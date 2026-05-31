@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace API.Controllers.DTOs;
 
-public sealed record MangaConnector(string Name, bool Enabled, string IconUrl, string[] SupportedLanguages) : Identifiable(Name)
+public sealed record SeriesSource(string Name, bool Enabled, string IconUrl, string[] SupportedLanguages) : Identifiable(Name)
 {
     /// <summary>
     /// Whether Connector is used for Searches and Downloads

@@ -34,7 +34,7 @@ public class VolumeController(MangaContext context, TrangaSettings settings, IWo
         var manga = await context.Series
             .Include(m => m.Library)
             .Include(m => m.Chapters)
-            .ThenInclude(c => c.MangaConnectorIds)
+            .ThenInclude(c => c.SourceIds)
             .FirstOrDefaultAsync(m => m.Key == MangaId, HttpContext.RequestAborted);
 
         if (manga is null)

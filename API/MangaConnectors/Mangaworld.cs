@@ -8,7 +8,7 @@ using HtmlAgilityPack;
 
 namespace API.MangaConnectors;
 
-public sealed class Mangaworld : MangaConnector
+public sealed class Mangaworld : SeriesSource
 {
     public Mangaworld(TrangaSettings settings, RateLimitHandler rateLimitHandler) : base(
         "Mangaworld",
@@ -27,10 +27,10 @@ public sealed class Mangaworld : MangaConnector
         downloadClient = new HttpDownloadClient(rateLimitHandler, settings);
     }
 
-    public override async Task<(Series, MangaConnectorId<Series>)[]> SearchManga(string mangaSearchName)
+    public override async Task<(Series, SourceId<Series>)[]> SearchManga(string mangaSearchName)
     {
         // 1) Tentativo con la stringa così com'è
-        (Series, MangaConnectorId<Series>)[] first = await SearchOnce(mangaSearchName);
+        (Series, SourceId<Series>)[] first = await SearchOnce(mangaSearchName);
         if (first.Length > 0)
             return first;
 
@@ -42,7 +42,7 @@ public sealed class Mangaworld : MangaConnector
         return first;
     }
 
-    private async Task<(Series, MangaConnectorId<Series>)[]> SearchOnce(string query)
+    private async Task<(Series, SourceId<Series>)[]> SearchOnce(string query)
     {
         Uri baseUri = new("https://www.mangaworld.mx/");
         Uri searchUrl = new(baseUri, "archive?keyword=" + HttpUtility.UrlEncode(query));
@@ -62,7 +62,7 @@ public sealed class Mangaworld : MangaConnector
         if (anchors is null || anchors.Count < 1)
             return [];
 
-        List<(Series, MangaConnectorId<Series>)> list = new();
+        List<(Series, SourceId<Series>)> list = new();
         HashSet<string> seen = new(StringComparer.OrdinalIgnoreCase);
 
         foreach (HtmlNode a in anchors)
@@ -76,7 +76,7 @@ public sealed class Mangaworld : MangaConnector
             if (!seen.Add(canonical))
                 continue;
 
-            (Series, MangaConnectorId<Series>)? manga = await GetMangaFromUrl(canonical);
+            (Series, SourceId<Series>)? manga = await GetMangaFromUrl(canonical);
             if (manga is null)
                 continue;
 
@@ -86,7 +86,7 @@ public sealed class Mangaworld : MangaConnector
         return list.ToArray();
     }
 
-    public override async Task<(Series, MangaConnectorId<Series>)?> GetMangaFromUrl(string url)
+    public override async Task<(Series, SourceId<Series>)?> GetMangaFromUrl(string url)
     {
         Match m = SeriesUrl.Match(url);
         if (!m.Success)
@@ -94,7 +94,7 @@ public sealed class Mangaworld : MangaConnector
         return await GetMangaFromId($"{m.Groups["id"].Value}/{m.Groups["slug"].Value}");
     }
 
-    public override async Task<(Series, MangaConnectorId<Series>)?> GetMangaFromId(string mangaIdOnSite)
+    public override async Task<(Series, SourceId<Series>)?> GetMangaFromId(string mangaIdOnSite)
     {
         string[] parts = mangaIdOnSite.Split('/', 2);
         if (parts.Length != 2)
@@ -165,12 +165,12 @@ public sealed class Mangaworld : MangaConnector
             [],
             originalLanguage: "it");
 
-        MangaConnectorId<Series> mcId = new MangaConnectorId<Series>(m, this, $"{id}/{slug}", seriesUrl.ToString());
-        m.MangaConnectorIds.Add(mcId);
+        SourceId<Series> mcId = new SourceId<Series>(m, this, $"{id}/{slug}", seriesUrl.ToString());
+        m.SourceIds.Add(mcId);
         return (m, mcId);
     }
 
-    public override async Task<(Chapter, MangaConnectorId<Chapter>)[]> GetChapters(MangaConnectorId<Series> mangaId, string? language = null)
+    public override async Task<(Chapter, SourceId<Chapter>)[]> GetChapters(SourceId<Series> mangaId, string? language = null)
     {
         string[] parts = mangaId.IdOnConnectorSite.Split('/', 2);
         if (parts.Length != 2)
@@ -189,11 +189,11 @@ public sealed class Mangaworld : MangaConnector
         HtmlDocument doc = new HtmlDocument();
         doc.LoadHtml(html);
 
-        List<(Chapter, MangaConnectorId<Chapter>)> chapters = ParseChaptersFromHtml(mangaId.Obj, doc, baseUri);
+        List<(Chapter, SourceId<Chapter>)> chapters = ParseChaptersFromHtml(mangaId.Obj, doc, baseUri);
         return chapters.OrderBy(c => c.Item1, new Chapter.ChapterComparer()).ToArray();
     }
 
-    internal override async Task<string[]> GetChapterImageUrls(MangaConnectorId<Chapter> chapterId)
+    internal override async Task<string[]> GetChapterImageUrls(SourceId<Chapter> chapterId)
     {
         string raw = chapterId.WebsiteUrl ?? $"https://www.mangaworld.mx/manga/{chapterId.IdOnConnectorSite}";
         string url = EnsureReaderUrl(raw);
@@ -239,9 +239,9 @@ public sealed class Mangaworld : MangaConnector
 
     private static readonly Regex SeriesUrl = new Regex(@"https?://[^/]+/manga/(?<id>\d+)/(?<slug>[^/]+)/?", RegexOptions.IgnoreCase);
 
-    private List<(Chapter, MangaConnectorId<Chapter>)> ParseChaptersFromHtml(Series manga, HtmlDocument document, Uri baseUri)
+    private List<(Chapter, SourceId<Chapter>)> ParseChaptersFromHtml(Series manga, HtmlDocument document, Uri baseUri)
     {
-        List<(Chapter, MangaConnectorId<Chapter>)> ret = new();
+        List<(Chapter, SourceId<Chapter>)> ret = new();
         HashSet<string> seen = new(StringComparer.OrdinalIgnoreCase);
 
         HtmlNodeCollection? volumeElements = document.DocumentNode.SelectNodes("//div[contains(@class,'volume-element')]");
@@ -276,7 +276,7 @@ public sealed class Mangaworld : MangaConnector
     }
 
     private void TryAddChapterNode(Series manga, HtmlNode anchor, Uri baseUri, int volumeNumber,
-        List<(Chapter, MangaConnectorId<Chapter>)> acc, HashSet<string> dedup)
+        List<(Chapter, SourceId<Chapter>)> acc, HashSet<string> dedup)
     {
         string label = anchor.SelectSingleNode(".//span")?.InnerText ?? anchor.InnerText ?? "";
         Match cm = Regex.Match(label, @"(?:[Cc]apitolo|[Cc]hapter)\s*([0-9]+(?:\.[0-9]+)?)");
@@ -309,8 +309,8 @@ public sealed class Mangaworld : MangaConnector
         if (!dedup.Add(id)) return;
 
         Chapter chapter = new Chapter(manga, chapterNumber, volumeNumber);
-        MangaConnectorId<Chapter> chId = new MangaConnectorId<Chapter>(chapter, this, id, ensured);
-        chapter.MangaConnectorIds.Add(chId);
+        SourceId<Chapter> chId = new SourceId<Chapter>(chapter, this, id, ensured);
+        chapter.SourceIds.Add(chId);
         acc.Add((chapter, chId));
     }
 

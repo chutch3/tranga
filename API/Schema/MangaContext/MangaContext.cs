@@ -17,8 +17,8 @@ public class MangaContext(DbContextOptions<MangaContext> options) : TrangaBaseCo
     public DbSet<Chapter> Chapters { get; set; }
     public DbSet<Author> Authors { get; set; }
     public DbSet<MangaTag> Tags { get; set; }
-    public DbSet<MangaConnectorId<Series>> MangaConnectorToManga { get; set; }
-    public DbSet<MangaConnectorId<Chapter>> MangaConnectorToChapter { get; set; }
+    public DbSet<SourceId<Series>> MangaConnectorToManga { get; set; }
+    public DbSet<SourceId<Chapter>> MangaConnectorToChapter { get; set; }
     public DbSet<MetadataEntry> MetadataEntries { get; set; }
     public DbSet<MetadataSource> MetadataSources { get; set; }
     public DbSet<VolumeMetadata> VolumeMetadata { get; set; }
@@ -26,9 +26,9 @@ public class MangaContext(DbContextOptions<MangaContext> options) : TrangaBaseCo
 
     public IQueryable<Series> GetTrackedMangas() =>
         Series
-            .Include(m => m.MangaConnectorIds)
+            .Include(m => m.SourceIds)
             .Where(m => m.IsTracked
-                        || m.MangaConnectorIds.Any(id => id.UseForDownload)
+                        || m.SourceIds.Any(id => id.UseForDownload)
                         || Chapters.Any(c => c.ParentMangaId == m.Key && c.Downloaded));
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -39,9 +39,9 @@ public class MangaContext(DbContextOptions<MangaContext> options) : TrangaBaseCo
             .WithOne(c => c.ParentManga)
             .HasForeignKey(c => c.ParentMangaId)
             .OnDelete(DeleteBehavior.Cascade);
-        //Chapter has MangaConnectorIds
+        //Chapter has SourceIds
         modelBuilder.Entity<Chapter>()
-            .HasMany<MangaConnectorId<Chapter>>(c => c.MangaConnectorIds)
+            .HasMany<SourceId<Chapter>>(c => c.SourceIds)
             .WithOne(id => id.Obj)
             .HasForeignKey(id => id.ObjId)
             .OnDelete(DeleteBehavior.Cascade);
@@ -86,7 +86,7 @@ public class MangaContext(DbContextOptions<MangaContext> options) : TrangaBaseCo
             .AutoInclude();
         //Series has many MangaIds
         modelBuilder.Entity<Series>()
-            .HasMany<MangaConnectorId<Series>>(m => m.MangaConnectorIds)
+            .HasMany<SourceId<Series>>(m => m.SourceIds)
             .WithOne(id => id.Obj)
             .HasForeignKey(id => id.ObjId)
             .OnDelete(DeleteBehavior.Cascade);
@@ -167,44 +167,44 @@ public class MangaContext(DbContextOptions<MangaContext> options) : TrangaBaseCo
             .Include(m => m.Links)
             .Include(m => m.AltTitles);
 
-    public IIncludableQueryable<Series, ICollection<MangaConnectorId<Series>>> MangaIncludeAll() =>
+    public IIncludableQueryable<Series, ICollection<SourceId<Series>>> MangaIncludeAll() =>
         MangaWithMetadata()
             .Include(m => m.Chapters)
-            .Include(m => m.MangaConnectorIds);
+            .Include(m => m.SourceIds);
 
     /// <summary>
     /// Upserts a Series into the database: finds an existing match or inserts a new one,
     /// merges tags/authors, and syncs. Does NOT kick off any background workers.
     /// </summary>
-    public async Task<(Series manga, MangaConnectorId<Series> id)?> UpsertManga(
-        Series addManga, MangaConnectorId<Series> addMcId, CancellationToken token)
+    public async Task<(Series manga, SourceId<Series> id)?> UpsertManga(
+        Series addManga, SourceId<Series> addMcId, CancellationToken token)
     {
         Log.DebugFormat("Upserting Series: {0}", addManga);
-        (Series, MangaConnectorId<Series>)? result;
+        (Series, SourceId<Series>)? result;
 
         if (await FindMangaLike(addManga, token) is { } mangaId)
         {
             Series manga = await MangaIncludeAll().FirstAsync(m => m.Key == mangaId, token);
             Log.DebugFormat("Merging with existing Series: {0}", manga);
 
-            var existingMcId = manga.MangaConnectorIds
+            var existingMcId = manga.SourceIds
                 .FirstOrDefault(id => id.MangaConnectorName == addMcId.MangaConnectorName
                                       && id.IdOnConnectorSite == addMcId.IdOnConnectorSite);
 
-            MangaConnectorId<Series> mcIdToUse;
+            SourceId<Series> mcIdToUse;
             if (existingMcId == null)
             {
-                mcIdToUse = new MangaConnectorId<Series>(manga, addMcId.MangaConnectorName, addMcId.IdOnConnectorSite, addMcId.WebsiteUrl, addMcId.UseForDownload);
-                manga.MangaConnectorIds.Add(mcIdToUse);
+                mcIdToUse = new SourceId<Series>(manga, addMcId.MangaConnectorName, addMcId.IdOnConnectorSite, addMcId.WebsiteUrl, addMcId.UseForDownload);
+                manga.SourceIds.Add(mcIdToUse);
             }
             else
             {
                 mcIdToUse = existingMcId;
                 if (existingMcId.WebsiteUrl != addMcId.WebsiteUrl)
                 {
-                    var updatedMcId = new MangaConnectorId<Series>(manga, existingMcId.MangaConnectorName, existingMcId.IdOnConnectorSite, addMcId.WebsiteUrl, existingMcId.UseForDownload);
-                    manga.MangaConnectorIds.Remove(existingMcId);
-                    manga.MangaConnectorIds.Add(updatedMcId);
+                    var updatedMcId = new SourceId<Series>(manga, existingMcId.MangaConnectorName, existingMcId.IdOnConnectorSite, addMcId.WebsiteUrl, existingMcId.UseForDownload);
+                    manga.SourceIds.Remove(existingMcId);
+                    manga.SourceIds.Add(updatedMcId);
                     mcIdToUse = updatedMcId;
                 }
             }
@@ -229,7 +229,7 @@ public class MangaContext(DbContextOptions<MangaContext> options) : TrangaBaseCo
             addManga.Authors = mergedAuthors.ToList();
 
             Series.Add(addManga);
-            addManga.MangaConnectorIds.Add(addMcId);
+            addManga.SourceIds.Add(addMcId);
             result = (addManga, addMcId);
         }
 
@@ -242,7 +242,7 @@ public class MangaContext(DbContextOptions<MangaContext> options) : TrangaBaseCo
     /// <summary>
     /// Convenience overload that unpacks a tuple.
     /// </summary>
-    public Task<(Series manga, MangaConnectorId<Series> id)?> AddMangaToContext(
-        (Series, MangaConnectorId<Series>) addManga, CancellationToken token)
+    public Task<(Series manga, SourceId<Series> id)?> AddMangaToContext(
+        (Series, SourceId<Series>) addManga, CancellationToken token)
         => UpsertManga(addManga.Item1, addManga.Item2, token);
 }

@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Moq;
 using Chapter = API.Schema.MangaContext.Chapter;
-using ConnectorId = API.Schema.MangaContext.MangaConnectorId<API.Schema.MangaContext.Series>;
+using ConnectorId = API.Schema.MangaContext.SourceId<API.Schema.MangaContext.Series>;
 
 namespace API.Tests.Controllers;
 
@@ -29,10 +29,10 @@ public class MangaControllerTests
     private static MangaController CreateController(
         MangaContext ctx, 
         ActionsContext actionsCtx, 
-        IEnumerable<API.MangaConnectors.MangaConnector>? connectors = null)
+        IEnumerable<API.MangaConnectors.SeriesSource>? connectors = null)
     {
         var settings = new TrangaSettings { AppData = Path.GetTempPath() };
-        var connectorsList = connectors ?? Enumerable.Empty<API.MangaConnectors.MangaConnector>();
+        var connectorsList = connectors ?? Enumerable.Empty<API.MangaConnectors.SeriesSource>();
         var workerQueue = new Mock<API.Workers.IWorkerQueue>().Object;
         var controller = new MangaController(ctx, actionsCtx, settings, connectorsList, workerQueue);
         controller.ControllerContext = new ControllerContext
@@ -69,7 +69,7 @@ public class MangaControllerTests
         var manga = MakeTestManga("New Series");
         var connectorId = new ConnectorId(manga, "MangaDex", "ext-id", null);
 
-        var mockConnector = new Mock<API.MangaConnectors.MangaConnector>("MangaDex", new[] { "en" }, new[] { "mangadex.org" }, "icon.png", new TrangaSettings());
+        var mockConnector = new Mock<API.MangaConnectors.SeriesSource>("MangaDex", new[] { "en" }, new[] { "mangadex.org" }, "icon.png", new TrangaSettings());
         mockConnector.Setup(c => c.GetMangaFromId("ext-id")).ReturnsAsync((manga, connectorId));
 
         var controller = CreateController(ctx, actionsCtx, [mockConnector.Object]);

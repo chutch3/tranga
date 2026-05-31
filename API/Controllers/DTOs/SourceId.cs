@@ -5,9 +5,9 @@ using API.Schema.MangaContext;
 namespace API.Controllers.DTOs;
 
 /// <summary>
-/// <see cref="MangaConnectorId{T}"/> DTO
+/// <see cref="SourceId{T}"/> DTO
 /// </summary>
-public sealed record MangaConnectorId<T>(string Key, string MangaConnectorName, string ForeignKey, string ObjId, string? WebsiteUrl, bool UseForDownload) : Identifiable(Key) where T : class
+public sealed record SourceId<T>(string Key, string MangaConnectorName, string ForeignKey, string ObjId, string? WebsiteUrl, bool UseForDownload) : Identifiable(Key) where T : class
 {
     /// <summary>
     /// Name of the Connector

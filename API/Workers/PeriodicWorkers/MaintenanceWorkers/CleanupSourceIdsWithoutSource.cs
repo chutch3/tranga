@@ -5,12 +5,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace API.Workers.PeriodicWorkers.MaintenanceWorkers;
 
-public class CleanupMangaconnectorIdsWithoutConnector : BaseWorkerWithContexts
+public class CleanupSourceIdsWithoutSource : BaseWorkerWithContexts
 {
-    private readonly IEnumerable<MangaConnector> _connectors;
+    private readonly IEnumerable<SeriesSource> _connectors;
     private readonly TrangaSettings _settings;
 
-    public CleanupMangaconnectorIdsWithoutConnector(IEnumerable<MangaConnector> connectors, TrangaSettings settings)
+    public CleanupSourceIdsWithoutSource(IEnumerable<SeriesSource> connectors, TrangaSettings settings)
     {
         _connectors = connectors;
         _settings = settings;

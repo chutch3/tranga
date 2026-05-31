@@ -11,7 +11,7 @@ using SixLabors.ImageSharp.Processing;
 namespace API.MangaConnectors;
 
 [PrimaryKey("Name")]
-public abstract class MangaConnector(string name, string[] supportedLanguages, string[] baseUris, string iconUrl, TrangaSettings settings)
+public abstract class SeriesSource(string name, string[] supportedLanguages, string[] baseUris, string iconUrl, TrangaSettings settings)
 {
     [NotMapped] internal IDownloadClient downloadClient { get; init; } = null!;
     [NotMapped] protected ILog Log { get; init; } = LogManager.GetLogger(name);
@@ -22,20 +22,20 @@ public abstract class MangaConnector(string name, string[] supportedLanguages, s
     public bool Enabled { get; internal set; } = true;
     protected TrangaSettings Settings => settings;
 
-    public abstract Task<(Series, MangaConnectorId<Series>)[]> SearchManga(string mangaSearchName);
+    public abstract Task<(Series, SourceId<Series>)[]> SearchManga(string mangaSearchName);
 
-    public abstract Task<(Series, MangaConnectorId<Series>)?> GetMangaFromUrl(string url);
+    public abstract Task<(Series, SourceId<Series>)?> GetMangaFromUrl(string url);
 
-    public abstract Task<(Series, MangaConnectorId<Series>)?> GetMangaFromId(string mangaIdOnSite);
+    public abstract Task<(Series, SourceId<Series>)?> GetMangaFromId(string mangaIdOnSite);
 
-    public abstract Task<(Chapter, MangaConnectorId<Chapter>)[]> GetChapters(MangaConnectorId<Series> mangaId,
+    public abstract Task<(Chapter, SourceId<Chapter>)[]> GetChapters(SourceId<Series> mangaId,
         string? language = null);
 
-    internal abstract Task<string[]> GetChapterImageUrls(MangaConnectorId<Chapter> chapterId);
+    internal abstract Task<string[]> GetChapterImageUrls(SourceId<Chapter> chapterId);
 
     public bool UrlMatchesConnector(string url) => BaseUris.Any(baseUri => Regex.IsMatch(url, "https?://" + baseUri + "/.*"));
 
-    internal async Task<string?> SaveCoverImageToCache(MangaConnectorId<Series> mangaId, int retries = 3)
+    internal async Task<string?> SaveCoverImageToCache(SourceId<Series> mangaId, int retries = 3)
     {
         if(retries < 0)
             return null;

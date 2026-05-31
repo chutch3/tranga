@@ -13,7 +13,7 @@ namespace API.Tests.Workers;
 
 public class StartNewChapterDownloadsWorkerTests
 {
-    private static (MangaContext context, MangaConnectorId<Chapter> chapterId, MangaConnector connector, TrangaSettings settings)
+    private static (MangaContext context, SourceId<Chapter> chapterId, SeriesSource connector, TrangaSettings settings)
         SetupMissingChapter(string dbName)
     {
         var options = new DbContextOptionsBuilder<MangaContext>()
@@ -32,12 +32,12 @@ public class StartNewChapterDownloadsWorkerTests
         var chapter = new Chapter(manga, "1", null, "Title");
         context.Chapters.Add(chapter);
 
-        var chapterId = new MangaConnectorId<Chapter>(chapter, "MockConnector", "site1", "url1", true);
+        var chapterId = new SourceId<Chapter>(chapter, "MockConnector", "site1", "url1", true);
         context.MangaConnectorToChapter.Add(chapterId);
         context.SaveChanges();
 
         var settings = new TrangaSettings { AppData = "/tmp", MaxConcurrentDownloads = 5 };
-        var connector = new Mock<MangaConnector>("MockConnector", new[] { "en" }, new[] { "mock.com" }, "icon", settings).Object;
+        var connector = new Mock<SeriesSource>("MockConnector", new[] { "en" }, new[] { "mock.com" }, "icon", settings).Object;
 
         return (context, chapterId, connector, settings);
     }
@@ -56,7 +56,7 @@ public class StartNewChapterDownloadsWorkerTests
 
         // A download worker for this chapter exists in the queue but has NOT started yet
         // (i.e. it is "known" but not "running"). The periodic worker must not schedule a duplicate.
-        var alreadyQueued = new DownloadChapterFromMangaconnectorWorker(chapterId, new[] { connector }, settings);
+        var alreadyQueued = new DownloadChapterFromSourceWorker(chapterId, new[] { connector }, settings);
 
         var queue = new Mock<IWorkerQueue>();
         queue.Setup(q => q.GetKnownWorkers()).Returns([alreadyQueued]);
@@ -66,7 +66,7 @@ public class StartNewChapterDownloadsWorkerTests
 
         BaseWorker[] created = await worker.DoWork(ScopeFor(context));
 
-        Assert.DoesNotContain(created.OfType<DownloadChapterFromMangaconnectorWorker>(),
+        Assert.DoesNotContain(created.OfType<DownloadChapterFromSourceWorker>(),
             w => w.ChapterIdId == chapterId.Key);
     }
 
@@ -83,7 +83,7 @@ public class StartNewChapterDownloadsWorkerTests
 
         BaseWorker[] created = await worker.DoWork(ScopeFor(context));
 
-        Assert.Contains(created.OfType<DownloadChapterFromMangaconnectorWorker>(),
+        Assert.Contains(created.OfType<DownloadChapterFromSourceWorker>(),
             w => w.ChapterIdId == chapterId.Key);
     }
 
@@ -94,8 +94,8 @@ public class StartNewChapterDownloadsWorkerTests
         settings.MaxConcurrentDownloads = 1;
 
         // More in-flight download workers than the limit. Slot calc must clamp at 0 (no throw, no new work).
-        var w1 = new DownloadChapterFromMangaconnectorWorker(chapterId, new[] { connector }, settings);
-        var w2 = new DownloadChapterFromMangaconnectorWorker(chapterId, new[] { connector }, settings);
+        var w1 = new DownloadChapterFromSourceWorker(chapterId, new[] { connector }, settings);
+        var w2 = new DownloadChapterFromSourceWorker(chapterId, new[] { connector }, settings);
 
         var queue = new Mock<IWorkerQueue>();
         queue.Setup(q => q.GetKnownWorkers()).Returns([w1, w2]);

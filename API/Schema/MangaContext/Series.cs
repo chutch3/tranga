@@ -48,11 +48,11 @@ public class Series : Identifiable
     public ICollection<Chapter> Chapters = null!;
 
     [NotMapped]
-    public Dictionary<string, string> IdsOnMangaConnectors => MangaConnectorIds.ToDictionary(id => id.MangaConnectorName, id => id.IdOnConnectorSite);
+    public Dictionary<string, string> IdsOnMangaConnectors => SourceIds.ToDictionary(id => id.MangaConnectorName, id => id.IdOnConnectorSite);
     [NotMapped]
-    public ICollection<string> MangaConnectorIdsIds => MangaConnectorIds.Select(id => id.Key).ToList();
+    public ICollection<string> SourceIdsIds => SourceIds.Select(id => id.Key).ToList();
     [JsonIgnore]
-    public ICollection<MangaConnectorId<Series>> MangaConnectorIds = null!;
+    public ICollection<SourceId<Series>> SourceIds = null!;
 
     public Series(string name, string description, string coverUrl, MangaReleaseStatus releaseStatus,
         ICollection<Author> authors, ICollection<MangaTag> mangaTags, ICollection<Link> links, ICollection<AltTitle> altTitles,
@@ -73,7 +73,7 @@ public class Series : Identifiable
         this.Year = year;
         this.OriginalLanguage = originalLanguage;
         this.Chapters = [];
-        this.MangaConnectorIds = [];
+        this.SourceIds = [];
         this.MetadataSource = new MetadataSource(this.Key, MetadataSourceType.Connector, MetadataSourceStatus.Unlinked);
     }
 
@@ -107,7 +107,7 @@ public class Series : Identifiable
     }
 
     /// <summary>
-    /// Merges another Series (MangaConnectorIds and Chapters)
+    /// Merges another Series (SourceIds and Chapters)
     /// </summary>
     /// <param name="other">The other <see cref="Series" /> to merge</param>
     /// <param name="context"><see cref="MangaContext"/> to use for Database operations</param>
@@ -117,8 +117,8 @@ public class Series : Identifiable
         context.Series.Remove(other);
         List<BaseWorker> newJobs = new();
 
-        this.MangaConnectorIds = this.MangaConnectorIds
-            .UnionBy(other.MangaConnectorIds, id => id.MangaConnectorName)
+        this.SourceIds = this.SourceIds
+            .UnionBy(other.SourceIds, id => id.MangaConnectorName)
             .ToList();
 
         foreach (Chapter otherChapter in other.Chapters)
