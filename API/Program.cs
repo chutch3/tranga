@@ -122,6 +122,12 @@ builder.Services.AddSingleton<MetadataFetcher, MyAnimeList>();
 
 // 3b. Register your Chapter Acquirers (one per AcquisitionKind)
 builder.Services.AddSingleton<API.Acquirers.IChapterAcquirer, API.Acquirers.ImageListAcquirer>();
+builder.Services.AddSingleton<API.Acquirers.IChapterAcquirer>(sp =>
+{
+    // Reuse the shared RateLimitHandler so direct-archive downloads honour per-host politeness too.
+    var rl = sp.GetRequiredService<RateLimitHandler>();
+    return new API.Acquirers.DirectArchiveAcquirer(new HttpClient(rl, disposeHandler: false));
+});
 
 // 4. Register your Workers
 builder.Services.AddSingleton<UpdateMetadataWorker>();
