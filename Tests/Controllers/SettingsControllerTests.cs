@@ -182,4 +182,60 @@ public class SettingsControllerTests : IDisposable
 
         Assert.Equal(string.Empty, _settings.FlareSolverrUrl);
     }
+
+    [Fact]
+    public void SetMetron_PersistsCredentials()
+    {
+        CreateController().SetMetron(new API.Controllers.Requests.SetMetronRecord { Username = "u", Password = "p" });
+
+        Assert.Equal("u", _settings.MetronUsername);
+        Assert.Equal("p", _settings.MetronPassword);
+    }
+
+    [Fact]
+    public void ClearMetron_EmptiesCredentials()
+    {
+        _settings.MetronUsername = "u";
+        _settings.MetronPassword = "p";
+
+        CreateController().ClearMetron();
+
+        Assert.Equal(string.Empty, _settings.MetronUsername);
+        Assert.Equal(string.Empty, _settings.MetronPassword);
+    }
+
+    [Fact]
+    public void SetProwlarr_PersistsAndEnablesIndexer()
+    {
+        CreateController().SetProwlarr(new API.Controllers.Requests.SetProwlarrRecord { BaseUrl = "http://prowlarr:9696", ApiKey = "k" });
+
+        Assert.Equal("http://prowlarr:9696", _settings.ProwlarrBaseUrl);
+        Assert.Equal("k", _settings.ProwlarrApiKey);
+        Assert.True(_settings.ProwlarrConfigured);
+        Assert.True(_settings.IndexerConfigured);
+    }
+
+    [Fact]
+    public void SetTorrentClient_PersistsAndEnablesClient()
+    {
+        CreateController().SetTorrentClient(new API.Controllers.Requests.SetTorrentClientRecord
+        {
+            BaseUrl = "http://qbittorrent:8080", Username = "admin", Password = "pw"
+        });
+
+        Assert.Equal("http://qbittorrent:8080", _settings.TorrentClientBaseUrl);
+        Assert.Equal("admin", _settings.TorrentClientUsername);
+        Assert.True(_settings.TorrentClientConfigured);
+    }
+
+    [Fact]
+    public void ClearTorrentClient_DisablesClient()
+    {
+        _settings.TorrentClientBaseUrl = "http://qbittorrent:8080";
+
+        CreateController().ClearTorrentClient();
+
+        Assert.Equal(string.Empty, _settings.TorrentClientBaseUrl);
+        Assert.False(_settings.TorrentClientConfigured);
+    }
 }

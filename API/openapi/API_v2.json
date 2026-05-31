@@ -3999,6 +3999,150 @@
         }
       }
     },
+    "/v2/Settings/Metron": {
+      "patch": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Sets Metron (metron.cloud) metadata credentials",
+        "requestBody": {
+          "content": {
+            "application/json-patch+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/SetMetronRecord"
+              }
+            },
+            "application/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/SetMetronRecord"
+              }
+            },
+            "text/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/SetMetronRecord"
+              }
+            },
+            "application/*+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/SetMetronRecord"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Clears Metron credentials (disables Metron lookups)",
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/v2/Settings/Prowlarr": {
+      "patch": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Sets the Prowlarr instance to sync indexers from",
+        "requestBody": {
+          "content": {
+            "application/json-patch+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/SetProwlarrRecord"
+              }
+            },
+            "application/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/SetProwlarrRecord"
+              }
+            },
+            "text/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/SetProwlarrRecord"
+              }
+            },
+            "application/*+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/SetProwlarrRecord"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Clears the Prowlarr indexer-sync configuration",
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/v2/Settings/TorrentClient": {
+      "patch": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Sets the torrent client (qBittorrent) connection details",
+        "requestBody": {
+          "content": {
+            "application/json-patch+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/SetTorrentClientRecord"
+              }
+            },
+            "application/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/SetTorrentClientRecord"
+              }
+            },
+            "text/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/SetTorrentClientRecord"
+              }
+            },
+            "application/*+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/SetTorrentClientRecord"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Clears the torrent client configuration",
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/v2/Series/{MangaId}/volumes": {
       "get": {
         "tags": [
@@ -5924,6 +6068,73 @@
         },
         "additionalProperties": false,
         "description": "API.Controllers.DTOs.SourceId`1 DTO"
+      },
+      "SetMetronRecord": {
+        "required": [
+          "password",
+          "username"
+        ],
+        "type": "object",
+        "properties": {
+          "username": {
+            "minLength": 1,
+            "type": "string",
+            "description": "Metron account username"
+          },
+          "password": {
+            "minLength": 1,
+            "type": "string",
+            "description": "Metron account password"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Metron (metron.cloud) account credentials for metadata lookups."
+      },
+      "SetProwlarrRecord": {
+        "required": [
+          "apiKey",
+          "baseUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "baseUrl": {
+            "minLength": 1,
+            "type": "string",
+            "description": "Base URL of the Prowlarr instance, e.g. http://prowlarr:9696"
+          },
+          "apiKey": {
+            "minLength": 1,
+            "type": "string",
+            "description": "Prowlarr API key"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Prowlarr instance to sync indexers from."
+      },
+      "SetTorrentClientRecord": {
+        "required": [
+          "baseUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "baseUrl": {
+            "minLength": 1,
+            "type": "string",
+            "description": "Base URL of the torrent client Web API, e.g. http://qbittorrent:8080"
+          },
+          "username": {
+            "type": "string",
+            "description": "Torrent client username",
+            "nullable": true
+          },
+          "password": {
+            "type": "string",
+            "description": "Torrent client password",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Torrent client (qBittorrent) Web API connection details."
       },
       "Stats": {
         "type": "object",

@@ -187,6 +187,28 @@ public class TrangaSettings
         Save();
     }
 
+    public void SetMetronCredentials(string username, string password)
+    {
+        this.MetronUsername = username;
+        this.MetronPassword = password;
+        Save();
+    }
+
+    public void SetProwlarr(string baseUrl, string apiKey)
+    {
+        this.ProwlarrBaseUrl = baseUrl;
+        this.ProwlarrApiKey = apiKey;
+        Save();
+    }
+
+    public void SetTorrentClient(string baseUrl, string username, string password)
+    {
+        this.TorrentClientBaseUrl = baseUrl;
+        this.TorrentClientUsername = username;
+        this.TorrentClientPassword = password;
+        Save();
+    }
+
     public void SetDownloadLanguage(string language)
     {
         this.DownloadLanguage = language;

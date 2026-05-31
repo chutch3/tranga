@@ -242,4 +242,76 @@ public class SettingsController(TrangaSettings settings) : ControllerBase
             settings.SetRefreshLibraryWhileDownloadingEveryMinutes(value);
         return TypedResults.Ok();
     }
+
+    /// <summary>
+    /// Sets Metron (metron.cloud) metadata credentials
+    /// </summary>
+    /// <response code="200"></response>
+    [HttpPatch("Metron")]
+    [ProducesResponseType(Status200OK)]
+    public Ok SetMetron([FromBody]SetMetronRecord requestData)
+    {
+        settings.SetMetronCredentials(requestData.Username, requestData.Password);
+        return TypedResults.Ok();
+    }
+
+    /// <summary>
+    /// Clears Metron credentials (disables Metron lookups)
+    /// </summary>
+    /// <response code="200"></response>
+    [HttpDelete("Metron")]
+    [ProducesResponseType(Status200OK)]
+    public Ok ClearMetron()
+    {
+        settings.SetMetronCredentials(string.Empty, string.Empty);
+        return TypedResults.Ok();
+    }
+
+    /// <summary>
+    /// Sets the Prowlarr instance to sync indexers from
+    /// </summary>
+    /// <response code="200"></response>
+    [HttpPatch("Prowlarr")]
+    [ProducesResponseType(Status200OK)]
+    public Ok SetProwlarr([FromBody]SetProwlarrRecord requestData)
+    {
+        settings.SetProwlarr(requestData.BaseUrl, requestData.ApiKey);
+        return TypedResults.Ok();
+    }
+
+    /// <summary>
+    /// Clears the Prowlarr indexer-sync configuration
+    /// </summary>
+    /// <response code="200"></response>
+    [HttpDelete("Prowlarr")]
+    [ProducesResponseType(Status200OK)]
+    public Ok ClearProwlarr()
+    {
+        settings.SetProwlarr(string.Empty, string.Empty);
+        return TypedResults.Ok();
+    }
+
+    /// <summary>
+    /// Sets the torrent client (qBittorrent) connection details
+    /// </summary>
+    /// <response code="200"></response>
+    [HttpPatch("TorrentClient")]
+    [ProducesResponseType(Status200OK)]
+    public Ok SetTorrentClient([FromBody]SetTorrentClientRecord requestData)
+    {
+        settings.SetTorrentClient(requestData.BaseUrl, requestData.Username, requestData.Password);
+        return TypedResults.Ok();
+    }
+
+    /// <summary>
+    /// Clears the torrent client configuration
+    /// </summary>
+    /// <response code="200"></response>
+    [HttpDelete("TorrentClient")]
+    [ProducesResponseType(Status200OK)]
+    public Ok ClearTorrentClient()
+    {
+        settings.SetTorrentClient(string.Empty, string.Empty, string.Empty);
+        return TypedResults.Ok();
+    }
 }
