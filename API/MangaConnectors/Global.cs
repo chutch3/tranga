@@ -15,18 +15,18 @@ public class Global : MangaConnector
     private IEnumerable<MangaConnector> GetConnectors() =>
         _serviceProvider.GetServices<MangaConnector>().Where(c => c.Name != "Global");
 
-        public override async Task<(Manga, MangaConnectorId<Manga>)[]> SearchManga(string mangaSearchName)
+        public override async Task<(Series, MangaConnectorId<Series>)[]> SearchManga(string mangaSearchName)
     {
-        Log.Debug("Searching Manga on all enabled connectors:");
+        Log.Debug("Searching Series on all enabled connectors:");
         MangaConnector[] enabledConnectors = GetConnectors().Where(c => c.Enabled).ToArray();
         Log.Debug(string.Join(", ", enabledConnectors.Select(c => c.Name)));
 
-        Task<(Manga, MangaConnectorId<Manga>)[]>[] tasks =
+        Task<(Series, MangaConnectorId<Series>)[]>[] tasks =
             enabledConnectors.Select(c => c.SearchManga(mangaSearchName)).ToArray();
         
         await Task.WhenAll(tasks);
 
-        (Manga, MangaConnectorId<Manga>)[] ret = tasks.Select(t => t.IsCompletedSuccessfully ? t.Result : [])
+        (Series, MangaConnectorId<Series>)[] ret = tasks.Select(t => t.IsCompletedSuccessfully ? t.Result : [])
             .SelectMany(i => i)
             .OrderByDescending(m =>
             {
@@ -40,18 +40,18 @@ public class Global : MangaConnector
         return ret;
     }
 
-    public override async Task<(Manga, MangaConnectorId<Manga>)?> GetMangaFromUrl(string url)
+    public override async Task<(Series, MangaConnectorId<Series>)?> GetMangaFromUrl(string url)
     {
         MangaConnector? mc = GetConnectors().FirstOrDefault(c => c.UrlMatchesConnector(url));
         return mc is not null ? await mc.GetMangaFromUrl(url) : null;
     }
 
-    public override async Task<(Manga, MangaConnectorId<Manga>)?> GetMangaFromId(string mangaIdOnSite)
+    public override async Task<(Series, MangaConnectorId<Series>)?> GetMangaFromId(string mangaIdOnSite)
     {
         return null;
     }
 
-    public override async Task<(Chapter, MangaConnectorId<Chapter>)[]> GetChapters(MangaConnectorId<Manga> mangaId,
+    public override async Task<(Chapter, MangaConnectorId<Chapter>)[]> GetChapters(MangaConnectorId<Series> mangaId,
         string? language = null)
     {
         MangaConnector? mangaConnector = GetConnectors().FirstOrDefault(c => c.Name.Equals(mangaId.MangaConnectorName, StringComparison.InvariantCultureIgnoreCase));

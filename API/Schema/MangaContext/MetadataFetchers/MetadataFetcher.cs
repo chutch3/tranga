@@ -26,15 +26,15 @@ public abstract class MetadataFetcher
         this.Log = LogManager.GetLogger(Name);
     }
 
-    internal MetadataEntry CreateMetadataEntry(Manga manga, string identifier) =>
+    internal MetadataEntry CreateMetadataEntry(Series manga, string identifier) =>
         new (this, manga, identifier);
     
-    public abstract Task<MetadataSearchResult[]> SearchMetadataEntry(Manga manga);
+    public abstract Task<MetadataSearchResult[]> SearchMetadataEntry(Series manga);
     
     public abstract Task<MetadataSearchResult[]> SearchMetadataEntry(string searchTerm);
 
     /// <summary>
-    /// Updates the Manga linked in the MetadataEntry
+    /// Updates the Series linked in the MetadataEntry
     /// </summary>
     public abstract Task UpdateMetadata(MetadataEntry metadataEntry, MangaContext dbContext, CancellationToken token);
 }

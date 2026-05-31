@@ -141,15 +141,15 @@ public class TrangaTests
 
         using var dbContext = GetInMemoryDbContext();
 
-        var newManga = new Manga("Berserk", "A dark fantasy", "cover.jpg", MangaReleaseStatus.Continuing, [], [], [], []);
-        var newConnectorId = new MangaConnectorId<Manga>(newManga, "MangaDex", "12345", "https://mangadex.org/title/12345");
+        var newManga = new Series("Berserk", "A dark fantasy", "cover.jpg", MangaReleaseStatus.Continuing, [], [], [], []);
+        var newConnectorId = new MangaConnectorId<Series>(newManga, "MangaDex", "12345", "https://mangadex.org/title/12345");
 
         var result = await trangaManager.AddMangaToContext(dbContext, newManga, newConnectorId, CancellationToken.None);
 
         Assert.NotNull(result);
         Assert.Equal("Berserk", result.Value.manga.Name);
 
-        var mangaInDb = await dbContext.Mangas.Include(m => m.MangaConnectorIds).FirstOrDefaultAsync(m => m.Name == "Berserk");
+        var mangaInDb = await dbContext.Series.Include(m => m.MangaConnectorIds).FirstOrDefaultAsync(m => m.Name == "Berserk");
         Assert.NotNull(mangaInDb);
         Assert.Single(mangaInDb.MangaConnectorIds);
         Assert.Equal("MangaDex", mangaInDb.MangaConnectorIds.First().MangaConnectorName);

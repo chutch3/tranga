@@ -21,7 +21,7 @@ public class CleanupMangaCoversWorker(TrangaSettings settings, TimeSpan? interva
     protected override async Task<BaseWorker[]> DoWorkInternal()
     {
         Log.Info("Removing stale files...");
-        string[] usedFiles = await MangaContext.Mangas.Where(m => m.CoverFileNameInCache != null).Select(m => m.CoverFileNameInCache!).ToArrayAsync(CancellationToken);
+        string[] usedFiles = await MangaContext.Series.Where(m => m.CoverFileNameInCache != null).Select(m => m.CoverFileNameInCache!).ToArrayAsync(CancellationToken);
         CleanupImageCache(usedFiles, settings.CoverImageCacheOriginal);
         CleanupImageCache(usedFiles, settings.CoverImageCacheLarge);
         CleanupImageCache(usedFiles, settings.CoverImageCacheMedium);

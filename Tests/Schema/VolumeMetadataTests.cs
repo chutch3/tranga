@@ -13,7 +13,7 @@ public class VolumeMetadataTests
         return new MangaContext(options);
     }
 
-    private static Manga MakeTestManga(string name = "Test Manga")
+    private static Series MakeTestManga(string name = "Test Series")
         => new(name, "", "http://example.com/img.jpg", MangaReleaseStatus.Continuing, [], [], [], []);
 
     [Fact]
@@ -23,7 +23,7 @@ public class VolumeMetadataTests
         var vol = new VolumeMetadata(manga, 3, "Conviction");
 
         Assert.Equal(manga.Key, vol.MangaId);
-        Assert.Same(manga, vol.Manga);
+        Assert.Same(manga, vol.Series);
         Assert.Equal(3, vol.VolumeNumber);
         Assert.Equal("Conviction", vol.Title);
         Assert.Null(vol.ArchiveFileName);
@@ -73,7 +73,7 @@ public class VolumeMetadataTests
         await using (var ctx = new MangaContext(options))
         {
             var manga = MakeTestManga("Bleach");
-            ctx.Mangas.Add(manga);
+            ctx.Series.Add(manga);
             var vol = new VolumeMetadata(manga, 1, "Substitute Shinigami");
             ctx.VolumeMetadata.Add(vol);
             await ctx.SaveChangesAsync();

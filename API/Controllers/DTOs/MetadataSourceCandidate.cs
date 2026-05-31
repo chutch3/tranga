@@ -1,7 +1,7 @@
 namespace API.Controllers.DTOs;
 
 /// <summary>
-/// A scored metadata candidate for linking to a local Manga.
+/// A scored metadata candidate for linking to a local Series.
 /// </summary>
 public record MetadataSourceCandidate(
     string MangaDexId,

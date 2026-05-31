@@ -79,9 +79,9 @@ public class MaintenanceControllerIntegrationTests : IAsyncLifetime
             setupDb.FileLibraries.Add(library);
             for (int i = 1; i <= 3; i++)
             {
-                var manga = new Manga($"Manga {i}", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
-                manga.MangaConnectorIds.Add(new MangaConnectorId<Manga>(manga, "MangaDex", $"uuid-{i}", null));
-                setupDb.Mangas.Add(manga);
+                var manga = new Series($"Series {i}", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+                manga.MangaConnectorIds.Add(new MangaConnectorId<Series>(manga, "MangaDex", $"uuid-{i}", null));
+                setupDb.Series.Add(manga);
                 setupDb.Chapters.Add(new Chapter(manga, "1", null, null)
                     { Downloaded = true, FileName = $"manga{i}_ch1.cbz" });
                 mangaKeys.Add(manga.Key);
@@ -91,7 +91,7 @@ public class MaintenanceControllerIntegrationTests : IAsyncLifetime
 
         var mockResolver = new Mock<IMangaDexVolumeResolver>();
         mockResolver
-            .Setup(r => r.GetChapterToVolumeMapAsync(It.IsAny<Manga>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetChapterToVolumeMapAsync(It.IsAny<Series>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Dictionary<string, int> { ["1"] = 1 });
 
         var settings = new TrangaSettings
@@ -134,16 +134,16 @@ public class MaintenanceControllerIntegrationTests : IAsyncLifetime
         var dbOptions = new DbContextOptionsBuilder<MangaContext>()
             .UseInMemoryDatabase(dbName).Options;
 
-        Manga manga;
+        Series manga;
         using (var setupDb = CreateMangaContext(dbOptions))
         {
             var library = new FileLibrary(_tempDir, "Integration Library");
             setupDb.FileLibraries.Add(library);
-            manga = new Manga("One-Punch Man", "Superhero comedy", "url",
+            manga = new Series("One-Punch Man", "Superhero comedy", "url",
                 MangaReleaseStatus.Continuing, [], [], [], [], library);
             manga.MangaConnectorIds.Add(
-                new MangaConnectorId<Manga>(manga, "MangaDex", "some-uuid", null));
-            setupDb.Mangas.Add(manga);
+                new MangaConnectorId<Series>(manga, "MangaDex", "some-uuid", null));
+            setupDb.Series.Add(manga);
             setupDb.Chapters.Add(new Chapter(manga, "1", 5, null)
                 { Downloaded = true, FileName = "One-Punch Man Vol 5/One-Punch Man - Ch.1.cbz" });
             setupDb.Chapters.Add(new Chapter(manga, "2", 5, null)
@@ -159,7 +159,7 @@ public class MaintenanceControllerIntegrationTests : IAsyncLifetime
 
         var mockResolver = new Mock<IMangaDexVolumeResolver>();
         mockResolver
-            .Setup(r => r.GetChapterToVolumeMapAsync(It.IsAny<Manga>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetChapterToVolumeMapAsync(It.IsAny<Series>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Dictionary<string, int> { ["1"] = 1, ["2"] = 1 });
 
         var settings = new TrangaSettings

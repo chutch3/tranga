@@ -53,15 +53,15 @@ public class MaintenanceControllerTests
     public async Task CleanupNoDownloadManga_RemovesUntrackedManga()
     {
         var (mangaCtx, actionsCtx) = CreateContexts();
-        var untracked = new Manga("Untracked", "Desc", "http://example.com/cover.jpg", MangaReleaseStatus.Continuing, [], [], [], []);
-        mangaCtx.Mangas.Add(untracked);
+        var untracked = new Series("Untracked", "Desc", "http://example.com/cover.jpg", MangaReleaseStatus.Continuing, [], [], [], []);
+        mangaCtx.Series.Add(untracked);
         await mangaCtx.SaveChangesAsync();
 
         var controller = CreateController(mangaCtx, actionsCtx);
         var result = await controller.CleanupNoDownloadManga();
 
         Assert.IsType<Ok>(result.Result);
-        Assert.Empty(await mangaCtx.Mangas.ToListAsync());
+        Assert.Empty(await mangaCtx.Series.ToListAsync());
     }
 
     [Fact]
@@ -83,8 +83,8 @@ public class MaintenanceControllerTests
         var (mangaCtx, actionsCtx) = CreateContexts();
         var library = new FileLibrary("/tmp/test", "Test Library");
         mangaCtx.FileLibraries.Add(library);
-        var manga = new Manga("Test Manga", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
-        mangaCtx.Mangas.Add(manga);
+        var manga = new Series("Test Series", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        mangaCtx.Series.Add(manga);
         mangaCtx.Chapters.Add(new Chapter(manga, "1", 3, null) { Downloaded = true, FileName = "test1.cbz" });
         mangaCtx.Chapters.Add(new Chapter(manga, "2", 3, null) { Downloaded = true, FileName = "test2.cbz" });
         await mangaCtx.SaveChangesAsync();
@@ -109,8 +109,8 @@ public class MaintenanceControllerTests
         var (mangaCtx, actionsCtx) = CreateContexts();
         var library = new FileLibrary("/tmp/test", "Test Library");
         mangaCtx.FileLibraries.Add(library);
-        var manga = new Manga("Test", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
-        mangaCtx.Mangas.Add(manga);
+        var manga = new Series("Test", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        mangaCtx.Series.Add(manga);
         mangaCtx.Chapters.Add(new Chapter(manga, "1", 3, null) { Downloaded = true, FileName = "test1.cbz" });
         await mangaCtx.SaveChangesAsync();
 
@@ -135,8 +135,8 @@ public class MaintenanceControllerTests
         var (mangaCtx, actionsCtx) = CreateContexts();
         var library = new FileLibrary("/tmp/test", "Test Library");
         mangaCtx.FileLibraries.Add(library);
-        var manga = new Manga("Test", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
-        mangaCtx.Mangas.Add(manga);
+        var manga = new Series("Test", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        mangaCtx.Series.Add(manga);
         mangaCtx.Chapters.Add(new Chapter(manga, "1", 2, null) { Downloaded = true, FileName = "test1.cbz" });
         mangaCtx.Chapters.Add(new Chapter(manga, "2", 2, null) { Downloaded = false, FileName = null });
         await mangaCtx.SaveChangesAsync();

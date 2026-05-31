@@ -13,7 +13,7 @@ public class MetadataSourceTests
         return new MangaContext(options);
     }
 
-    private static Manga MakeTestManga(string name = "Test Manga")
+    private static Series MakeTestManga(string name = "Test Series")
         => new(name, "", "http://example.com/img.jpg", MangaReleaseStatus.Continuing, [], [], [], []);
 
     [Fact]
@@ -47,11 +47,11 @@ public class MetadataSourceTests
 
         await using var ctx = new MangaContext(options);
         var manga = MakeTestManga("Bleach");
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
         await ctx.SaveChangesAsync();
 
         await using var ctx2 = new MangaContext(options);
-        var loaded = await ctx2.Mangas
+        var loaded = await ctx2.Series
             .Include(m => m.MetadataSource)
             .FirstAsync(m => m.Key == manga.Key);
 

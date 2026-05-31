@@ -7,8 +7,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Xunit;
 using Chapter = API.Schema.MangaContext.Chapter;
-using Manga = API.Schema.MangaContext.Manga;
-using MangaConnectorId = API.Schema.MangaContext.MangaConnectorId<API.Schema.MangaContext.Manga>;
+using Series = API.Schema.MangaContext.Series;
+using MangaConnectorId = API.Schema.MangaContext.MangaConnectorId<API.Schema.MangaContext.Series>;
 using ChapterConnectorId = API.Schema.MangaContext.MangaConnectorId<API.Schema.MangaContext.Chapter>;
 
 namespace API.Tests.Workers;
@@ -48,8 +48,8 @@ public class RetrieveMangaChaptersFromMangaconnectorWorkerTests : IDisposable
     [Fact]
     public async Task DoWork_UpdatesExistingChapterWithMissingVolume()
     {
-        var manga = new Manga("Test Manga", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], []);
-        _mangaContext.Mangas.Add(manga);
+        var manga = new Series("Test Series", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], []);
+        _mangaContext.Series.Add(manga);
 
         var mockConnector = new Mock<MangaConnector>("MangaDex", new[] { "en" }, new[] { "mangadex.org" }, "icon.png", new TrangaSettings());
         

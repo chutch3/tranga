@@ -22,20 +22,20 @@ public abstract class MangaConnector(string name, string[] supportedLanguages, s
     public bool Enabled { get; internal set; } = true;
     protected TrangaSettings Settings => settings;
 
-    public abstract Task<(Manga, MangaConnectorId<Manga>)[]> SearchManga(string mangaSearchName);
+    public abstract Task<(Series, MangaConnectorId<Series>)[]> SearchManga(string mangaSearchName);
 
-    public abstract Task<(Manga, MangaConnectorId<Manga>)?> GetMangaFromUrl(string url);
+    public abstract Task<(Series, MangaConnectorId<Series>)?> GetMangaFromUrl(string url);
 
-    public abstract Task<(Manga, MangaConnectorId<Manga>)?> GetMangaFromId(string mangaIdOnSite);
+    public abstract Task<(Series, MangaConnectorId<Series>)?> GetMangaFromId(string mangaIdOnSite);
 
-    public abstract Task<(Chapter, MangaConnectorId<Chapter>)[]> GetChapters(MangaConnectorId<Manga> mangaId,
+    public abstract Task<(Chapter, MangaConnectorId<Chapter>)[]> GetChapters(MangaConnectorId<Series> mangaId,
         string? language = null);
 
     internal abstract Task<string[]> GetChapterImageUrls(MangaConnectorId<Chapter> chapterId);
 
     public bool UrlMatchesConnector(string url) => BaseUris.Any(baseUri => Regex.IsMatch(url, "https?://" + baseUri + "/.*"));
 
-    internal async Task<string?> SaveCoverImageToCache(MangaConnectorId<Manga> mangaId, int retries = 3)
+    internal async Task<string?> SaveCoverImageToCache(MangaConnectorId<Series> mangaId, int retries = 3)
     {
         if(retries < 0)
             return null;

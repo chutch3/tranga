@@ -84,27 +84,27 @@ public class Tranga
     }
 
     // 5. Removed 'this' from MangaContext. It is now just a normal method you call on Tranga.
-    internal async Task<(Manga manga, MangaConnectorId<Manga> id)?> AddMangaToContext(MangaContext context, (Manga, MangaConnectorId<Manga>) addManga, CancellationToken token) =>
+    internal async Task<(Series manga, MangaConnectorId<Series> id)?> AddMangaToContext(MangaContext context, (Series, MangaConnectorId<Series>) addManga, CancellationToken token) =>
         await AddMangaToContext(context, addManga.Item1, addManga.Item2, token);
 
-    internal async Task<(Manga manga, MangaConnectorId<Manga> id)?> AddMangaToContext(MangaContext context, Manga addManga, MangaConnectorId<Manga> addMcId, CancellationToken token)
+    internal async Task<(Series manga, MangaConnectorId<Series> id)?> AddMangaToContext(MangaContext context, Series addManga, MangaConnectorId<Series> addMcId, CancellationToken token)
     {
         context.ChangeTracker.Clear();
-        Log.DebugFormat("Adding Manga to Context: {0}", addManga);
-        (Manga, MangaConnectorId<Manga>)? result;
+        Log.DebugFormat("Adding Series to Context: {0}", addManga);
+        (Series, MangaConnectorId<Series>)? result;
         if (await context.FindMangaLike(addManga, token) is { } mangaId)
         {
-            Manga manga = await context.MangaIncludeAll().FirstAsync(m => m.Key == mangaId, token);
-            Log.DebugFormat("Merging with existing Manga: {0}", manga);
+            Series manga = await context.MangaIncludeAll().FirstAsync(m => m.Key == mangaId, token);
+            Log.DebugFormat("Merging with existing Series: {0}", manga);
 
             var existingMcId = manga.MangaConnectorIds
                 .FirstOrDefault(id => id.MangaConnectorName == addMcId.MangaConnectorName
                                       && id.IdOnConnectorSite == addMcId.IdOnConnectorSite);
 
-            MangaConnectorId<Manga> mcIdToUse;
+            MangaConnectorId<Series> mcIdToUse;
             if (existingMcId == null)
             {
-                mcIdToUse = new MangaConnectorId<Manga>(manga, addMcId.MangaConnectorName, addMcId.IdOnConnectorSite, addMcId.WebsiteUrl, addMcId.UseForDownload);
+                mcIdToUse = new MangaConnectorId<Series>(manga, addMcId.MangaConnectorName, addMcId.IdOnConnectorSite, addMcId.WebsiteUrl, addMcId.UseForDownload);
                 manga.MangaConnectorIds.Add(mcIdToUse);
                 Log.DebugFormat("Added new MangaConnectorId for {0}", addMcId.MangaConnectorName);
             }
@@ -113,7 +113,7 @@ public class Tranga
                 mcIdToUse = existingMcId;
                 if (existingMcId.WebsiteUrl != addMcId.WebsiteUrl)
                 {
-                    var updatedMcId = new MangaConnectorId<Manga>(manga, existingMcId.MangaConnectorName, existingMcId.IdOnConnectorSite, addMcId.WebsiteUrl, existingMcId.UseForDownload);
+                    var updatedMcId = new MangaConnectorId<Series>(manga, existingMcId.MangaConnectorName, existingMcId.IdOnConnectorSite, addMcId.WebsiteUrl, existingMcId.UseForDownload);
                     manga.MangaConnectorIds.Remove(existingMcId);
                     manga.MangaConnectorIds.Add(updatedMcId);
                     mcIdToUse = updatedMcId;
@@ -125,7 +125,7 @@ public class Tranga
         }
         else
         {
-            Log.Debug("Manga does not exist yet.");
+            Log.Debug("Series does not exist yet.");
             IEnumerable<MangaTag> mergedTags = addManga.MangaTags.Select(mt =>
             {
                 MangaTag? inDb = context.Tags.Find(mt.Tag);
@@ -140,8 +140,8 @@ public class Tranga
             });
             addManga.Authors = mergedAuthors.ToList();
 
-            context.Mangas.Add(addManga);
-            context.Set<MangaConnectorId<Manga>>().Add(addMcId);
+            context.Series.Add(addManga);
+            context.Set<MangaConnectorId<Series>>().Add(addMcId);
             result = (addManga, addMcId);
         }
 

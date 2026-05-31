@@ -64,15 +64,15 @@ public class BundleVolumeWorkerTests : IDisposable
         return ms.ToArray();
     }
 
-    private async Task<(Manga manga, VolumeMetadata vol, Chapter[] chapters)> SetupAsync(
+    private async Task<(Series manga, VolumeMetadata vol, Chapter[] chapters)> SetupAsync(
         int volumeNumber = 1, int chapterCount = 2, int pagesPerChapter = 5)
     {
         var library = new FileLibrary(_testRoot, "Test Library");
         _mangaContext.FileLibraries.Add(library);
 
-        var manga = new Manga("Test Manga", "Desc", "http://example.com/cover.jpg",
+        var manga = new Series("Test Series", "Desc", "http://example.com/cover.jpg",
             MangaReleaseStatus.Continuing, [], [], [], [], library);
-        _mangaContext.Mangas.Add(manga);
+        _mangaContext.Series.Add(manga);
 
         var vol = new VolumeMetadata(manga, volumeNumber);
         _mangaContext.VolumeMetadata.Add(vol);
@@ -240,7 +240,7 @@ public class BundleVolumeWorkerTests : IDisposable
 
         using var reader = new StreamReader(comicInfo!.Open());
         string content = await reader.ReadToEndAsync();
-        Assert.Contains("Test Manga", content);
+        Assert.Contains("Test Series", content);
         Assert.Contains("<Volume>2</Volume>", content);
     }
 }

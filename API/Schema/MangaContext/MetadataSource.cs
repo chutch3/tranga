@@ -8,7 +8,7 @@ namespace API.Schema.MangaContext;
 public class MetadataSource
 {
     [Key] [StringLength(64)] public string MangaId { get; private set; } = null!;
-    [ForeignKey(nameof(MangaId))] public Manga Manga { get; private set; } = null!;
+    [ForeignKey(nameof(MangaId))] public Series Series { get; private set; } = null!;
     public MetadataSourceType SourceType { get; internal set; }
     [StringLength(256)] public string? ExternalId { get; internal set; }
     public MetadataSourceStatus Status { get; internal set; }

@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using static Microsoft.AspNetCore.Http.StatusCodes;
-using SchemaManga = API.Schema.MangaContext.Manga;
+using SchemaManga = API.Schema.MangaContext.Series;
 
 // ReSharper disable InconsistentNaming
 
@@ -16,22 +16,22 @@ namespace API.Controllers;
 
 [ApiVersion(2)]
 [ApiController]
-[Route("v{v:apiVersion}/Manga/{MangaId}")]
+[Route("v{v:apiVersion}/Series/{MangaId}")]
 public class VolumeController(MangaContext context, TrangaSettings settings, IWorkerQueue workerQueue)
     : ControllerBase
 {
     /// <summary>
     /// Returns volumes and chapters for a manga, grouped by volume number.
     /// </summary>
-    /// <param name="MangaId"><see cref="Manga"/>.Key</param>
+    /// <param name="MangaId"><see cref="Series"/>.Key</param>
     /// <response code="200">Volume listing with chapter file status</response>
-    /// <response code="404">Manga not found</response>
+    /// <response code="404">Series not found</response>
     [HttpGet("volumes")]
     [ProducesResponseType<VolumeListResult>(Status200OK, "application/json")]
     [ProducesResponseType<string>(Status404NotFound, "text/plain")]
     public async Task<Results<Ok<VolumeListResult>, NotFound<string>>> GetVolumes(string MangaId)
     {
-        var manga = await context.Mangas
+        var manga = await context.Series
             .Include(m => m.Library)
             .Include(m => m.Chapters)
             .ThenInclude(c => c.MangaConnectorIds)
@@ -123,15 +123,15 @@ public class VolumeController(MangaContext context, TrangaSettings settings, IWo
     /// <summary>
     /// Returns a dry-run preview of all file moves needed to bring files in line with current metadata.
     /// </summary>
-    /// <param name="MangaId"><see cref="Manga"/>.Key</param>
+    /// <param name="MangaId"><see cref="Series"/>.Key</param>
     /// <response code="200">Preview with moves, directories to create, and empty directories to delete</response>
-    /// <response code="404">Manga not found</response>
+    /// <response code="404">Series not found</response>
     [HttpGet("reorganize/preview")]
     [ProducesResponseType<ReorganizePreviewResult>(Status200OK, "application/json")]
     [ProducesResponseType<string>(Status404NotFound, "text/plain")]
     public async Task<Results<Ok<ReorganizePreviewResult>, NotFound<string>>> GetReorganizePreview(string MangaId)
     {
-        var manga = await context.Mangas
+        var manga = await context.Series
             .Include(m => m.Library)
             .Include(m => m.Chapters)
             .FirstOrDefaultAsync(m => m.Key == MangaId, HttpContext.RequestAborted);
@@ -149,17 +149,17 @@ public class VolumeController(MangaContext context, TrangaSettings settings, IWo
     /// <summary>
     /// Queues RenameChapterFileWorker instances for each file that needs moving.
     /// </summary>
-    /// <param name="MangaId"><see cref="Manga"/>.Key</param>
+    /// <param name="MangaId"><see cref="Series"/>.Key</param>
     /// <response code="202">Workers queued; returns first worker key as jobId</response>
     /// <response code="200">Nothing to reorganize</response>
-    /// <response code="404">Manga not found</response>
+    /// <response code="404">Series not found</response>
     [HttpPost("reorganize")]
     [ProducesResponseType<ReorganizeJobResult>(Status202Accepted, "application/json")]
     [ProducesResponseType<ReorganizeJobResult>(Status200OK, "application/json")]
     [ProducesResponseType<string>(Status404NotFound, "text/plain")]
     public async Task<Results<Accepted<ReorganizeJobResult>, Ok<ReorganizeJobResult>, NotFound<string>>> PostReorganize(string MangaId)
     {
-        var manga = await context.Mangas
+        var manga = await context.Series
             .Include(m => m.Library)
             .Include(m => m.Chapters)
             .FirstOrDefaultAsync(m => m.Key == MangaId, HttpContext.RequestAborted);
@@ -208,13 +208,13 @@ public class VolumeController(MangaContext context, TrangaSettings settings, IWo
     /// <param name="MangaId"><see cref="SchemaManga"/>.Key</param>
     /// <param name="request">New layout preference</param>
     /// <response code="200">Layout stored; response includes reorganize preview with new layout paths</response>
-    /// <response code="404">Manga not found</response>
+    /// <response code="404">Series not found</response>
     [HttpPut("libraryLayout")]
     [ProducesResponseType<LibraryLayoutResult>(Status200OK, "application/json")]
     [ProducesResponseType<string>(Status404NotFound, "text/plain")]
     public async Task<Results<Ok<LibraryLayoutResult>, NotFound<string>>> PutLibraryLayout(string MangaId, [FromBody] PutLibraryLayoutRecord request)
     {
-        var manga = await context.Mangas
+        var manga = await context.Series
             .Include(m => m.Library)
             .Include(m => m.Chapters)
             .FirstOrDefaultAsync(m => m.Key == MangaId, HttpContext.RequestAborted);
@@ -245,14 +245,14 @@ public class VolumeController(MangaContext context, TrangaSettings settings, IWo
     /// <param name="MangaId"><see cref="SchemaManga"/>.Key</param>
     /// <param name="request">Map of ChapterNumber to VolumeNumber</param>
     /// <response code="200">Assignment applied; returns count of applied and list of not-found chapter numbers</response>
-    /// <response code="404">Manga not found</response>
+    /// <response code="404">Series not found</response>
     [HttpPost("volumes/assignments")]
     [ProducesResponseType<BulkAssignmentResult>(Status200OK, "application/json")]
     [ProducesResponseType<string>(Status404NotFound, "text/plain")]
     public async Task<Results<Ok<BulkAssignmentResult>, NotFound<string>>> PostBulkAssignment(
         string MangaId, [FromBody] BulkAssignmentRecord request)
     {
-        var manga = await context.Mangas
+        var manga = await context.Series
             .Include(m => m.Chapters)
             .Include(m => m.MetadataSource)
             .FirstOrDefaultAsync(m => m.Key == MangaId, HttpContext.RequestAborted);
@@ -296,7 +296,7 @@ public class VolumeController(MangaContext context, TrangaSettings settings, IWo
     /// <param name="MangaId"><see cref="SchemaManga"/>.Key</param>
     /// <param name="VolumeNumber">Volume number to bundle</param>
     /// <response code="202">Worker queued; returns job ID</response>
-    /// <response code="404">Manga or VolumeMetadata not found</response>
+    /// <response code="404">Series or VolumeMetadata not found</response>
     /// <response code="409">No unbundled chapters with files to bundle</response>
     [HttpPost("volumes/{VolumeNumber}/bundle")]
     [ProducesResponseType<BundleJobResult>(Status202Accepted, "application/json")]
@@ -304,7 +304,7 @@ public class VolumeController(MangaContext context, TrangaSettings settings, IWo
     [ProducesResponseType<string>(Status409Conflict, "text/plain")]
     public async Task<Results<Accepted<BundleJobResult>, NotFound<string>, Conflict<string>>> PostBundle(string MangaId, int VolumeNumber)
     {
-        var manga = await context.Mangas
+        var manga = await context.Series
             .Include(m => m.Library)
             .FirstOrDefaultAsync(m => m.Key == MangaId, HttpContext.RequestAborted);
         if (manga is null)
@@ -334,7 +334,7 @@ public class VolumeController(MangaContext context, TrangaSettings settings, IWo
     /// <param name="MangaId"><see cref="SchemaManga"/>.Key</param>
     /// <param name="VolumeNumber">Volume number to unbundle</param>
     /// <response code="202">Worker queued; returns job ID (may include warning if no map exists)</response>
-    /// <response code="404">Manga or VolumeMetadata not found</response>
+    /// <response code="404">Series or VolumeMetadata not found</response>
     /// <response code="409">Volume is not bundled</response>
     [HttpDelete("volumes/{VolumeNumber}/bundle")]
     [ProducesResponseType<UnbundleJobResult>(Status202Accepted, "application/json")]
@@ -342,7 +342,7 @@ public class VolumeController(MangaContext context, TrangaSettings settings, IWo
     [ProducesResponseType<string>(Status409Conflict, "text/plain")]
     public async Task<Results<Accepted<UnbundleJobResult>, NotFound<string>, Conflict<string>>> DeleteBundle(string MangaId, int VolumeNumber)
     {
-        var manga = await context.Mangas
+        var manga = await context.Series
             .Include(m => m.Library)
             .FirstOrDefaultAsync(m => m.Key == MangaId, HttpContext.RequestAborted);
         if (manga is null)

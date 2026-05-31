@@ -5,10 +5,10 @@ using API.Schema.MangaContext;
 namespace API.Controllers.DTOs;
 
 /// <summary>
-/// <see cref="Schema.MangaContext.Manga"/> DTO
+/// <see cref="Schema.MangaContext.Series"/> DTO
 /// </summary>
-public sealed record Manga(string Key, string Name, string Description, MangaReleaseStatus ReleaseStatus, IEnumerable<MangaConnectorId<Manga>> MangaConnectorIds, float IgnoreChaptersBefore, uint? Year, string? OriginalLanguage, IEnumerable<Author> Authors, IEnumerable<string> Tags, IEnumerable<Link> Links, IEnumerable<AltTitle> AltTitles, string? FileLibraryId, string CoverUrl = "")
-    : MinimalManga(Key, Name, Description, ReleaseStatus, MangaConnectorIds, FileLibraryId, OriginalLanguage, CoverUrl)
+public sealed record Series(string Key, string Name, string Description, MangaReleaseStatus ReleaseStatus, IEnumerable<MangaConnectorId<Series>> MangaConnectorIds, float IgnoreChaptersBefore, uint? Year, string? OriginalLanguage, IEnumerable<Author> Authors, IEnumerable<string> Tags, IEnumerable<Link> Links, IEnumerable<AltTitle> AltTitles, string? FileLibraryId, string CoverUrl = "")
+    : MinimalSeries(Key, Name, Description, ReleaseStatus, MangaConnectorIds, FileLibraryId, OriginalLanguage, CoverUrl)
 {
     /// <summary>
     /// Chapter cutoff for Downloads (Chapters before this will not be downloaded)
@@ -37,10 +37,10 @@ public sealed record Manga(string Key, string Name, string Description, MangaRel
     public IEnumerable<Author> Authors { get; init; } = Authors;
     
     /// <summary>
-    /// Manga Tags
+    /// Series Tags
     /// </summary>
     [Required]
-    [Description("Manga Tags")]
+    [Description("Series Tags")]
     public IEnumerable<string> Tags { get; init; } = Tags;
     
     /// <summary>
@@ -51,10 +51,10 @@ public sealed record Manga(string Key, string Name, string Description, MangaRel
     public IEnumerable<Link> Links { get; init; } = Links;
     
     /// <summary>
-    /// Alt Titles of Manga
+    /// Alt Titles of Series
     /// </summary>
     [Required]
-    [Description("Alt Titles of Manga")]
+    [Description("Alt Titles of Series")]
     public IEnumerable<AltTitle> AltTitles { get; init; } = AltTitles;
     
 

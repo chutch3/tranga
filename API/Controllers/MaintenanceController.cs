@@ -17,7 +17,7 @@ public class MaintenanceController(MangaContext mangaContext, ActionsContext act
 {
     
     /// <summary>
-    /// Removes all <see cref="Manga"/> not marked for Download on any <see cref="MangaConnector"/>
+    /// Removes all <see cref="Series"/> not marked for Download on any <see cref="MangaConnector"/>
     /// </summary>
     /// <response code="200"></response>
     /// <response code="500">Error during Database Operation</response>
@@ -26,7 +26,7 @@ public class MaintenanceController(MangaContext mangaContext, ActionsContext act
     [ProducesResponseType<string>(Status500InternalServerError, "text/plain")]
     public async Task<Results<Ok, InternalServerError<string>>> CleanupNoDownloadManga()
     {
-        if (await mangaContext.Mangas
+        if (await mangaContext.Series
                 .Include(m => m.MangaConnectorIds)
                 .Where(m => !m.MangaConnectorIds.Any(id => id.UseForDownload))
                 .ToListAsync(HttpContext.RequestAborted) is not { } remove)

@@ -48,14 +48,14 @@ public class RenameChapterFileWorkerTests : IDisposable
         _actionsContext.Dispose();
     }
 
-    private async Task<(Manga manga, Chapter chapter)> SetupAsync(
+    private async Task<(Series manga, Chapter chapter)> SetupAsync(
         string chapterNumber = "1", int? volume = 5, string fileName = "One-Punch Man - Ch.1.cbz")
     {
         var library = new FileLibrary(_testRoot, "Test Library");
         _mangaContext.FileLibraries.Add(library);
-        var manga = new Manga("One-Punch Man", "Desc", "url", MangaReleaseStatus.Continuing,
+        var manga = new Series("One-Punch Man", "Desc", "url", MangaReleaseStatus.Continuing,
             [], [], [], [], library);
-        _mangaContext.Mangas.Add(manga);
+        _mangaContext.Series.Add(manga);
         var chapter = new Chapter(manga, chapterNumber, volume, null)
             { Downloaded = true, FileName = fileName };
         _mangaContext.Chapters.Add(chapter);

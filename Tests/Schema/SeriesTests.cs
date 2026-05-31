@@ -13,7 +13,7 @@ public class MangaTests
         return new MangaContext(options);
     }
 
-    internal static Manga MakeTestManga(string name = "Test Manga")
+    internal static Series MakeTestManga(string name = "Test Series")
         => new(name, "", "http://example.com/img.jpg", MangaReleaseStatus.Continuing, [], [], [], []);
 
     [Fact]
@@ -22,7 +22,7 @@ public class MangaTests
         await using var ctx = CreateContext();
         var manga = MakeTestManga();
         manga.IsTracked = true;
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
         await ctx.SaveChangesAsync();
 
         var result = await ctx.GetTrackedMangas().ToArrayAsync();
@@ -36,9 +36,9 @@ public class MangaTests
     {
         await using var ctx = CreateContext();
         var manga = MakeTestManga();
-        ctx.Mangas.Add(manga);
-        var connectorId = new MangaConnectorId<Manga>(manga, "TestConnector", "ext-id-1", null, useForDownload: true);
-        ctx.Set<MangaConnectorId<Manga>>().Add(connectorId);
+        ctx.Series.Add(manga);
+        var connectorId = new MangaConnectorId<Series>(manga, "TestConnector", "ext-id-1", null, useForDownload: true);
+        ctx.Set<MangaConnectorId<Series>>().Add(connectorId);
         await ctx.SaveChangesAsync();
 
         var result = await ctx.GetTrackedMangas().ToArrayAsync();
@@ -51,7 +51,7 @@ public class MangaTests
     {
         await using var ctx = CreateContext();
         var manga = MakeTestManga();
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
         var chapter = new Chapter(manga, "1", null);
         chapter.Downloaded = true;
         ctx.Chapters.Add(chapter);
@@ -67,7 +67,7 @@ public class MangaTests
     {
         await using var ctx = CreateContext();
         var manga = MakeTestManga();
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
         await ctx.SaveChangesAsync();
 
         var result = await ctx.GetTrackedMangas().ToArrayAsync();
@@ -80,9 +80,9 @@ public class MangaTests
     {
         await using var ctx = CreateContext();
         var manga = MakeTestManga();
-        ctx.Mangas.Add(manga);
-        var connectorId = new MangaConnectorId<Manga>(manga, "TestConnector", "ext-id-2", null, useForDownload: false);
-        ctx.Set<MangaConnectorId<Manga>>().Add(connectorId);
+        ctx.Series.Add(manga);
+        var connectorId = new MangaConnectorId<Series>(manga, "TestConnector", "ext-id-2", null, useForDownload: false);
+        ctx.Set<MangaConnectorId<Series>>().Add(connectorId);
         await ctx.SaveChangesAsync();
 
         var result = await ctx.GetTrackedMangas().ToArrayAsync();
@@ -104,11 +104,11 @@ public class MangaTests
         // We want to verify that accessing the property doesn't trigger EnsureDirectoryExists side effects
         // that cause UnauthorizedAccessException if the directory doesn't exist yet.
         var library = new FileLibrary("/root/manga_test_forbidden", "Restricted");
-        var manga = new Manga("Test Manga", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        var manga = new Series("Test Series", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
         
         // This should NOT throw even if we don't have permissions to create /root/manga_test_forbidden/Test_Manga
         var path = manga.FullDirectoryPath;
         
-        Assert.Equal("/root/manga_test_forbidden/Test Manga", path);
+        Assert.Equal("/root/manga_test_forbidden/Test Series", path);
     }
 }

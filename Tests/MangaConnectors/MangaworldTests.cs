@@ -27,10 +27,10 @@ public class MangaworldTests
         return mockClient;
     }
 
-    private static MangaConnectorId<Manga> CreateDummyManga(MangaConnector connector)
+    private static MangaConnectorId<Series> CreateDummyManga(MangaConnector connector)
     {
-        var manga = new Manga("Test Manga", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], []);
-        return new MangaConnectorId<Manga>(manga, connector, "2003/test", "https://example.com/test");
+        var manga = new Series("Test Series", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], []);
+        return new MangaConnectorId<Series>(manga, connector, "2003/test", "https://example.com/test");
     }
 
     [Theory]

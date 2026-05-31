@@ -4,13 +4,13 @@ using API.Controllers;
 using API.Controllers.DTOs;
 using API.Schema.MangaContext;
 using Moq;
-using MangaDto = API.Controllers.DTOs.Manga;
+using MangaDto = API.Controllers.DTOs.Series;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using SchemaManga = API.Schema.MangaContext.Manga;
-using SchemaConnectorId = API.Schema.MangaContext.MangaConnectorId<API.Schema.MangaContext.Manga>;
+using SchemaManga = API.Schema.MangaContext.Series;
+using SchemaConnectorId = API.Schema.MangaContext.MangaConnectorId<API.Schema.MangaContext.Series>;
 
 namespace API.Tests.Controllers;
 
@@ -87,7 +87,7 @@ public class SearchControllerTests
             .GetMangaFromConnector("MangaDex", "berserk-id-123");
 
         Assert.IsType<Ok<MangaDto>>(result.Result);
-        Assert.Equal(0, await ctx.Mangas.CountAsync());
+        Assert.Equal(0, await ctx.Series.CountAsync());
     }
 
     [Fact]
@@ -137,7 +137,7 @@ public class SearchControllerTests
 
         var result = await controller.SearchManga("MangaDex", "one punch man");
 
-        var ok = Assert.IsType<Ok<List<MinimalManga>>>(result.Result);
+        var ok = Assert.IsType<Ok<List<MinimalSeries>>>(result.Result);
         var searchResult = Assert.Single(ok.Value!);
         Assert.Equal("http://example.com/opm.jpg", searchResult.CoverUrl);
     }
@@ -152,7 +152,7 @@ public class SearchControllerTests
         var manga = MakeTestManga("One Piece");
         manga.Library = library;
         manga.IsTracked = true;
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
         
         var connectorId = new SchemaConnectorId(manga, "MangaDex", "op-123", "http://op.com", false);
         ctx.MangaConnectorToManga.Add(connectorId);
@@ -176,7 +176,7 @@ public class SearchControllerTests
         var manga = MakeTestManga("One Piece");
         manga.Library = library;
         manga.IsTracked = true;
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
         
         var connectorId = new SchemaConnectorId(manga, "MangaDex", "op-123", "http://op.com", false);
         ctx.MangaConnectorToManga.Add(connectorId);
@@ -195,7 +195,7 @@ public class SearchControllerTests
 
         var result = await searchController.SearchManga("MangaDex", "One Piece");
 
-        var ok = Assert.IsType<Ok<List<MinimalManga>>>(result.Result);
+        var ok = Assert.IsType<Ok<List<MinimalSeries>>>(result.Result);
         var searchResult = Assert.Single(ok.Value!);
         Assert.Equal(library.Key, searchResult.FileLibraryId);
         Assert.Equal("en", searchResult.Language);

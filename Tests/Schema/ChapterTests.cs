@@ -27,7 +27,7 @@ public class ChapterTests : IDisposable
     [Fact]
     public void GetArchiveFileName_VolumeSubdirectoryScheme_IncludesSubdirectory()
     {
-        var manga = new Manga("Dandadan", "", "http://example.com/img.jpg",
+        var manga = new Series("Dandadan", "", "http://example.com/img.jpg",
             MangaReleaseStatus.Continuing, [], [], [], []);
         var chapter = new Chapter(manga, "1", 1);
 
@@ -38,7 +38,7 @@ public class ChapterTests : IDisposable
     [Fact]
     public void GetArchiveFileName_NullVolume_OmitsNullableVolumeSection()
     {
-        var manga = new Manga("Dandadan", "", "http://example.com/img.jpg",
+        var manga = new Series("Dandadan", "", "http://example.com/img.jpg",
             MangaReleaseStatus.Continuing, [], [], [], []);
         var chapter = new Chapter(manga, "1", null);
 
@@ -49,7 +49,7 @@ public class ChapterTests : IDisposable
     [Fact]
     public void GetArchiveFileName_WithTitle_IncludesTitleSection()
     {
-        var manga = new Manga("Dandadan", "", "http://example.com/img.jpg",
+        var manga = new Series("Dandadan", "", "http://example.com/img.jpg",
             MangaReleaseStatus.Continuing, [], [], [], []);
         var chapter = new Chapter(manga, "1", 1, "Dragon Dance");
 
@@ -60,7 +60,7 @@ public class ChapterTests : IDisposable
     [Fact]
     public void GetArchiveFileName_NullTitle_OmitsTitleSection()
     {
-        var manga = new Manga("Dandadan", "", "http://example.com/img.jpg",
+        var manga = new Series("Dandadan", "", "http://example.com/img.jpg",
             MangaReleaseStatus.Continuing, [], [], [], []);
         var chapter = new Chapter(manga, "1", 1);
 
@@ -71,7 +71,7 @@ public class ChapterTests : IDisposable
     [Fact]
     public void GetArchiveFileName_FlatScheme_NoSubdirectory()
     {
-        var manga = new Manga("Dandadan", "", "http://example.com/img.jpg",
+        var manga = new Series("Dandadan", "", "http://example.com/img.jpg",
             MangaReleaseStatus.Continuing, [], [], [], []);
         var chapter = new Chapter(manga, "1", 1);
 
@@ -82,7 +82,7 @@ public class ChapterTests : IDisposable
     [Fact]
     public void GetArchiveFileName_SlashInMangaName_SlashStrippedFromValueNotSeparator()
     {
-        var manga = new Manga("A/B", "", "http://example.com/img.jpg",
+        var manga = new Series("A/B", "", "http://example.com/img.jpg",
             MangaReleaseStatus.Continuing, [], [], [], []);
         var chapter = new Chapter(manga, "1", 1);
 
@@ -94,7 +94,7 @@ public class ChapterTests : IDisposable
     public void GetFullFilepath_WhenFileNameAlreadySet_UsesStoredNameNotScheme()
     {
         var library = new FileLibrary(_tmpDir, "Test");
-        var manga = new Manga("Dandadan", "", "http://example.com/img.jpg",
+        var manga = new Series("Dandadan", "", "http://example.com/img.jpg",
             MangaReleaseStatus.Continuing, [], [], [], [], library);
         var chapter = new Chapter(manga, "1", 1);
         chapter.FileName = "Vol 1/Dandadan - Ch.1.cbz";
@@ -110,7 +110,7 @@ public class ChapterTests : IDisposable
     public void GetFullFilepath_VolumeSubdirectoryScheme_IncludesSubdirectoryInFullPath()
     {
         var library = new FileLibrary(_tmpDir, "Test");
-        var manga = new Manga("Dandadan", "", "http://example.com/img.jpg",
+        var manga = new Series("Dandadan", "", "http://example.com/img.jpg",
             MangaReleaseStatus.Continuing, [], [], [], [], library);
         var chapter = new Chapter(manga, "1", 1);
 
@@ -126,11 +126,11 @@ public class ChapterTests : IDisposable
     {
         using var context = CreateContext();
 
-        var manga = new Manga("Dandadan", "", "http://example.com/img.jpg",
+        var manga = new Series("Dandadan", "", "http://example.com/img.jpg",
             MangaReleaseStatus.Continuing, [], [], [], []);
         var chapter = new Chapter(manga, "1", 1);
 
-        context.Mangas.Add(manga);
+        context.Series.Add(manga);
         context.Chapters.Add(chapter);
         await context.SaveChangesAsync();
 
@@ -146,12 +146,12 @@ public class ChapterTests : IDisposable
         using var context = CreateContext();
 
         var library = new FileLibrary(_tmpDir, "Test");
-        var manga = new Manga("Dandadan", "", "http://example.com/img.jpg",
+        var manga = new Series("Dandadan", "", "http://example.com/img.jpg",
             MangaReleaseStatus.Continuing, [], [], [], [], library);
         var chapter = new Chapter(manga, "1", 1);
 
         context.FileLibraries.Add(library);
-        context.Mangas.Add(manga);
+        context.Series.Add(manga);
         context.Chapters.Add(chapter);
         await context.SaveChangesAsync();
 
@@ -171,13 +171,13 @@ public class ChapterTests : IDisposable
         using var context = CreateContext();
 
         var library = new FileLibrary(_tmpDir, "Test");
-        var manga = new Manga("Dandadan", "", "http://example.com/img.jpg",
+        var manga = new Series("Dandadan", "", "http://example.com/img.jpg",
             MangaReleaseStatus.Continuing, [], [], [], [], library);
         var chapter = new Chapter(manga, "1", 1);
         chapter.FileName = "Dandadan Vol 1/Dandadan - Ch.1.cbz";
 
         context.FileLibraries.Add(library);
-        context.Mangas.Add(manga);
+        context.Series.Add(manga);
         context.Chapters.Add(chapter);
         await context.SaveChangesAsync();
 

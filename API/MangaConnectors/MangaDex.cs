@@ -21,10 +21,10 @@ public class MangaDex : MangaConnector
     }
 
     private const int Limit = 100;
-    public override async Task<(Manga, MangaConnectorId<Manga>)[]> SearchManga(string mangaSearchName)
+    public override async Task<(Series, MangaConnectorId<Series>)[]> SearchManga(string mangaSearchName)
     {
         Log.InfoFormat("Searching Obj: {0}", mangaSearchName);
-        List<(Manga, MangaConnectorId<Manga>)> mangas = new ();
+        List<(Series, MangaConnectorId<Series>)> mangas = new ();
 
         // MangaDex hard-caps the paging offset; requesting beyond it only returns errors.
         const int maxOffset = 10000;
@@ -74,7 +74,7 @@ public class MangaDex : MangaConnector
     }
 
     private static readonly Regex GetMangaIdFromUrl = new(@"https?:\/\/mangadex\.org\/title\/([a-z0-9-]+)\/?.*");
-    public override async Task<(Manga, MangaConnectorId<Manga>)?> GetMangaFromUrl(string url)
+    public override async Task<(Series, MangaConnectorId<Series>)?> GetMangaFromUrl(string url)
     {
         Log.InfoFormat("Getting Obj: {0}", url);
         if (!UrlMatchesConnector(url))
@@ -94,7 +94,7 @@ public class MangaDex : MangaConnector
         return await GetMangaFromId(id);
     }
 
-    public override async Task<(Manga, MangaConnectorId<Manga>)?> GetMangaFromId(string mangaIdOnSite)
+    public override async Task<(Series, MangaConnectorId<Series>)?> GetMangaFromId(string mangaIdOnSite)
     {
         Log.InfoFormat("Getting Obj: {0}", mangaIdOnSite);
         string requestUrl =
@@ -128,7 +128,7 @@ public class MangaDex : MangaConnector
         return ParseMangaFromJToken(data);
     }
 
-    public override async Task<(Chapter, MangaConnectorId<Chapter>)[]> GetChapters(MangaConnectorId<Manga> mangaId, string? language = null)
+    public override async Task<(Chapter, MangaConnectorId<Chapter>)[]> GetChapters(MangaConnectorId<Series> mangaId, string? language = null)
     {
         Log.InfoFormat("Getting Chapters: {0}", mangaId.IdOnConnectorSite);
         List<(Chapter, MangaConnectorId<Chapter>)> chapters = new ();
@@ -137,7 +137,7 @@ public class MangaDex : MangaConnector
         int total = int.MaxValue;
         while(offset < total)
         {
-            // https://api.mangadex.org/docs/redoc.html#tag/Manga/operation/get-manga-id-feed
+            // https://api.mangadex.org/docs/redoc.html#tag/Series/operation/get-manga-id-feed
             string requestUrl =
                 $"https://api.mangadex.org/manga/{mangaId.IdOnConnectorSite}/feed?limit={Limit}&offset={offset}&" +
                 $"translatedLanguage%5B%5D={language}&" +
@@ -232,7 +232,7 @@ public class MangaDex : MangaConnector
         return urls.ToArray();
     }
 
-    private (Manga manga, MangaConnectorId<Manga> id) ParseMangaFromJToken(JToken jToken)
+    private (Series manga, MangaConnectorId<Series> id) ParseMangaFromJToken(JToken jToken)
     {
         string? id = jToken.Value<string>("id");
         if(id is null || jToken["attributes"] is not JObject attributes)
@@ -319,14 +319,14 @@ public class MangaDex : MangaConnector
         string websiteUrl = $"https://mangadex.org/title/{id}";
         string coverUrl = $"https://uploads.mangadex.org/covers/{id}/{coverFileName}";
 
-        Manga manga = new (name, description, coverUrl, releaseStatus, authors, tags, links,altTitles,
+        Series manga = new (name, description, coverUrl, releaseStatus, authors, tags, links,altTitles,
             null, 0f, year, originalLanguage);
-        MangaConnectorId<Manga> mcId = new (manga, this, id, websiteUrl);
+        MangaConnectorId<Series> mcId = new (manga, this, id, websiteUrl);
         manga.MangaConnectorIds.Add(mcId);
         return (manga, mcId);
     }
 
-    private (Chapter chapter, MangaConnectorId<Chapter> id) ParseChapterFromJToken(MangaConnectorId<Manga> mcIdManga, JToken jToken)
+    private (Chapter chapter, MangaConnectorId<Chapter> id) ParseChapterFromJToken(MangaConnectorId<Series> mcIdManga, JToken jToken)
     {
         string? id = jToken.Value<string>("id");
         JToken? attributes = jToken["attributes"];

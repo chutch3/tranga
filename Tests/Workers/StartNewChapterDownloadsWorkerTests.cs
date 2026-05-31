@@ -24,10 +24,10 @@ public class StartNewChapterDownloadsWorkerTests
         var library = new FileLibrary("/tmp/manga", "Test Lib");
         context.FileLibraries.Add(library);
 
-        var manga = new Manga("Test Manga", "Desc", "http://cover.com", MangaReleaseStatus.Continuing,
+        var manga = new Series("Test Series", "Desc", "http://cover.com", MangaReleaseStatus.Continuing,
             new List<Author>(), new List<MangaTag>(), new List<Link>(), new List<AltTitle>(),
             library, 0f, 2024, "en");
-        context.Mangas.Add(manga);
+        context.Series.Add(manga);
 
         var chapter = new Chapter(manga, "1", null, "Title");
         context.Chapters.Add(chapter);

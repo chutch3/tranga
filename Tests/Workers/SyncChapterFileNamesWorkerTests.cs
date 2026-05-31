@@ -49,12 +49,12 @@ public class SyncChapterFileNamesWorkerTests : IDisposable
         _actionsContext.Dispose();
     }
 
-    private (FileLibrary library, Manga manga) SetupMangaAndLibrary(string mangaName = "One-Punch Man")
+    private (FileLibrary library, Series manga) SetupMangaAndLibrary(string mangaName = "One-Punch Man")
     {
         var library = new FileLibrary(_testRoot, "Test Library");
         _mangaContext.FileLibraries.Add(library);
-        var manga = new Manga(mangaName, "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
-        _mangaContext.Mangas.Add(manga);
+        var manga = new Series(mangaName, "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        _mangaContext.Series.Add(manga);
         return (library, manga);
     }
 

@@ -13,7 +13,7 @@ public class ChapterMetadataTests
         return new MangaContext(options);
     }
 
-    private static Manga MakeTestManga(string name = "Test Manga")
+    private static Series MakeTestManga(string name = "Test Series")
         => new(name, "", "http://example.com/img.jpg", MangaReleaseStatus.Continuing, [], [], [], []);
 
     [Fact]
@@ -72,7 +72,7 @@ public class ChapterMetadataTests
         chapter.MetadataConfidence = MetadataConfidence.Exact;
         chapter.IsBundled = true;
 
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
         ctx.Chapters.Add(chapter);
         await ctx.SaveChangesAsync();
 

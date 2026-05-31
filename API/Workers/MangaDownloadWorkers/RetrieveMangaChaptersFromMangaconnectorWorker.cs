@@ -13,7 +13,7 @@ namespace API.Workers.MangaDownloadWorkers;
 /// <param name="mcId"></param>
 /// <param name="language"></param>
 /// <param name="dependsOn"></param>
-public class RetrieveMangaChaptersFromMangaconnectorWorker(MangaConnectorId<Manga> mcId, string language, IEnumerable<MangaConnector> connectors, IEnumerable<BaseWorker>? dependsOn = null)
+public class RetrieveMangaChaptersFromMangaconnectorWorker(MangaConnectorId<Series> mcId, string language, IEnumerable<MangaConnector> connectors, IEnumerable<BaseWorker>? dependsOn = null)
     : BaseWorkerWithContexts(dependsOn)
 {
     private readonly string _mangaConnectorIdId = mcId.Key;
@@ -50,7 +50,7 @@ public class RetrieveMangaChaptersFromMangaconnectorWorker(MangaConnectorId<Mang
         }
         Log.DebugFormat("Getting Chapters for MangaConnectorId {0}...", mangaConnectorId);
         
-        Manga manga = mangaConnectorId.Obj;
+        Series manga = mangaConnectorId.Obj;
         
         // Retrieve available Chapters from Connector
         (Chapter chapter, MangaConnectorId<Chapter> chapterId)[] allChapters =
@@ -73,7 +73,7 @@ public class RetrieveMangaChaptersFromMangaconnectorWorker(MangaConnectorId<Mang
             }
         }
 
-        // Add Chapters to Manga
+        // Add Chapters to Series
         manga.Chapters = manga.Chapters.Union(newChapters.Select(ch => ch.chapter)).ToList();
         
         // Filter for new ChapterIds
@@ -91,7 +91,7 @@ public class RetrieveMangaChaptersFromMangaconnectorWorker(MangaConnectorId<Mang
         // Add new ChapterIds to Database
         MangaContext.MangaConnectorToChapter.AddRange(newIds);
 
-        // If Manga is marked for Download from Connector, mark the new Chapters as UseForDownload
+        // If Series is marked for Download from Connector, mark the new Chapters as UseForDownload
         if (mangaConnectorId.UseForDownload)
         {
             foreach ((Chapter _, MangaConnectorId<Chapter> chapterId) in newChapters)

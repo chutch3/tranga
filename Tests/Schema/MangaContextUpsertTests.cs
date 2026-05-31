@@ -16,13 +16,13 @@ public class MangaContextUpsertTests
     {
         using var ctx = CreateContext();
         var manga = MangaTests.MakeTestManga();
-        var mcId = new MangaConnectorId<Manga>(manga, "MangaDex", "ext-id-1", "https://mangadex.org", true);
+        var mcId = new MangaConnectorId<Series>(manga, "MangaDex", "ext-id-1", "https://mangadex.org", true);
 
         var result = await ctx.UpsertManga(manga, mcId, CancellationToken.None);
 
         Assert.NotNull(result);
         Assert.Equal(manga.Key, result!.Value.manga.Key);
-        Assert.Equal(1, await ctx.Mangas.CountAsync());
+        Assert.Equal(1, await ctx.Series.CountAsync());
     }
 
     [Fact]
@@ -30,12 +30,12 @@ public class MangaContextUpsertTests
     {
         using var ctx = CreateContext();
         var manga = MangaTests.MakeTestManga();
-        var mcId = new MangaConnectorId<Manga>(manga, "MangaDex", "ext-id-1", "https://mangadex.org", true);
+        var mcId = new MangaConnectorId<Series>(manga, "MangaDex", "ext-id-1", "https://mangadex.org", true);
 
         var result = await ctx.UpsertManga(manga, mcId, CancellationToken.None);
 
         Assert.NotNull(result);
-        var saved = await ctx.Mangas
+        var saved = await ctx.Series
             .Include(m => m.MangaConnectorIds)
             .FirstAsync(m => m.Key == manga.Key);
         Assert.Single(saved.MangaConnectorIds);
@@ -47,16 +47,16 @@ public class MangaContextUpsertTests
     {
         using var ctx = CreateContext();
         var manga = MangaTests.MakeTestManga();
-        var mcId = new MangaConnectorId<Manga>(manga, "MangaDex", "ext-id-1", "https://mangadex.org", true);
+        var mcId = new MangaConnectorId<Series>(manga, "MangaDex", "ext-id-1", "https://mangadex.org", true);
         await ctx.UpsertManga(manga, mcId, CancellationToken.None);
 
         // Upsert again with same connector name + id
         var manga2 = MangaTests.MakeTestManga();
         manga2.Name = manga.Name; // same title so FindMangaLike matches
-        var mcId2 = new MangaConnectorId<Manga>(manga2, "MangaDex", "ext-id-1", "https://mangadex.org", true);
+        var mcId2 = new MangaConnectorId<Series>(manga2, "MangaDex", "ext-id-1", "https://mangadex.org", true);
         await ctx.UpsertManga(manga2, mcId2, CancellationToken.None);
 
-        Assert.Equal(1, await ctx.Mangas.CountAsync());
+        Assert.Equal(1, await ctx.Series.CountAsync());
     }
 
     [Fact]
@@ -64,16 +64,16 @@ public class MangaContextUpsertTests
     {
         using var ctx = CreateContext();
         var manga = MangaTests.MakeTestManga();
-        var mcId1 = new MangaConnectorId<Manga>(manga, "MangaDex", "ext-id-1", "https://mangadex.org", true);
+        var mcId1 = new MangaConnectorId<Series>(manga, "MangaDex", "ext-id-1", "https://mangadex.org", true);
         await ctx.UpsertManga(manga, mcId1, CancellationToken.None);
 
         // Same manga, different connector
         var manga2 = MangaTests.MakeTestManga();
         manga2.Name = manga.Name;
-        var mcId2 = new MangaConnectorId<Manga>(manga2, "Mangaworld", "mw-id-1", "https://mangaworld.ac", false);
+        var mcId2 = new MangaConnectorId<Series>(manga2, "Mangaworld", "mw-id-1", "https://mangaworld.ac", false);
         await ctx.UpsertManga(manga2, mcId2, CancellationToken.None);
 
-        var saved = await ctx.Mangas
+        var saved = await ctx.Series
             .Include(m => m.MangaConnectorIds)
             .FirstAsync(m => m.Key == manga.Key);
         Assert.Equal(2, saved.MangaConnectorIds.Count);
@@ -84,12 +84,12 @@ public class MangaContextUpsertTests
     {
         using var ctx = CreateContext();
         var manga = MangaTests.MakeTestManga();
-        var mcId = new MangaConnectorId<Manga>(manga, "MangaDex", "ext-id-1", "https://old.url", true);
+        var mcId = new MangaConnectorId<Series>(manga, "MangaDex", "ext-id-1", "https://old.url", true);
         await ctx.UpsertManga(manga, mcId, CancellationToken.None);
 
         var manga2 = MangaTests.MakeTestManga();
         manga2.Name = manga.Name;
-        var mcId2 = new MangaConnectorId<Manga>(manga2, "MangaDex", "ext-id-1", "https://new.url", true);
+        var mcId2 = new MangaConnectorId<Series>(manga2, "MangaDex", "ext-id-1", "https://new.url", true);
         var result = await ctx.UpsertManga(manga2, mcId2, CancellationToken.None);
 
         Assert.NotNull(result);
@@ -101,11 +101,11 @@ public class MangaContextUpsertTests
     {
         using var ctx = CreateContext();
         var manga = MangaTests.MakeTestManga();
-        var mcId = new MangaConnectorId<Manga>(manga, "MangaDex", "ext-id-1", "https://mangadex.org", true);
+        var mcId = new MangaConnectorId<Series>(manga, "MangaDex", "ext-id-1", "https://mangadex.org", true);
 
         var result = await ctx.AddMangaToContext((manga, mcId), CancellationToken.None);
 
         Assert.NotNull(result);
-        Assert.Equal(1, await ctx.Mangas.CountAsync());
+        Assert.Equal(1, await ctx.Series.CountAsync());
     }
 }

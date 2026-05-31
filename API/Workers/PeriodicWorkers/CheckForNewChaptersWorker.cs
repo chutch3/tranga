@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 namespace API.Workers.PeriodicWorkers;
 
 /// <summary>
-/// Creates Jobs to update available Chapters for all Manga that are marked for Download
+/// Creates Jobs to update available Chapters for all Series that are marked for Download
 /// </summary>
 public class CheckForNewChaptersWorker(TrangaSettings settings, IEnumerable<MangaConnector> connectors, TimeSpan? interval = null, IEnumerable<BaseWorker>? dependsOn = null)
     : BaseWorkerWithContexts(dependsOn), IPeriodic
@@ -26,7 +26,7 @@ public class CheckForNewChaptersWorker(TrangaSettings settings, IEnumerable<Mang
     protected override async Task<BaseWorker[]> DoWorkInternal()
     {
         Log.Debug("Checking for new chapters...");
-        List<MangaConnectorId<Manga>> connectorIdsManga = await MangaContext.MangaConnectorToManga
+        List<MangaConnectorId<Series>> connectorIdsManga = await MangaContext.MangaConnectorToManga
             .Include(id => id.Obj)
             .Where(id => id.UseForDownload)
             .ToListAsync(CancellationToken);

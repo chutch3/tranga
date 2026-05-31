@@ -59,14 +59,14 @@ public class SyncChapterFileNamesWorkerIntegrationTests : IAsyncLifetime
         var dbOptions = new DbContextOptionsBuilder<MangaContext>()
             .UseInMemoryDatabase(dbName).Options;
 
-        Manga manga;
+        Series manga;
         using (var setupDb = CreateMangaContext(dbOptions))
         {
             var library = new FileLibrary(_tempDir, "Integration Library");
             setupDb.FileLibraries.Add(library);
-            manga = new Manga("One-Punch Man", "Superhero comedy", "url",
+            manga = new Series("One-Punch Man", "Superhero comedy", "url",
                 MangaReleaseStatus.Continuing, [], [], [], [], library);
-            setupDb.Mangas.Add(manga);
+            setupDb.Series.Add(manga);
             setupDb.Chapters.Add(new Chapter(manga, "1", 5, null)
                 { Downloaded = true, FileName = "One-Punch Man - Ch.1.cbz" });
             await setupDb.SaveChangesAsync();

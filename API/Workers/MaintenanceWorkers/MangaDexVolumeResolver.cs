@@ -12,7 +12,7 @@ public class MangaDexVolumeResolver(HttpClient httpClient) : IMangaDexVolumeReso
 {
     private readonly HttpClient _httpClient = httpClient;
 
-    public async Task<Dictionary<string, int>> GetChapterToVolumeMapAsync(Manga manga, CancellationToken cancellationToken = default)
+    public async Task<Dictionary<string, int>> GetChapterToVolumeMapAsync(Series manga, CancellationToken cancellationToken = default)
     {
         string? mangadexUuid = null;
 

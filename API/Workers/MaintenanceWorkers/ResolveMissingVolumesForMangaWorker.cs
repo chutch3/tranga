@@ -28,7 +28,7 @@ public class ResolveMissingVolumesForMangaWorker(
 
     protected override async Task<IEnumerable<BaseWorker>> ProcessItem(string mangaId)
     {
-        var manga = await _mangaContext.Mangas
+        var manga = await _mangaContext.Series
             .Include(m => m.MangaConnectorIds)
             .Include(m => m.Library)
             .Include(m => m.MetadataSource)
@@ -36,7 +36,7 @@ public class ResolveMissingVolumesForMangaWorker(
 
         if (manga is null)
         {
-            Log.Warn($"Manga {mangaId} not found in database; skipping.");
+            Log.Warn($"Series {mangaId} not found in database; skipping.");
             return [];
         }
 
@@ -108,7 +108,7 @@ public class ResolveMissingVolumesForMangaWorker(
     /// If AutoMatched, immediately resolves volumes via the new ExternalId.
     /// If the volume fetch returns 0 mappings, rolls back to Unlinked.
     /// </summary>
-    private async Task TryAutoMatch(Manga manga, List<Chapter> allChapters)
+    private async Task TryAutoMatch(Series manga, List<Chapter> allChapters)
     {
         string normalizedTitle = NormalizeTitle(manga.Name);
 
@@ -220,7 +220,7 @@ public class ResolveMissingVolumesForMangaWorker(
         await _mangaContext.Sync(CancellationToken, GetType(), nameof(TryAutoMatch));
     }
 
-    private async Task<bool> TryResolveWithMangaDex(Manga manga, List<Chapter> chapters)
+    private async Task<bool> TryResolveWithMangaDex(Series manga, List<Chapter> chapters)
     {
         try
         {

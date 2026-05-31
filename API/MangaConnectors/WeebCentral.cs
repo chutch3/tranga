@@ -19,7 +19,7 @@ public class WeebCentral : MangaConnector
         this.downloadClient = new HttpDownloadClient(rateLimitHandler, settings);
     }
 
-    public override async Task<(Manga, MangaConnectorId<Manga>)[]> SearchManga(string mangaSearchName)
+    public override async Task<(Series, MangaConnectorId<Series>)[]> SearchManga(string mangaSearchName)
     {
         Log.InfoFormat("Searching: {0}", mangaSearchName);
         string sanitizedTitle = string.Join(' ', Regex.Matches(mangaSearchName, @"[A-Za-z]+").Where(m => m.Value.Length > 0)).ToLowerInvariant();
@@ -46,7 +46,7 @@ public class WeebCentral : MangaConnector
         }
 
         HashSet<string> seenUrls = new(); // Dedup URLs
-        List<(Manga, MangaConnectorId<Manga>)> mangas = new();
+        List<(Series, MangaConnectorId<Series>)> mangas = new();
         foreach (HtmlNode node in nodes)
         {
             string href = node.GetAttributeValue("href", "");
@@ -56,7 +56,7 @@ public class WeebCentral : MangaConnector
                 if (seenUrls.Add(fullUrl))
                 {
                     Log.DebugFormat("Fetching from {0}", fullUrl); // Debug URL
-                    (Manga, MangaConnectorId<Manga>)? manga = await GetMangaFromUrl(fullUrl);
+                    (Series, MangaConnectorId<Series>)? manga = await GetMangaFromUrl(fullUrl);
                     if (manga.HasValue)
                     {
                         mangas.Add(manga.Value);
@@ -74,7 +74,7 @@ public class WeebCentral : MangaConnector
         return mangas.DistinctBy(r => r.Item1.Key).ToArray(); // Dedup by manga Key
     }
 
-   public override async Task<(Manga, MangaConnectorId<Manga>)?> GetMangaFromUrl(string url)
+   public override async Task<(Series, MangaConnectorId<Series>)?> GetMangaFromUrl(string url)
     {
         Log.InfoFormat("Fetching manga from URL: {0}", url);
         // Robust regex: Capture full slug before optional UID
@@ -100,7 +100,7 @@ public class WeebCentral : MangaConnector
         return ParseMangaFromHtml(doc, coreSlug, storedUrl);
     }
 
-    public override async Task<(Manga, MangaConnectorId<Manga>)?> GetMangaFromId(string mangaIdOnSite)
+    public override async Task<(Series, MangaConnectorId<Series>)?> GetMangaFromId(string mangaIdOnSite)
     {
         string url = $"https://weebcentral.com/series/{mangaIdOnSite}";
         using HttpResponseMessage response = await downloadClient.MakeRequest(url, RequestType.MangaInfo);
@@ -117,7 +117,7 @@ public class WeebCentral : MangaConnector
         return ParseMangaFromHtml(doc, mangaIdOnSite, url); // Use full slug as ID
     }
 
-    private (Manga, MangaConnectorId<Manga>) ParseMangaFromHtml(HtmlDocument doc, string mangaIdOnSite, string url)
+    private (Series, MangaConnectorId<Series>) ParseMangaFromHtml(HtmlDocument doc, string mangaIdOnSite, string url)
     {
         // Title with cleanup (kept for robustness, but simple decode to match original)
         HtmlNode? titleNode = doc.DocumentNode.SelectSingleNode("//title");
@@ -171,16 +171,16 @@ public class WeebCentral : MangaConnector
         List<AltTitle> altTitles = new();
         List<Link> links = new();
         // Match original constructor (null language for consistent Key)
-        Manga manga = new(cleanTitle, description, coverUrl, releaseStatus, authors, tags, links, altTitles, null, 0f, year, null);
+        Series manga = new(cleanTitle, description, coverUrl, releaseStatus, authors, tags, links, altTitles, null, 0f, year, null);
 
         // Use mangaIdOnSite for ID (core slug, consistent)
-        MangaConnectorId<Manga> mcId = new(manga, this, mangaIdOnSite, url);
+        MangaConnectorId<Series> mcId = new(manga, this, mangaIdOnSite, url);
         manga.MangaConnectorIds.Add(mcId);
 
         return (manga, mcId);
     }
 
-    public override async Task<(Chapter, MangaConnectorId<Chapter>)[]> GetChapters(MangaConnectorId<Manga> manga, string? language = null)
+    public override async Task<(Chapter, MangaConnectorId<Chapter>)[]> GetChapters(MangaConnectorId<Series> manga, string? language = null)
     {
         Log.InfoFormat("Fetching chapters for: {0}", manga.IdOnConnectorSite);
 

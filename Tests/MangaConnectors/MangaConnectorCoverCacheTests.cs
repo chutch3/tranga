@@ -20,10 +20,10 @@ public class MangaConnectorCoverCacheTests
             downloadClient = client;
         }
 
-        public override Task<(Manga, MangaConnectorId<Manga>)[]> SearchManga(string mangaSearchName) => throw new NotSupportedException();
-        public override Task<(Manga, MangaConnectorId<Manga>)?> GetMangaFromUrl(string url) => throw new NotSupportedException();
-        public override Task<(Manga, MangaConnectorId<Manga>)?> GetMangaFromId(string mangaIdOnSite) => throw new NotSupportedException();
-        public override Task<(Chapter, MangaConnectorId<Chapter>)[]> GetChapters(MangaConnectorId<Manga> mangaId, string? language = null) => throw new NotSupportedException();
+        public override Task<(Series, MangaConnectorId<Series>)[]> SearchManga(string mangaSearchName) => throw new NotSupportedException();
+        public override Task<(Series, MangaConnectorId<Series>)?> GetMangaFromUrl(string url) => throw new NotSupportedException();
+        public override Task<(Series, MangaConnectorId<Series>)?> GetMangaFromId(string mangaIdOnSite) => throw new NotSupportedException();
+        public override Task<(Chapter, MangaConnectorId<Chapter>)[]> GetChapters(MangaConnectorId<Series> mangaId, string? language = null) => throw new NotSupportedException();
         internal override Task<string[]> GetChapterImageUrls(MangaConnectorId<Chapter> chapterId) => throw new NotSupportedException();
     }
 
@@ -54,12 +54,12 @@ public class MangaConnectorCoverCacheTests
             var connector = new FakeConnector(settings, downloadClient);
 
             var library = new FileLibrary(Path.Combine(tempRoot, "lib"), "Lib");
-            var manga = new Manga("Cover Manga", "Desc", "https://example.com/img/cover.png", MangaReleaseStatus.Continuing,
+            var manga = new Series("Cover Series", "Desc", "https://example.com/img/cover.png", MangaReleaseStatus.Continuing,
                 new List<Author>(), new List<MangaTag>(), new List<Link>(), new List<AltTitle>(),
                 library, 0f, 2024, "en");
             // Connector name contains a Windows-forbidden character (':') so a cleaned-vs-uncleaned
             // mismatch in the returned filename is observable.
-            var mcId = new MangaConnectorId<Manga>(manga, "Fake:Conn", "site-id", "https://fake.com/x", true);
+            var mcId = new MangaConnectorId<Series>(manga, "Fake:Conn", "site-id", "https://fake.com/x", true);
 
             string? returned = await connector.SaveCoverImageToCache(mcId);
 

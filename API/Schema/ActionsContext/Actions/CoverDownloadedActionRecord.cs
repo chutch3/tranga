@@ -7,7 +7,7 @@ namespace API.Schema.ActionsContext.Actions;
 public sealed class CoverDownloadedActionRecord(Actions action, DateTime performedAt, string mangaId, string filename)
     : ActionRecord(action, performedAt), IActionWithMangaRecord
 {
-    public CoverDownloadedActionRecord(Manga manga, string filename) : this(Actions.CoverDownloaded, DateTime.UtcNow, manga.Key, filename) { }
+    public CoverDownloadedActionRecord(Series manga, string filename) : this(Actions.CoverDownloaded, DateTime.UtcNow, manga.Key, filename) { }
 
     /// <summary>
     /// Filename on disk

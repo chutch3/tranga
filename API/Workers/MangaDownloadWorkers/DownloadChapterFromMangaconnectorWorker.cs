@@ -19,7 +19,7 @@ using static System.IO.UnixFileMode;
 namespace API.Workers.MangaDownloadWorkers;
 
 /// <summary>
-/// Downloads single chapter for Manga from Mangaconnector
+/// Downloads single chapter for Series from Mangaconnector
 /// </summary>
 /// <param name="chId"></param>
 /// <param name="dependsOn"></param>
@@ -171,7 +171,7 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
         return refreshLibrary ? [new RefreshLibrariesWorker()] : [];
     }
 
-    private async Task EnsureCoverInPublicationFolder(Manga manga, MangaConnector mangaConnector, MangaConnectorId<Manga> mangaConnectorId, string publicationFolder)
+    private async Task EnsureCoverInPublicationFolder(Series manga, MangaConnector mangaConnector, MangaConnectorId<Series> mangaConnectorId, string publicationFolder)
     {
         if (File.Exists(Path.Join(publicationFolder, "cover.jpg"))) return;
         

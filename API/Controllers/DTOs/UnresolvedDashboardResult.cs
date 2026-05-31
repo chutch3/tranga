@@ -16,5 +16,5 @@ public record UnresolvedMangaEntry(
 /// Result of GET /v2/Library/unresolved
 /// </summary>
 public record UnresolvedDashboardResult(
-    [Required] List<UnresolvedMangaEntry> Manga
+    [Required] List<UnresolvedMangaEntry> Series
 );

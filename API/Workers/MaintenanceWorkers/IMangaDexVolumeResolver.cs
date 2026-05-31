@@ -7,5 +7,5 @@ namespace API.Workers.MaintenanceWorkers;
 
 public interface IMangaDexVolumeResolver
 {
-    Task<Dictionary<string, int>> GetChapterToVolumeMapAsync(Manga manga, CancellationToken cancellationToken = default);
+    Task<Dictionary<string, int>> GetChapterToVolumeMapAsync(Series manga, CancellationToken cancellationToken = default);
 }

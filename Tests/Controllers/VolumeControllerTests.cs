@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Moq;
-using SchemaManga = API.Schema.MangaContext.Manga;
+using SchemaManga = API.Schema.MangaContext.Series;
 using SchemaFileLibrary = API.Schema.MangaContext.FileLibrary;
 using SchemaChapter = API.Schema.MangaContext.Chapter;
 
@@ -82,7 +82,7 @@ public class VolumeControllerTests : IDisposable
         var library = MakeLibrary();
         ctx.FileLibraries.Add(library);
         var manga = MakeTestManga("One Piece", library);
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
 
         var ch1 = new SchemaChapter(manga,"1", 1);
         ch1.FileName = ch1.GetArchiveFileName(new TrangaSettings().ChapterNamingScheme);
@@ -116,7 +116,7 @@ public class VolumeControllerTests : IDisposable
         var library = MakeLibrary();
         ctx.FileLibraries.Add(library);
         var manga = MakeTestManga("Berserk", library);
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
 
         var settings = new TrangaSettings();
         var chGood = new SchemaChapter(manga,"1", 1);
@@ -141,7 +141,7 @@ public class VolumeControllerTests : IDisposable
         var library = MakeLibrary();
         ctx.FileLibraries.Add(library);
         var manga = MakeTestManga("Naruto", library);
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
 
         var chAssigned = new SchemaChapter(manga,"1", 1);
         chAssigned.FileName = chAssigned.GetArchiveFileName(new TrangaSettings().ChapterNamingScheme);
@@ -167,7 +167,7 @@ public class VolumeControllerTests : IDisposable
         var library = MakeLibrary();
         ctx.FileLibraries.Add(library);
         var manga = MakeTestManga("Bleach", library);
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
 
         var ch = new SchemaChapter(manga,"1", 1);
         ch.FileName = ch.GetArchiveFileName(new TrangaSettings().ChapterNamingScheme);
@@ -196,7 +196,7 @@ public class VolumeControllerTests : IDisposable
         var library = MakeLibrary();
         ctx.FileLibraries.Add(library);
         var manga = MakeTestManga("Vinland Saga", library);
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
 
         var ch = new SchemaChapter(manga,"1", 3);
         ch.FileName = ch.GetArchiveFileName(new TrangaSettings().ChapterNamingScheme);
@@ -236,7 +236,7 @@ public class VolumeControllerTests : IDisposable
         var library = MakeLibrary();
         ctx.FileLibraries.Add(library);
         var manga = MakeTestManga("Fullmetal Alchemist", library);
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
 
         var settings = new TrangaSettings();
         var ch = new SchemaChapter(manga,"1", 1);
@@ -260,7 +260,7 @@ public class VolumeControllerTests : IDisposable
         var library = MakeLibrary();
         ctx.FileLibraries.Add(library);
         var manga = MakeTestManga("Dragon Ball", library);
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
 
         var ch = new SchemaChapter(manga,"5", 2);
         ch.FileName = "wrong_name.cbz"; // does not match computed name
@@ -282,7 +282,7 @@ public class VolumeControllerTests : IDisposable
         var library = MakeLibrary();
         ctx.FileLibraries.Add(library);
         var manga = MakeTestManga("Attack on Titan", library);
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
 
         var ch = new SchemaChapter(manga,"1", 1);
         ch.FileName = "wrong_name.cbz";
@@ -319,7 +319,7 @@ public class VolumeControllerTests : IDisposable
         var library = MakeLibrary();
         ctx.FileLibraries.Add(library);
         var manga = MakeTestManga("Hunter x Hunter", library);
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
 
         var ch1 = new SchemaChapter(manga,"1", 1);
         ch1.FileName = "wrong1.cbz";
@@ -344,7 +344,7 @@ public class VolumeControllerTests : IDisposable
         var library = MakeLibrary();
         ctx.FileLibraries.Add(library);
         var manga = MakeTestManga("Fairy Tail", library);
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
 
         var settings = new TrangaSettings();
         var ch = new SchemaChapter(manga,"1", 1);
@@ -382,7 +382,7 @@ public class VolumeControllerTests : IDisposable
         var library = MakeLibrary();
         ctx.FileLibraries.Add(library);
         var manga = MakeTestManga("Naruto", library);
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
         await ctx.SaveChangesAsync();
 
         var (controller, _) = CreateController(ctx);
@@ -391,7 +391,7 @@ public class VolumeControllerTests : IDisposable
         Assert.IsType<Ok<API.Controllers.DTOs.LibraryLayoutResult>>(result.Result);
 
         // Verify DB state persisted
-        var updated = await ctx.Mangas.FindAsync(manga.Key);
+        var updated = await ctx.Series.FindAsync(manga.Key);
         Assert.NotNull(updated);
         Assert.Equal(API.Schema.MangaContext.LibraryLayout.VolumeFolder, updated!.LibraryLayout);
     }
@@ -403,7 +403,7 @@ public class VolumeControllerTests : IDisposable
         var library = MakeLibrary();
         ctx.FileLibraries.Add(library);
         var manga = MakeTestManga("Bleach", library);
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
 
         // Chapter with volume 1 — under VolumeFolder layout, target path should contain "Vol 1"
         var ch = new SchemaChapter(manga, "1", 1);
@@ -431,7 +431,7 @@ public class VolumeControllerTests : IDisposable
         var library = MakeLibrary();
         ctx.FileLibraries.Add(library);
         var manga = MakeTestManga("One Piece", library);
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
 
         var ch = new SchemaChapter(manga, "1", 1);
         ch.FileName = "wrong.cbz";
@@ -453,7 +453,7 @@ public class VolumeControllerTests : IDisposable
         ctx.FileLibraries.Add(library);
         var manga = MakeTestManga("Dragon Ball Z", library);
         manga.LibraryLayout = API.Schema.MangaContext.LibraryLayout.VolumeFolder;
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
 
         var ch = new SchemaChapter(manga, "1", 3);
         ch.FileName = "wrong.cbz"; // current flat path, triggers a move
@@ -477,7 +477,7 @@ public class VolumeControllerTests : IDisposable
         ctx.FileLibraries.Add(library);
         var manga = MakeTestManga("Vinland Saga", library);
         manga.LibraryLayout = API.Schema.MangaContext.LibraryLayout.VolumeFolder;
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
 
         // Chapter with null volume number — must not go into a volume subfolder
         var ch = new SchemaChapter(manga, "1", null);
@@ -510,7 +510,7 @@ public class VolumeControllerTests : IDisposable
         ctx.FileLibraries.Add(library);
         var manga = MakeTestManga("Berserk", library);
         manga.LibraryLayout = API.Schema.MangaContext.LibraryLayout.VolumeFolder;
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
         await ctx.SaveChangesAsync();
 
         var (controller, _) = CreateController(ctx);

@@ -10,7 +10,8 @@ using static System.IO.UnixFileMode;
 namespace API.Schema.MangaContext;
 
 [PrimaryKey("Key")]
-public class Manga : Identifiable
+[Table("Mangas")] // Existing DB table; will be renamed to "Series" in a follow-up migration.
+public class Series : Identifiable
 {
     [StringLength(512)] public string Name { get; internal set; }
     [Required] public string Description { get; internal set; }
@@ -51,12 +52,12 @@ public class Manga : Identifiable
     [NotMapped]
     public ICollection<string> MangaConnectorIdsIds => MangaConnectorIds.Select(id => id.Key).ToList();
     [JsonIgnore]
-    public ICollection<MangaConnectorId<Manga>> MangaConnectorIds = null!;
+    public ICollection<MangaConnectorId<Series>> MangaConnectorIds = null!;
 
-    public Manga(string name, string description, string coverUrl, MangaReleaseStatus releaseStatus,
+    public Series(string name, string description, string coverUrl, MangaReleaseStatus releaseStatus,
         ICollection<Author> authors, ICollection<MangaTag> mangaTags, ICollection<Link> links, ICollection<AltTitle> altTitles,
         FileLibrary? library = null, float ignoreChaptersBefore = 0f, uint? year = null, string? originalLanguage = null)
-    :base(TokenGen.CreateToken(typeof(Manga), name))
+    :base(TokenGen.CreateToken(typeof(Series), name))
     {
         this.Name = name;
         this.Description = description;
@@ -79,7 +80,7 @@ public class Manga : Identifiable
     /// <summary>
     /// EF ONLY!!!
     /// </summary>
-    public Manga(string key, string name, string description, string coverUrl,
+    public Series(string key, string name, string description, string coverUrl,
         MangaReleaseStatus releaseStatus,
         string directoryName, float ignoreChaptersBefore, string? libraryId, uint? year, string? originalLanguage,
         LibraryLayout libraryLayout = LibraryLayout.Flat)
@@ -106,14 +107,14 @@ public class Manga : Identifiable
     }
 
     /// <summary>
-    /// Merges another Manga (MangaConnectorIds and Chapters)
+    /// Merges another Series (MangaConnectorIds and Chapters)
     /// </summary>
-    /// <param name="other">The other <see cref="Manga" /> to merge</param>
+    /// <param name="other">The other <see cref="Series" /> to merge</param>
     /// <param name="context"><see cref="MangaContext"/> to use for Database operations</param>
     /// <returns>An array of <see cref="MoveFileOrFolderWorker"/> for moving <see cref="Chapter"/> to new Directory</returns>
-    public BaseWorker[] MergeFrom(Manga other, MangaContext context)
+    public BaseWorker[] MergeFrom(Series other, MangaContext context)
     {
-        context.Mangas.Remove(other);
+        context.Series.Remove(other);
         List<BaseWorker> newJobs = new();
 
         this.MangaConnectorIds = this.MangaConnectorIds

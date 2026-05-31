@@ -127,7 +127,7 @@ public class MoveFileOrFolderWorkerTests : IDisposable
     [Fact]
     public async Task DoWork_WithUnicodeAndSpecialCharactersInPath_MovesSuccessfully()
     {
-        string weirdFolderName = "Manga 漫画 📁 (Vol 1)";
+        string weirdFolderName = "Series 漫画 📁 (Vol 1)";
         string weirdFileName = "chapter_01_🚀_final (copy).cbz";
 
         var sourceFile = Path.Combine(_testRoot, weirdFileName);

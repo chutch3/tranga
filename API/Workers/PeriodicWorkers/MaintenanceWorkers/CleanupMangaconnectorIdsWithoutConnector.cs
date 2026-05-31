@@ -31,7 +31,7 @@ public class CleanupMangaconnectorIdsWithoutConnector : BaseWorkerWithContexts
         int deletedChapterIds = await MangaContext.MangaConnectorToChapter.Where(chId => connectorNames.All(n => n != chId.MangaConnectorName)).ExecuteDeleteAsync(CancellationToken);
         Log.InfoFormat("Deleted {0} chapterIds.", deletedChapterIds);
         
-        // Manga without Connector get printed to file, to not lose data...
+        // Series without Connector get printed to file, to not lose data...
         if (await MangaContext.MangaConnectorToManga.Include(id => id.Obj) .Where(mcId => connectorNames.All(name => name != mcId.MangaConnectorName)).ToListAsync() is { Count: > 0 } list)
         {
             string filePath = Path.Join(_settings.WorkingDirectory, $"deletedManga-{DateTime.UtcNow.Ticks}.txt");

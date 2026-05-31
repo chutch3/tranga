@@ -27,10 +27,10 @@ public class MangaDexTests
         return mockClient;
     }
 
-    private static MangaConnectorId<Manga> CreateDummyManga(MangaConnector connector)
+    private static MangaConnectorId<Series> CreateDummyManga(MangaConnector connector)
     {
-        var manga = new Manga("Test Manga", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], []);
-        return new MangaConnectorId<Manga>(manga, connector, "test-id", "https://example.com/test");
+        var manga = new Series("Test Series", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], []);
+        return new MangaConnectorId<Series>(manga, connector, "test-id", "https://example.com/test");
     }
 
     [Theory]
@@ -140,7 +140,7 @@ public class MangaDexTests
                 {
                     "id": "manga-1",
                     "attributes": {
-                        "title": { "en": "First Page Manga" },
+                        "title": { "en": "First Page Series" },
                         "description": { "en": "desc" },
                         "status": "ongoing"
                     },
@@ -183,7 +183,7 @@ public class MangaDexTests
         var results = await mangaDex.SearchManga("Test");
 
         Assert.Single(results);
-        Assert.Equal("First Page Manga", results[0].Item1.Name);
+        Assert.Equal("First Page Series", results[0].Item1.Name);
     }
 
     [Fact]

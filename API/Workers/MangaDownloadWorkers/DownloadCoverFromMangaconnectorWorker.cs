@@ -8,9 +8,9 @@ using Microsoft.EntityFrameworkCore;
 namespace API.Workers.MangaDownloadWorkers;
 
 /// <summary>
-/// Downloads the cover for Manga from Mangaconnector
+/// Downloads the cover for Series from Mangaconnector
 /// </summary>
-public class DownloadCoverFromMangaconnectorWorker(MangaConnectorId<Manga> mcId, IEnumerable<MangaConnector> connectors, IEnumerable<BaseWorker>? dependsOn = null)
+public class DownloadCoverFromMangaconnectorWorker(MangaConnectorId<Series> mcId, IEnumerable<MangaConnector> connectors, IEnumerable<BaseWorker>? dependsOn = null)
     : BaseWorkerWithContexts(dependsOn)
 {
     private readonly string _mangaConnectorIdId = mcId.Key;

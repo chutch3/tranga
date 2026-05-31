@@ -12,7 +12,7 @@ namespace API.Schema.MangaContext;
 public class Chapter : Identifiable, IComparable<Chapter>
 {
     [StringLength(64)] public string ParentMangaId { get; init; } = null!;
-    public Manga ParentManga = null!;
+    public Series ParentManga = null!;
 
     [NotMapped] public Dictionary<string, string> IdsOnMangaConnectors =>
         MangaConnectorIds.ToDictionary(id => id.MangaConnectorName, id => id.IdOnConnectorSite);
@@ -31,12 +31,12 @@ public class Chapter : Identifiable, IComparable<Chapter>
 
     public bool IsBundled { get; internal set; }
 
-    /// <exception cref="DirectoryNotFoundException">Library for Manga not loaded</exception>
+    /// <exception cref="DirectoryNotFoundException">Library for Series not loaded</exception>
     [NotMapped]
     public string? FullArchiveFilePath => GetFullFilepath(null);
 
     private static readonly Regex ChapterNumberRegex = new(@"(?:\d+\.)*\d+", RegexOptions.Compiled);
-    public Chapter(Manga parentManga, string chapterNumber,
+    public Chapter(Series parentManga, string chapterNumber,
         int? volumeNumber, string? title = null)
         : base(TokenGen.CreateToken(typeof(Chapter), parentManga.Key, chapterNumber))
     {

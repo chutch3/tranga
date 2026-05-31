@@ -8,14 +8,14 @@ namespace API.Schema.MangaContext.MetadataFetchers;
 public class MetadataEntry
 {
     [JsonIgnore]
-    public Manga Manga { get; init; } = null!;
+    public Series Series { get; init; } = null!;
     public string MangaId  { get; init; }
     public string MetadataFetcherName { get; init; }
     public string Identifier { get; init; }
 
-    public MetadataEntry(MetadataFetcher fetcher, Manga manga, string identifier)
+    public MetadataEntry(MetadataFetcher fetcher, Series manga, string identifier)
     {
-        this.Manga = manga;
+        this.Series = manga;
         this.MangaId = manga.Key;
         this.MetadataFetcherName = fetcher.Name;
         this.Identifier = identifier;

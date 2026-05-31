@@ -68,15 +68,15 @@ public class UnbundleVolumeWorkerTests : IDisposable
     /// Creates a bundle CBZ with pages from multiple chapters and sets up the DB state.
     /// Returns (manga, vol, chapters).
     /// </summary>
-    private async Task<(Manga manga, VolumeMetadata vol, Chapter[] chapters)> SetupBundledAsync(
+    private async Task<(Series manga, VolumeMetadata vol, Chapter[] chapters)> SetupBundledAsync(
         int volumeNumber = 1, int chapterCount = 2, int pagesPerChapter = 4)
     {
-        var library = new FileLibrary(_testRoot, "Test Manga Library");
+        var library = new FileLibrary(_testRoot, "Test Series Library");
         _mangaContext.FileLibraries.Add(library);
 
-        var manga = new Manga("Bundle Test Manga", "Desc", "http://example.com/cover.jpg",
+        var manga = new Series("Bundle Test Series", "Desc", "http://example.com/cover.jpg",
             MangaReleaseStatus.Continuing, [], [], [], [], library);
-        _mangaContext.Mangas.Add(manga);
+        _mangaContext.Series.Add(manga);
 
         string bundleName = $"Vol {volumeNumber}.cbz";
         var vol = new VolumeMetadata(manga, volumeNumber);
@@ -147,9 +147,9 @@ public class UnbundleVolumeWorkerTests : IDisposable
     {
         var library = new FileLibrary(_testRoot, "Lib");
         _mangaContext.FileLibraries.Add(library);
-        var manga = new Manga("No Map Manga", "Desc", "http://example.com/cover.jpg",
+        var manga = new Series("No Map Series", "Desc", "http://example.com/cover.jpg",
             MangaReleaseStatus.Continuing, [], [], [], [], library);
-        _mangaContext.Mangas.Add(manga);
+        _mangaContext.Series.Add(manga);
         var vol = new VolumeMetadata(manga, 1);
         vol.ArchiveFileName = "Vol 1.cbz";
         _mangaContext.VolumeMetadata.Add(vol);

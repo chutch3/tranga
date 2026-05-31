@@ -39,7 +39,7 @@ public class MetadataFetcherControllerTests
     // Concrete test double — parameterless MetadataFetcher sets Name = GetType().Name
     private sealed class FakeFetcher : MetadataFetcher
     {
-        public override Task<MetadataSearchResult[]> SearchMetadataEntry(Manga manga) => Task.FromResult<MetadataSearchResult[]>([]);
+        public override Task<MetadataSearchResult[]> SearchMetadataEntry(Series manga) => Task.FromResult<MetadataSearchResult[]>([]);
         public override Task<MetadataSearchResult[]> SearchMetadataEntry(string searchTerm) => Task.FromResult<MetadataSearchResult[]>([]);
         public override Task UpdateMetadata(MetadataEntry metadataEntry, MangaContext dbContext, CancellationToken token) => Task.CompletedTask;
     }
@@ -103,7 +103,7 @@ public class MetadataFetcherControllerTests
         using var mangaCtx = CreateMangaContext();
         using var actionsCtx = CreateActionsContext();
         var manga = MangaTests.MakeTestManga();
-        mangaCtx.Mangas.Add(manga);
+        mangaCtx.Series.Add(manga);
         await mangaCtx.SaveChangesAsync();
 
         var result = await CreateController(mangaCtx, actionsCtx, [])
@@ -131,7 +131,7 @@ public class MetadataFetcherControllerTests
         using var mangaCtx = CreateMangaContext();
         using var actionsCtx = CreateActionsContext();
         var manga = MangaTests.MakeTestManga();
-        mangaCtx.Mangas.Add(manga);
+        mangaCtx.Series.Add(manga);
         await mangaCtx.SaveChangesAsync();
 
         var result = await CreateController(mangaCtx, actionsCtx, [])
@@ -159,7 +159,7 @@ public class MetadataFetcherControllerTests
         using var mangaCtx = CreateMangaContext();
         using var actionsCtx = CreateActionsContext();
         var manga = MangaTests.MakeTestManga();
-        mangaCtx.Mangas.Add(manga);
+        mangaCtx.Series.Add(manga);
         await mangaCtx.SaveChangesAsync();
 
         var result = await CreateController(mangaCtx, actionsCtx, [])
@@ -184,7 +184,7 @@ public class MetadataFetcherControllerTests
 
     private sealed class ExplodingFetcher : MetadataFetcher
     {
-        public override Task<MetadataSearchResult[]> SearchMetadataEntry(Manga manga) => throw new Exception("Jikan Gateway Timeout");
+        public override Task<MetadataSearchResult[]> SearchMetadataEntry(Series manga) => throw new Exception("Jikan Gateway Timeout");
         public override Task<MetadataSearchResult[]> SearchMetadataEntry(string searchTerm) => Task.FromResult<MetadataSearchResult[]>([]);
         public override Task UpdateMetadata(MetadataEntry metadataEntry, MangaContext dbContext, CancellationToken token) => Task.CompletedTask;
     }
@@ -194,8 +194,8 @@ public class MetadataFetcherControllerTests
     {
         using var mangaCtx = CreateMangaContext();
         using var actionsCtx = CreateActionsContext();
-        var manga = new Manga("Test", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], []);
-        mangaCtx.Mangas.Add(manga);
+        var manga = new Series("Test", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], []);
+        mangaCtx.Series.Add(manga);
         await mangaCtx.SaveChangesAsync();
         
         var fetcher = new ExplodingFetcher();

@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations;
 namespace API.Controllers.Requests;
 
 /// <summary>
-/// Request body for PUT /Manga/{id}/metadataSource
+/// Request body for PUT /Series/{id}/metadataSource
 /// </summary>
 public record PatchMetadataSourceRecord(
     /// <summary>Source type (e.g. MangaDex, AniList, Manual)</summary>

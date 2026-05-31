@@ -15,7 +15,7 @@ public record MetadataSearchResult(
     [Required]
     public string Identifier { get; init; } = Identifier;
     /// <summary>
-    /// Name of the Manga
+    /// Name of the Series
     /// </summary>
     [Required]
     public string Name { get; init; } = Name;
@@ -25,7 +25,7 @@ public record MetadataSearchResult(
     [Required]
     public string Url { get; init; } = Url;
     /// <summary>
-    /// Description of the Manga
+    /// Description of the Series
     /// </summary>
     [Required]
     public string? Description { get; init; } = Description;

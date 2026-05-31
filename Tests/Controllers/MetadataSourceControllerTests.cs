@@ -34,17 +34,17 @@ public class MetadataSourceControllerTests
         return controller;
     }
 
-    private static API.Schema.MangaContext.Manga MakeTestManga(string name = "Test Manga")
+    private static API.Schema.MangaContext.Series MakeTestManga(string name = "Test Series")
         => new(name, "", "http://example.com/img.jpg", MangaReleaseStatus.Continuing, [], [], [], []);
 
-    // --- GET /v2/Manga/{mangaId}/metadataSource ---
+    // --- GET /v2/Series/{mangaId}/metadataSource ---
 
     [Fact]
     public async Task GetMetadataSource_KnownManga_ReturnsSource()
     {
         using var ctx = CreateContext();
         var manga = MakeTestManga("One Piece");
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
         await ctx.SaveChangesAsync();
 
         var result = await CreateController(ctx).GetMetadataSource(manga.Key);
@@ -67,14 +67,14 @@ public class MetadataSourceControllerTests
         Assert.IsType<NotFound<string>>(result.Result);
     }
 
-    // --- PUT /v2/Manga/{mangaId}/metadataSource ---
+    // --- PUT /v2/Series/{mangaId}/metadataSource ---
 
     [Fact]
     public async Task SetMetadataSource_ValidRequest_SetsConfirmedStatus()
     {
         using var ctx = CreateContext();
         var manga = MakeTestManga("Berserk");
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
         await ctx.SaveChangesAsync();
 
         var request = new PatchMetadataSourceRecord("MangaDex", "some-external-id-123");
@@ -82,7 +82,7 @@ public class MetadataSourceControllerTests
 
         Assert.IsType<NoContent>(result.Result);
 
-        var updated = await ctx.Mangas.Include(m => m.MetadataSource).FirstAsync(m => m.Key == manga.Key);
+        var updated = await ctx.Series.Include(m => m.MetadataSource).FirstAsync(m => m.Key == manga.Key);
         Assert.Equal(MetadataSourceType.MangaDex, updated.MetadataSource!.SourceType);
         Assert.Equal("some-external-id-123", updated.MetadataSource!.ExternalId);
         Assert.Equal(MetadataSourceStatus.Confirmed, updated.MetadataSource!.Status);
@@ -93,7 +93,7 @@ public class MetadataSourceControllerTests
     {
         using var ctx = CreateContext();
         var manga = MakeTestManga("Berserk");
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
         await ctx.SaveChangesAsync();
 
         var request = new PatchMetadataSourceRecord("MangaDex", "");
@@ -107,7 +107,7 @@ public class MetadataSourceControllerTests
     {
         using var ctx = CreateContext();
         var manga = MakeTestManga("Berserk");
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
         await ctx.SaveChangesAsync();
 
         var request = new PatchMetadataSourceRecord("MangaDex", null!);
@@ -126,7 +126,7 @@ public class MetadataSourceControllerTests
         Assert.IsType<NotFound<string>>(result.Result);
     }
 
-    // --- GET /v2/Manga/{mangaId}/metadataSource/candidates ---
+    // --- GET /v2/Series/{mangaId}/metadataSource/candidates ---
 
     [Fact]
     public async Task GetCandidates_UnknownManga_ReturnsNotFound()
@@ -142,7 +142,7 @@ public class MetadataSourceControllerTests
     {
         using var ctx = CreateContext();
         var manga = MakeTestManga("One Piece");
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
         await ctx.SaveChangesAsync();
 
         var mockSearch = new Mock<IMangaDexSearchService>();
@@ -166,7 +166,7 @@ public class MetadataSourceControllerTests
         Assert.Equal("One Piece", ok.Value[0].Title);
     }
 
-    // --- POST /v2/Manga/{mangaId}/metadataSource/refresh ---
+    // --- POST /v2/Series/{mangaId}/metadataSource/refresh ---
 
     [Fact]
     public async Task RefreshMetadataSource_UnknownManga_ReturnsNotFound()
@@ -182,7 +182,7 @@ public class MetadataSourceControllerTests
     {
         using var ctx = CreateContext();
         var manga = MakeTestManga("Naruto");
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
         await ctx.SaveChangesAsync();
 
         // MetadataSource is Unlinked by default
@@ -203,11 +203,11 @@ public class MetadataSourceControllerTests
         var manga = MakeTestManga("Naruto");
         manga.MetadataSource!.ExternalId = "naruto-ext-id";
         manga.MetadataSource!.Status = MetadataSourceStatus.Confirmed;
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
         await ctx.SaveChangesAsync();
 
         // Verify the manga exists and has a confirmed source (preconditions for 202 response)
-        var loaded = await ctx.Mangas.Include(m => m.MetadataSource).FirstAsync(m => m.Key == manga.Key);
+        var loaded = await ctx.Series.Include(m => m.MetadataSource).FirstAsync(m => m.Key == manga.Key);
         Assert.Equal(MetadataSourceStatus.Confirmed, loaded.MetadataSource!.Status);
         Assert.Equal("naruto-ext-id", loaded.MetadataSource!.ExternalId);
         // The actual endpoint returns Accepted (202) when these conditions hold.

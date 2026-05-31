@@ -32,11 +32,11 @@ public class RefreshLibrariesWorker(IEnumerable<BaseWorker>? dependsOn = null) :
 public enum LibraryRefreshSetting
 {
     /// <summary>
-    /// Refresh Libraries after all Manga are downloaded
+    /// Refresh Libraries after all Series are downloaded
     /// </summary>
     AfterAllFinished,
     /// <summary>
-    /// Refresh Libraries after a Manga is downloaded
+    /// Refresh Libraries after a Series is downloaded
     /// </summary>
     AfterMangaFinished,
     /// <summary>

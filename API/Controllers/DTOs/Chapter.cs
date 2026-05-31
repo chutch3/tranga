@@ -9,10 +9,10 @@ namespace API.Controllers.DTOs;
 public sealed record Chapter(string Key, string MangaId, int? Volume, string ChapterNumber, string? Title, IEnumerable<MangaConnectorId<Chapter>> MangaConnectorIds, bool Downloaded, string? FileName) : Identifiable(Key)
 {
     /// <summary>
-    /// Identifier of the Manga this Chapter belongs to
+    /// Identifier of the Series this Chapter belongs to
     /// </summary>
     [Required]
-    [Description("Identifier of the Manga this Chapter belongs to")]
+    [Description("Identifier of the Series this Chapter belongs to")]
     public string MangaId { get; init; } = MangaId;
     
     /// <summary>
@@ -44,10 +44,10 @@ public sealed record Chapter(string Key, string MangaId, int? Volume, string Cha
     public bool Downloaded { get; init; } = Downloaded;
     
     /// <summary>
-    /// Ids of the Manga on MangaConnectors
+    /// Ids of the Series on MangaConnectors
     /// </summary>
     [Required]
-    [Description("Ids of the Manga on MangaConnectors")]
+    [Description("Ids of the Series on MangaConnectors")]
     public IEnumerable<MangaConnectorId<Chapter>> MangaConnectorIds { get; init; } = MangaConnectorIds;
     
     /// <summary>

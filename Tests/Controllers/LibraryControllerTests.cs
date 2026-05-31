@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using SchemaManga = API.Schema.MangaContext.Manga;
+using SchemaManga = API.Schema.MangaContext.Series;
 using SchemaFileLibrary = API.Schema.MangaContext.FileLibrary;
 using SchemaChapter = API.Schema.MangaContext.Chapter;
 
@@ -66,8 +66,8 @@ public class LibraryControllerTests : IDisposable
         using var ctx = CreateContext();
         var library = MakeLibrary();
         ctx.FileLibraries.Add(library);
-        var manga = MakeTestManga("Perfect Manga", library);
-        ctx.Mangas.Add(manga);
+        var manga = MakeTestManga("Perfect Series", library);
+        ctx.Series.Add(manga);
 
         // Chapter downloaded with volume number set — no issues
         var ch = new SchemaChapter(manga, "1", 1);
@@ -81,7 +81,7 @@ public class LibraryControllerTests : IDisposable
 
         var ok = Assert.IsType<Ok<UnresolvedDashboardResult>>(result);
         Assert.NotNull(ok.Value);
-        Assert.Empty(ok.Value!.Manga);
+        Assert.Empty(ok.Value!.Series);
     }
 
     [Fact]
@@ -90,8 +90,8 @@ public class LibraryControllerTests : IDisposable
         using var ctx = CreateContext();
         var library = MakeLibrary();
         ctx.FileLibraries.Add(library);
-        var manga = MakeTestManga("Unresolved Manga", library);
-        ctx.Mangas.Add(manga);
+        var manga = MakeTestManga("Unresolved Series", library);
+        ctx.Series.Add(manga);
 
         // Downloaded but no volume number — unresolved
         var ch1 = new SchemaChapter(manga, "1", null);
@@ -114,8 +114,8 @@ public class LibraryControllerTests : IDisposable
         var result = await controller.GetUnresolved();
 
         var ok = Assert.IsType<Ok<UnresolvedDashboardResult>>(result);
-        Assert.Single(ok.Value!.Manga);
-        var entry = ok.Value.Manga[0];
+        Assert.Single(ok.Value!.Series);
+        var entry = ok.Value.Series[0];
         Assert.Equal(manga.Key, entry.MangaId);
         Assert.Equal(manga.Name, entry.MangaName);
         Assert.Equal(2, entry.UnresolvedChapterCount);
@@ -128,8 +128,8 @@ public class LibraryControllerTests : IDisposable
         using var ctx = CreateContext();
         var library = MakeLibrary();
         ctx.FileLibraries.Add(library);
-        var manga = MakeTestManga("Missing Files Manga", library);
-        ctx.Mangas.Add(manga);
+        var manga = MakeTestManga("Missing Files Series", library);
+        ctx.Series.Add(manga);
 
         // Downloaded but FileName is null — broken/missing
         var ch1 = new SchemaChapter(manga, "1", 1);
@@ -152,8 +152,8 @@ public class LibraryControllerTests : IDisposable
         var result = await controller.GetUnresolved();
 
         var ok = Assert.IsType<Ok<UnresolvedDashboardResult>>(result);
-        Assert.Single(ok.Value!.Manga);
-        var entry = ok.Value.Manga[0];
+        Assert.Single(ok.Value!.Series);
+        var entry = ok.Value.Series[0];
         Assert.Equal(2, entry.MissingFileCount);
         Assert.Equal(0, entry.UnresolvedChapterCount);
     }
@@ -163,10 +163,10 @@ public class LibraryControllerTests : IDisposable
     {
         using var ctx = CreateContext();
 
-        // Manga with no library (search result / not tracked)
+        // Series with no library (search result / not tracked)
         var manga = new SchemaManga("Search Result", "", "http://example.com/img.jpg",
             MangaReleaseStatus.Continuing, [], [], [], []);
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
 
         var ch = new SchemaChapter(manga, "1", null);
         ch.Downloaded = true;
@@ -178,7 +178,7 @@ public class LibraryControllerTests : IDisposable
         var result = await controller.GetUnresolved();
 
         var ok = Assert.IsType<Ok<UnresolvedDashboardResult>>(result);
-        Assert.Empty(ok.Value!.Manga);
+        Assert.Empty(ok.Value!.Series);
     }
 
     [Fact]
@@ -187,8 +187,8 @@ public class LibraryControllerTests : IDisposable
         using var ctx = CreateContext();
         var library = MakeLibrary();
         ctx.FileLibraries.Add(library);
-        var manga = MakeTestManga("Manga With Not Downloaded", library);
-        ctx.Mangas.Add(manga);
+        var manga = MakeTestManga("Series With Not Downloaded", library);
+        ctx.Series.Add(manga);
 
         // Not downloaded — should not count
         var ch = new SchemaChapter(manga, "1", null);
@@ -200,7 +200,7 @@ public class LibraryControllerTests : IDisposable
         var result = await controller.GetUnresolved();
 
         var ok = Assert.IsType<Ok<UnresolvedDashboardResult>>(result);
-        Assert.Empty(ok.Value!.Manga);
+        Assert.Empty(ok.Value!.Series);
     }
 
     [Fact]
@@ -210,9 +210,9 @@ public class LibraryControllerTests : IDisposable
         var library = MakeLibrary();
         ctx.FileLibraries.Add(library);
 
-        var goodManga = MakeTestManga("Good Manga", library);
-        var badManga = MakeTestManga("Bad Manga", library);
-        ctx.Mangas.AddRange(goodManga, badManga);
+        var goodManga = MakeTestManga("Good Series", library);
+        var badManga = MakeTestManga("Bad Series", library);
+        ctx.Series.AddRange(goodManga, badManga);
 
         // Good manga — all resolved
         var ch1 = new SchemaChapter(goodManga, "1", 1);
@@ -231,7 +231,7 @@ public class LibraryControllerTests : IDisposable
         var result = await controller.GetUnresolved();
 
         var ok = Assert.IsType<Ok<UnresolvedDashboardResult>>(result);
-        Assert.Single(ok.Value!.Manga);
-        Assert.Equal(badManga.Key, ok.Value.Manga[0].MangaId);
+        Assert.Single(ok.Value!.Series);
+        Assert.Equal(badManga.Key, ok.Value.Series[0].MangaId);
     }
 }

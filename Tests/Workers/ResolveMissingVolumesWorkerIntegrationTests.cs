@@ -104,11 +104,11 @@ public class ResolveMissingVolumesWorkerIntegrationTests : IAsyncLifetime
         {
             var library = new FileLibrary(_tempDir, "Integration Library");
             setupDb.FileLibraries.Add(library);
-            var manga = new Manga("Berserk", "Dark fantasy", "url", MangaReleaseStatus.Continuing,
+            var manga = new Series("Berserk", "Dark fantasy", "url", MangaReleaseStatus.Continuing,
                 [], [], [], [], library);
             manga.MangaConnectorIds.Add(
-                new MangaConnectorId<Manga>(manga, "MangaDex", berserkUuid, null));
-            setupDb.Mangas.Add(manga);
+                new MangaConnectorId<Series>(manga, "MangaDex", berserkUuid, null));
+            setupDb.Series.Add(manga);
             setupDb.Chapters.Add(new Chapter(manga, "1", null, "Black Swordsman")
                 { Downloaded = true, FileName = "berserk_ch1.cbz" });
             await setupDb.SaveChangesAsync();
@@ -141,11 +141,11 @@ public class ResolveMissingVolumesWorkerIntegrationTests : IAsyncLifetime
         {
             var library = new FileLibrary(_tempDir, "Integration Library");
             setupDb.FileLibraries.Add(library);
-            var manga = new Manga("Berserk", "Dark fantasy", "url", MangaReleaseStatus.Continuing,
+            var manga = new Series("Berserk", "Dark fantasy", "url", MangaReleaseStatus.Continuing,
                 [], [], [], [], library);
             manga.MangaConnectorIds.Add(
-                new MangaConnectorId<Manga>(manga, "MangaDex", berserkUuid, null));
-            setupDb.Mangas.Add(manga);
+                new MangaConnectorId<Series>(manga, "MangaDex", berserkUuid, null));
+            setupDb.Series.Add(manga);
             // Constructor normalizes "0.01" → "0.1"
             setupDb.Chapters.Add(new Chapter(manga, "0.01", null, "The Black Swordsman")
                 { Downloaded = true, FileName = "berserk_ch001.cbz" });
@@ -171,10 +171,10 @@ public class ResolveMissingVolumesWorkerIntegrationTests : IAsyncLifetime
         const string berserkUuid = "801513ba-a712-498c-8f57-cae55b38cc92";
 
         var library = new FileLibrary(_tempDir, "Integration Library");
-        var manga = new Manga("Berserk", "Dark fantasy", "url", MangaReleaseStatus.Continuing,
+        var manga = new Series("Berserk", "Dark fantasy", "url", MangaReleaseStatus.Continuing,
             [], [], [], [], library);
         manga.MangaConnectorIds.Add(
-            new MangaConnectorId<Manga>(manga, "MangaDex", berserkUuid, null));
+            new MangaConnectorId<Series>(manga, "MangaDex", berserkUuid, null));
 
         var resolver = new MangaDexVolumeResolver(_httpClient);
         var map = await resolver.GetChapterToVolumeMapAsync(manga);
@@ -196,17 +196,17 @@ public class ResolveMissingVolumesWorkerIntegrationTests : IAsyncLifetime
             .Options;
 
         FileLibrary library;
-        Manga manga;
+        Series manga;
 
         using (var setupDb = CreateMangaContext(dbOptions))
         {
             library = new FileLibrary(_tempDir, "Integration Library");
             setupDb.FileLibraries.Add(library);
-            manga = new Manga("One Punch-Man", "Superhero comedy", "url",
+            manga = new Series("One Punch-Man", "Superhero comedy", "url",
                 MangaReleaseStatus.Continuing, [], [], [], [], library);
             manga.MangaConnectorIds.Add(
-                new MangaConnectorId<Manga>(manga, "MangaDex", opmMangaDexUuid, null));
-            setupDb.Mangas.Add(manga);
+                new MangaConnectorId<Series>(manga, "MangaDex", opmMangaDexUuid, null));
+            setupDb.Series.Add(manga);
             setupDb.Chapters.Add(new Chapter(manga, "1", null, "Punch 1")
                 { Downloaded = true, FileName = "chap1.cbz" });
             await setupDb.SaveChangesAsync();

@@ -25,16 +25,16 @@ namespace API.Controllers;
 public class ChaptersController(MangaContext context, TrangaSettings settings, IEnumerable<MangaConnectorImpl> connectors, IWorkerQueue workerQueue, IChapterThumbnailService chapterThumbnailService) : ControllerBase
 {
     /// <summary>
-    /// Returns all <see cref="Schema.MangaContext.Chapter"/> of <see cref="Schema.MangaContext.Manga"/> with <paramref name="MangaId"/>
+    /// Returns all <see cref="Schema.MangaContext.Chapter"/> of <see cref="Schema.MangaContext.Series"/> with <paramref name="MangaId"/>
     /// </summary>
-    /// <param name="MangaId"><see cref="Schema.MangaContext.Manga"/>.Key</param>
+    /// <param name="MangaId"><see cref="Schema.MangaContext.Series"/>.Key</param>
     /// <param name="filter"></param>
     /// <param name="page">Page to request (default 1)</param>
     /// <param name="pageSize">Size of Page (default 10)</param>
     /// <response code="200"></response>
     /// <response code="400">Page data wrong</response>
     /// <response code="500">Error during Database request</response>
-    [HttpPost("Manga/{MangaId}")]
+    [HttpPost("Series/{MangaId}")]
     [ProducesResponseType<PagedResponse<Chapter>>(Status200OK, "application/json")]
     [ProducesResponseType(Status400BadRequest)]
     [ProducesResponseType(Status500InternalServerError)]
@@ -74,20 +74,20 @@ public class ChaptersController(MangaContext context, TrangaSettings settings, I
     }
 
     /// <summary>
-    /// Returns the latest <see cref="Chapter"/> of requested <see cref="Schema.MangaContext.Manga"/>
+    /// Returns the latest <see cref="Chapter"/> of requested <see cref="Schema.MangaContext.Series"/>
     /// </summary>
-    /// <param name="MangaId"><see cref="Schema.MangaContext.Manga"/>.Key</param>
+    /// <param name="MangaId"><see cref="Schema.MangaContext.Series"/>.Key</param>
     /// <response code="200"></response>
     /// <response code="204">No available chapters</response>
-    /// <response code="404"><see cref="Schema.MangaContext.Manga"/> with <paramref name="MangaId"/> not found.</response>
+    /// <response code="404"><see cref="Schema.MangaContext.Series"/> with <paramref name="MangaId"/> not found.</response>
     [HttpGet("LatestAvailable/{MangaId}")]
     [ProducesResponseType<int>(Status200OK, "application/json")]
     [ProducesResponseType(Status204NoContent)]
     [ProducesResponseType<string>(Status404NotFound, "text/plain")]
     public async Task<Results<Ok<Chapter>, NoContent, NotFound<string>>> GetLatestChapter(string MangaId)
     {
-        // 1. Explicitly check if the parent Manga actually exists
-        if (!await context.Mangas.AnyAsync(m => m.Key == MangaId, HttpContext.RequestAborted))
+        // 1. Explicitly check if the parent Series actually exists
+        if (!await context.Series.AnyAsync(m => m.Key == MangaId, HttpContext.RequestAborted))
             return TypedResults.NotFound(nameof(MangaId));
 
         // 2. Fetch the chapters
@@ -97,7 +97,7 @@ public class ChaptersController(MangaContext context, TrangaSettings settings, I
 
         Schema.MangaContext.Chapter? c = dbChapters.Max();
 
-        // 3. If Manga exists but has 0 chapters, return NoContent
+        // 3. If Series exists but has 0 chapters, return NoContent
         if (c is null)
             return TypedResults.NoContent();
 
@@ -107,12 +107,12 @@ public class ChaptersController(MangaContext context, TrangaSettings settings, I
         return TypedResults.Ok(new Chapter(c.Key, c.ParentMangaId, c.VolumeNumber, c.ChapterNumber, c.Title, ids, c.Downloaded, c.FileName));
     }
     /// <summary>
-    /// Returns the latest <see cref="Chapter"/> of requested <see cref="Schema.MangaContext.Manga"/> that is downloaded
+    /// Returns the latest <see cref="Chapter"/> of requested <see cref="Schema.MangaContext.Series"/> that is downloaded
     /// </summary>
-    /// <param name="MangaId"><see cref="Schema.MangaContext.Manga"/>.Key</param>
+    /// <param name="MangaId"><see cref="Schema.MangaContext.Series"/>.Key</param>
     /// <response code="200"></response>
     /// <response code="204">No available chapters</response>
-    /// <response code="404"><see cref="Schema.MangaContext.Manga"/> with <paramref name="MangaId"/> not found.</response>
+    /// <response code="404"><see cref="Schema.MangaContext.Series"/> with <paramref name="MangaId"/> not found.</response>
     /// <response code="412">Could not retrieve the maximum chapter-number</response>
     /// <response code="503">Retry after timeout, updating value</response>
     [HttpGet("LatestDownloaded/{MangaId}")]
@@ -139,12 +139,12 @@ public class ChaptersController(MangaContext context, TrangaSettings settings, I
     }
 
     /// <summary>
-    /// Configure the <see cref="Chapter"/> cut-off for <see cref="Schema.MangaContext.Manga"/>
+    /// Configure the <see cref="Chapter"/> cut-off for <see cref="Schema.MangaContext.Series"/>
     /// </summary>
-    /// <param name="MangaId"><see cref="Schema.MangaContext.Manga"/>.Key</param>
+    /// <param name="MangaId"><see cref="Schema.MangaContext.Series"/>.Key</param>
     /// <param name="chapterThreshold">Threshold (<see cref="Chapter"/> ChapterNumber)</param>
     /// <response code="202"></response>
-    /// <response code="404"><see cref="Schema.MangaContext.Manga"/> with <paramref name="MangaId"/> not found.</response>
+    /// <response code="404"><see cref="Schema.MangaContext.Series"/> with <paramref name="MangaId"/> not found.</response>
     /// <response code="500">Error during Database Operation</response>
     [HttpPatch("IgnoreBefore/{MangaId}")]
     [ProducesResponseType(Status200OK)]
@@ -152,7 +152,7 @@ public class ChaptersController(MangaContext context, TrangaSettings settings, I
     [ProducesResponseType<string>(Status500InternalServerError, "text/plain")]
     public async Task<Results<Ok, NotFound<string>, InternalServerError<string>>> IgnoreChaptersBefore(string MangaId, [FromBody]float chapterThreshold)
     {
-        if (await context.Mangas.FirstOrDefaultAsync(m => m.Key == MangaId, HttpContext.RequestAborted) is not { } manga)
+        if (await context.Series.FirstOrDefaultAsync(m => m.Key == MangaId, HttpContext.RequestAborted) is not { } manga)
             return TypedResults.NotFound(nameof(MangaId));
 
         manga.IgnoreChaptersBefore = chapterThreshold;

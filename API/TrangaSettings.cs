@@ -27,7 +27,7 @@ public class TrangaSettings
     [JsonIgnore] public string CoverImageCacheMedium => Path.Join(CoverImageCache, "medium");
     [JsonIgnore] public string CoverImageCacheSmall => Path.Join(CoverImageCache, "small");
 
-    public string DefaultDownloadLocation => Environment.GetEnvironmentVariable("DOWNLOAD_LOCATION") ?? (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? "/Manga" : Path.Join(Directory.GetCurrentDirectory(), "Manga"));
+    public string DefaultDownloadLocation => Environment.GetEnvironmentVariable("DOWNLOAD_LOCATION") ?? (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? "/Series" : Path.Join(Directory.GetCurrentDirectory(), "Series"));
     [JsonIgnore] internal static readonly string DefaultUserAgent = $"Tranga/2.0 ({Enum.GetName(Environment.OSVersion.Platform)}; {(Environment.Is64BitOperatingSystem ? "x64" : "")})";
     public string UserAgent { get; set; } = DefaultUserAgent;
     public int ImageCompression{ get; set; } = 40;

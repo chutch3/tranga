@@ -20,7 +20,7 @@ public class BundleVolumeWorker(string mangaId, int volumeNumber, TrangaSettings
     protected override async Task<BaseWorker[]> DoWorkInternal()
     {
         var volumeMetadata = await _mangaContext.VolumeMetadata
-            .Include(v => v.Manga)
+            .Include(v => v.Series)
             .ThenInclude(m => m.Library)
             .FirstOrDefaultAsync(v => v.MangaId == mangaId && v.VolumeNumber == volumeNumber, CancellationToken);
 
@@ -30,7 +30,7 @@ public class BundleVolumeWorker(string mangaId, int volumeNumber, TrangaSettings
             return [];
         }
 
-        var manga = volumeMetadata.Manga;
+        var manga = volumeMetadata.Series;
 
         var chapters = await _mangaContext.Chapters
             .Where(c => c.ParentMangaId == mangaId

@@ -205,7 +205,7 @@ public class SettingsController(TrangaSettings settings) : ControllerBase
     }
 
     /// <summary>
-    /// Returns the language in which Manga are downloaded
+    /// Returns the language in which Series are downloaded
     /// </summary>
     /// <response code="200"></response>
     [HttpGet("DownloadLanguage")]
@@ -216,7 +216,7 @@ public class SettingsController(TrangaSettings settings) : ControllerBase
     }
 
     /// <summary>
-    /// Sets the language in which Manga are downloaded
+    /// Sets the language in which Series are downloaded
     /// </summary>
     /// <response code="200"></response>
     [HttpPatch("DownloadLanguage/{Language}")]

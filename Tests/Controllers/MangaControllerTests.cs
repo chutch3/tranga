@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Moq;
 using Chapter = API.Schema.MangaContext.Chapter;
-using ConnectorId = API.Schema.MangaContext.MangaConnectorId<API.Schema.MangaContext.Manga>;
+using ConnectorId = API.Schema.MangaContext.MangaConnectorId<API.Schema.MangaContext.Series>;
 
 namespace API.Tests.Controllers;
 
@@ -42,19 +42,19 @@ public class MangaControllerTests
         return controller;
     }
 
-    private static API.Schema.MangaContext.Manga MakeTestManga(string name)
+    private static API.Schema.MangaContext.Series MakeTestManga(string name)
         => new(name, "", "http://example.com/img.jpg", MangaReleaseStatus.Continuing, [], [], [], []);
 
     [Fact]
     public async Task GetAllManga_ExcludesSearchOnlyManga()
     {
         var (ctx, actionsCtx) = CreateContexts();
-        ctx.Mangas.Add(MakeTestManga("SearchResult"));
+        ctx.Series.Add(MakeTestManga("SearchResult"));
         await ctx.SaveChangesAsync();
 
         var result = await CreateController(ctx, actionsCtx).GetAllManga();
 
-        var ok = Assert.IsType<Ok<List<MinimalManga>>>(result.Result);
+        var ok = Assert.IsType<Ok<List<MinimalSeries>>>(result.Result);
         Assert.Empty(ok.Value!);
     }
 
@@ -66,7 +66,7 @@ public class MangaControllerTests
         ctx.FileLibraries.Add(library);
         await ctx.SaveChangesAsync();
 
-        var manga = MakeTestManga("New Manga");
+        var manga = MakeTestManga("New Series");
         var connectorId = new ConnectorId(manga, "MangaDex", "ext-id", null);
 
         var mockConnector = new Mock<API.MangaConnectors.MangaConnector>("MangaDex", new[] { "en" }, new[] { "mangadex.org" }, "icon.png", new TrangaSettings());
@@ -77,7 +77,7 @@ public class MangaControllerTests
         var result = await controller.ChangeLibrary(manga.Key, library.Key, "MangaDex", "ext-id");
 
         Assert.IsType<Ok>(result.Result);
-        var mangaInDb = await ctx.Mangas.FirstOrDefaultAsync(m => m.Key == manga.Key);
+        var mangaInDb = await ctx.Series.FirstOrDefaultAsync(m => m.Key == manga.Key);
         Assert.NotNull(mangaInDb);
         Assert.True(mangaInDb.IsTracked);
         Assert.Equal(library.Key, mangaInDb.LibraryId);

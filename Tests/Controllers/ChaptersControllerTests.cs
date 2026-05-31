@@ -56,7 +56,7 @@ public class ChaptersControllerTests: IDisposable
         }
     }
 
-    private static API.Schema.MangaContext.Manga MakeTestManga(string name)
+    private static API.Schema.MangaContext.Series MakeTestManga(string name)
         => new(name, "", "http://example.com/img.jpg", MangaReleaseStatus.Continuing, [], [], [], []);
 
     [Fact]
@@ -68,7 +68,7 @@ public class ChaptersControllerTests: IDisposable
         var manga = MakeTestManga("Berserk");
         var chapter = new API.Schema.MangaContext.Chapter(manga, "23", null);
         chapter.FileName = "Berserk - Ch.23.cbz";
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
         ctx.Chapters.Add(chapter);
         await ctx.SaveChangesAsync();
 
@@ -98,7 +98,7 @@ public class ChaptersControllerTests: IDisposable
         using var ctx = CreateContext();
         var manga = MakeTestManga("Berserk");
         var chapter = new API.Schema.MangaContext.Chapter(manga, "1", 5);
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
         ctx.Chapters.Add(chapter);
         await ctx.SaveChangesAsync();
 
@@ -129,7 +129,7 @@ public class ChaptersControllerTests: IDisposable
         var downloadedChapter = new API.Schema.MangaContext.Chapter(manga, "1", 1) { Downloaded = true };
         var missingChapter = new API.Schema.MangaContext.Chapter(manga, "2", 1) { Downloaded = false };
 
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
         ctx.Chapters.AddRange(downloadedChapter, missingChapter);
         await ctx.SaveChangesAsync();
 
@@ -149,7 +149,7 @@ public class ChaptersControllerTests: IDisposable
     {
         using var ctx = CreateContext();
         var manga = MakeTestManga("Naruto");
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
 
         for (int i = 1; i <= 15; i++)
         {
@@ -171,7 +171,7 @@ public class ChaptersControllerTests: IDisposable
         using var ctx = CreateContext();
         var manga = MakeTestManga("Jujutsu Kaisen");
         var chapter = new API.Schema.MangaContext.Chapter(manga, "1", 1);
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
         ctx.Chapters.Add(chapter);
         await ctx.SaveChangesAsync();
 
@@ -198,7 +198,7 @@ public class ChaptersControllerTests: IDisposable
         using var ctx = CreateContext();
         var manga = MakeTestManga("Mob Psycho 100");
 
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
         ctx.Chapters.Add(new API.Schema.MangaContext.Chapter(manga, "1", 1) { Downloaded = false });
         ctx.Chapters.Add(new API.Schema.MangaContext.Chapter(manga, "2", 1) { Downloaded = false });
         ctx.Chapters.Add(new API.Schema.MangaContext.Chapter(manga, "3", 1) { Downloaded = false });
@@ -215,14 +215,14 @@ public class ChaptersControllerTests: IDisposable
     {
         using var ctx = CreateContext();
         var manga = MakeTestManga("My Hero Academia");
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
         await ctx.SaveChangesAsync();
 
         float newThreshold = 50.5f;
         var result = await CreateController(ctx).IgnoreChaptersBefore(manga.Key, newThreshold);
 
         Assert.IsType<Ok>(result.Result);
-        var updatedManga = await ctx.Mangas.FirstAsync(m => m.Key == manga.Key);
+        var updatedManga = await ctx.Series.FirstAsync(m => m.Key == manga.Key);
         Assert.Equal(newThreshold, updatedManga.IgnoreChaptersBefore);
     }
 
@@ -232,7 +232,7 @@ public class ChaptersControllerTests: IDisposable
         using var ctx = CreateContext();
         var manga = MakeTestManga("Attack on Titan");
         var chapter = new API.Schema.MangaContext.Chapter(manga, "1", 1);
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
         ctx.Chapters.Add(chapter);
         await ctx.SaveChangesAsync();
 

@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Moq;
-using SchemaManga = API.Schema.MangaContext.Manga;
+using SchemaManga = API.Schema.MangaContext.Series;
 using SchemaFileLibrary = API.Schema.MangaContext.FileLibrary;
 using SchemaChapter = API.Schema.MangaContext.Chapter;
 
@@ -84,7 +84,7 @@ public class VolumeControllerAssignmentTests : IDisposable
         var library = MakeLibrary();
         ctx.FileLibraries.Add(library);
         var manga = MakeTestManga("One Piece", library);
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
 
         var ch1 = new SchemaChapter(manga, "1", null);
         var ch2 = new SchemaChapter(manga, "2", null);
@@ -128,7 +128,7 @@ public class VolumeControllerAssignmentTests : IDisposable
         var library = MakeLibrary();
         ctx.FileLibraries.Add(library);
         var manga = MakeTestManga("Naruto", library);
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
 
         var ch1 = new SchemaChapter(manga, "1", null);
         ctx.Chapters.Add(ch1);
@@ -158,7 +158,7 @@ public class VolumeControllerAssignmentTests : IDisposable
         var library = MakeLibrary();
         ctx.FileLibraries.Add(library);
         var manga = MakeTestManga("Berserk", library);
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
 
         var ch1 = new SchemaChapter(manga, "1", null);
         ctx.Chapters.Add(ch1);
@@ -170,7 +170,7 @@ public class VolumeControllerAssignmentTests : IDisposable
         await controller.PostBulkAssignment(manga.Key, request);
 
         // Reload manga with MetadataSource
-        var updatedManga = await ctx.Mangas
+        var updatedManga = await ctx.Series
             .Include(m => m.MetadataSource)
             .FirstAsync(m => m.Key == manga.Key);
 
@@ -186,7 +186,7 @@ public class VolumeControllerAssignmentTests : IDisposable
         var library = MakeLibrary();
         ctx.FileLibraries.Add(library);
         var manga = MakeTestManga("Bleach", library);
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
 
         var ch = new SchemaChapter(manga, "5", null);
         ctx.Chapters.Add(ch);

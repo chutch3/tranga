@@ -113,7 +113,7 @@ public class AniListSearchServiceTests
                   "media": [
                     {
                       "id": 55,
-                      "title": { "romaji": "Some Manga", "english": null },
+                      "title": { "romaji": "Some Series", "english": null },
                       "staff": { "nodes": [] },
                       "chapters": 10,
                       "volumes": 2
@@ -124,7 +124,7 @@ public class AniListSearchServiceTests
             }
             """));
 
-        var results = await service.SearchAsync("Some Manga");
+        var results = await service.SearchAsync("Some Series");
 
         Assert.Single(results);
         Assert.Null(results[0].Author);

@@ -39,7 +39,7 @@ public class ChaptersControllerMetadataTests
         return controller;
     }
 
-    private static API.Schema.MangaContext.Manga MakeTestManga(string name = "Test Manga")
+    private static API.Schema.MangaContext.Series MakeTestManga(string name = "Test Series")
         => new(name, "", "http://example.com/img.jpg", MangaReleaseStatus.Continuing, [], [], [], []);
 
     [Fact]
@@ -48,7 +48,7 @@ public class ChaptersControllerMetadataTests
         using var ctx = CreateContext();
         var manga = MakeTestManga("Berserk");
         var chapter = new SchemaChapter(manga, "1", null);
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
         ctx.Chapters.Add(chapter);
         await ctx.SaveChangesAsync();
 
@@ -73,7 +73,7 @@ public class ChaptersControllerMetadataTests
         var manga = MakeTestManga("Bleach");
         var chapter = new SchemaChapter(manga, "5", 3);
         chapter.MetadataConfidence = MetadataConfidence.Exact;
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
         ctx.Chapters.Add(chapter);
         await ctx.SaveChangesAsync();
 

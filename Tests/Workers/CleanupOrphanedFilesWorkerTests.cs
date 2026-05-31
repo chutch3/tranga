@@ -55,8 +55,8 @@ public class CleanupOrphanedFilesWorkerTests : IDisposable
         _mangaContext.FileLibraries.Add(library);
         
         // Setup tracked manga and chapter
-        var manga = new Manga("Tracked Manga", "Desc", "http://example.com/cover.jpg", MangaReleaseStatus.Continuing, [], [], [], [], library);
-        _mangaContext.Mangas.Add(manga);
+        var manga = new Series("Tracked Series", "Desc", "http://example.com/cover.jpg", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        _mangaContext.Series.Add(manga);
         
         var chapter = new Chapter(manga, "1", 1) { Downloaded = true, FileName = "tracked.cbz" };
         _mangaContext.Chapters.Add(chapter);
@@ -86,8 +86,8 @@ public class CleanupOrphanedFilesWorkerTests : IDisposable
         _mangaContext.FileLibraries.Add(library);
         
         // Setup tracked manga and chapter pointing to a subdirectory
-        var manga = new Manga("MoveManga", "Desc", "http://example.com/cover.jpg", MangaReleaseStatus.Continuing, [], [], [], [], library);
-        _mangaContext.Mangas.Add(manga);
+        var manga = new Series("MoveManga", "Desc", "http://example.com/cover.jpg", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        _mangaContext.Series.Add(manga);
         
         string subDir = "Volume 1";
         string fileName = "chapter1.cbz";

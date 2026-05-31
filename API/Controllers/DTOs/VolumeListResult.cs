@@ -2,7 +2,7 @@ using API.Schema.MangaContext;
 
 namespace API.Controllers.DTOs;
 
-/// <summary>Top-level response for GET /api/v2/Manga/{mangaId}/volumes.</summary>
+/// <summary>Top-level response for GET /api/v2/Series/{mangaId}/volumes.</summary>
 public record VolumeListResult(
     int FilesNeedReorganizing,
     LibraryLayout Layout,

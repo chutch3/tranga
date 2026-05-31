@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 namespace API.Workers.PeriodicWorkers;
 
 /// <summary>
-/// Updates Metadata for all Manga
+/// Updates Metadata for all Series
 /// </summary>
 /// <param name="metadataFetchers"></param>
 /// <param name="interval"></param>
@@ -34,11 +34,11 @@ public class UpdateMetadataWorker(IEnumerable<MetadataFetcher> metadataFetchers,
     protected override async Task<BaseWorker[]> DoWorkInternal()
     {
         Log.Debug("Updating metadata...");
-        // Get MetadataEntries of Manga marked for download
+        // Get MetadataEntries of Series marked for download
         List<MetadataEntry> metadataEntriesToUpdate = await MangaContext.MangaConnectorToManga
-            .Where(m => m.UseForDownload) // Get marked Manga
+            .Where(m => m.UseForDownload) // Get marked Series
             .Join(
-                MangaContext.MetadataEntries.Include(e => e.Manga),
+                MangaContext.MetadataEntries.Include(e => e.Series),
                 mcId => mcId.ObjId,
                 e => e.MangaId,
                 (mcId, e) => e) // return MetadataEntry
@@ -51,7 +51,7 @@ public class UpdateMetadataWorker(IEnumerable<MetadataFetcher> metadataFetchers,
             if(metadataFetchers.FirstOrDefault(f => f.Name == metadataEntry.MetadataFetcherName) is not { } fetcher)
                 continue;
             await fetcher.UpdateMetadata(metadataEntry, MangaContext, CancellationToken);
-            ActionsContext.Actions.Add(new MetadataUpdatedActionRecord(metadataEntry.Manga, fetcher));
+            ActionsContext.Actions.Add(new MetadataUpdatedActionRecord(metadataEntry.Series, fetcher));
         }
         Log.Debug("Updated metadata.");
 

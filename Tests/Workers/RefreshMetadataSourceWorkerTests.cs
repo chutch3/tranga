@@ -21,7 +21,7 @@ public class RefreshMetadataSourceWorkerTests
         return new MangaContext(options);
     }
 
-    private static API.Schema.MangaContext.Manga MakeTestManga(string name = "Test Manga")
+    private static API.Schema.MangaContext.Series MakeTestManga(string name = "Test Series")
         => new(name, "", "http://example.com/img.jpg", MangaReleaseStatus.Continuing, [], [], [], []);
 
     private static IServiceScope CreateServiceScope(MangaContext ctx, IMangaDexSearchService searchService)
@@ -47,7 +47,7 @@ public class RefreshMetadataSourceWorkerTests
         var ch2 = new Chapter(manga, "12", null);
         var ch3 = new Chapter(manga, "24", null);
 
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
         ctx.Chapters.AddRange(ch1, ch2, ch3);
         await ctx.SaveChangesAsync();
 
@@ -90,7 +90,7 @@ public class RefreshMetadataSourceWorkerTests
         var manga = MakeTestManga("Bleach");
         manga.MetadataSource!.ExternalId = "bleach-id";
         manga.MetadataSource!.Status = MetadataSourceStatus.Confirmed;
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
         await ctx.SaveChangesAsync();
 
         var mockSearch = new Mock<IMangaDexSearchService>();
@@ -102,7 +102,7 @@ public class RefreshMetadataSourceWorkerTests
         await worker.DoWork(scope);
 
         using var ctx2 = CreateContext(dbName);
-        var loaded = await ctx2.Mangas.Include(m => m.MetadataSource).FirstAsync(m => m.Key == manga.Key);
+        var loaded = await ctx2.Series.Include(m => m.MetadataSource).FirstAsync(m => m.Key == manga.Key);
         Assert.NotNull(loaded.MetadataSource!.LastSyncedAt);
     }
 
@@ -130,7 +130,7 @@ public class RefreshMetadataSourceWorkerTests
 
         var manga = MakeTestManga("Naruto");
         // MetadataSource defaults to Unlinked with no ExternalId
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
         await ctx.SaveChangesAsync();
 
         var mockSearch = new Mock<IMangaDexSearchService>();

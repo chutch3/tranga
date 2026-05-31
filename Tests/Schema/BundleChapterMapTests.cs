@@ -13,7 +13,7 @@ public class BundleChapterMapTests
         return new MangaContext(options);
     }
 
-    private static Manga MakeTestManga(string name = "Test Manga")
+    private static Series MakeTestManga(string name = "Test Series")
         => new(name, "", "http://example.com/img.jpg", MangaReleaseStatus.Continuing, [], [], [], []);
 
     [Fact]
@@ -45,7 +45,7 @@ public class BundleChapterMapTests
         await using (var ctx = new MangaContext(options))
         {
             var manga = MakeTestManga("Berserk");
-            ctx.Mangas.Add(manga);
+            ctx.Series.Add(manga);
             var vol = new VolumeMetadata(manga, 1, "Black Swordsman");
             ctx.VolumeMetadata.Add(vol);
             var chapter = new Chapter(manga, "1", 1, "The Black Swordsman");
@@ -79,7 +79,7 @@ public class BundleChapterMapTests
         await using var ctx = CreateContext();
 
         var manga = MakeTestManga("Bleach");
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
         var vol = new VolumeMetadata(manga, 1);
         ctx.VolumeMetadata.Add(vol);
         var chapter = new Chapter(manga, "1", 1);

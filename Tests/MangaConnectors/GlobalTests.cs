@@ -15,14 +15,14 @@ public class GlobalTests
         var services = new ServiceCollection();
 
         var mockItConnector = new Mock<MangaConnector>("Mangaworld", new[] { "it" }, new[] { "mangaworld.mx" }, "icon", settings);
-        var mangaIt = new Manga("Dan Da Dan IT", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], []);
-        var idIt = new MangaConnectorId<Manga>(mangaIt, mockItConnector.Object, "it-id", "url");
+        var mangaIt = new Series("Dan Da Dan IT", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], []);
+        var idIt = new MangaConnectorId<Series>(mangaIt, mockItConnector.Object, "it-id", "url");
         mockItConnector.Setup(c => c.SearchManga(It.IsAny<string>())).ReturnsAsync([(mangaIt, idIt)]);
         mockItConnector.Object.Enabled = true;
 
         var mockEnConnector = new Mock<MangaConnector>("WeebCentral", new[] { "en" }, new[] { "weebcentral.com" }, "icon", settings);
-        var mangaEn = new Manga("Dan Da Dan EN", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], []);
-        var idEn = new MangaConnectorId<Manga>(mangaEn, mockEnConnector.Object, "en-id", "url");
+        var mangaEn = new Series("Dan Da Dan EN", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], []);
+        var idEn = new MangaConnectorId<Series>(mangaEn, mockEnConnector.Object, "en-id", "url");
         mockEnConnector.Setup(c => c.SearchManga(It.IsAny<string>())).ReturnsAsync([(mangaEn, idEn)]);
         mockEnConnector.Object.Enabled = true;
 

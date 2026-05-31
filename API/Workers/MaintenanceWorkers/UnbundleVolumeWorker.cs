@@ -19,7 +19,7 @@ public class UnbundleVolumeWorker(string mangaId, int volumeNumber, TrangaSettin
     protected override async Task<BaseWorker[]> DoWorkInternal()
     {
         var volumeMetadata = await _mangaContext.VolumeMetadata
-            .Include(v => v.Manga)
+            .Include(v => v.Series)
             .ThenInclude(m => m.Library)
             .FirstOrDefaultAsync(v => v.MangaId == mangaId && v.VolumeNumber == volumeNumber, CancellationToken);
 
@@ -40,7 +40,7 @@ public class UnbundleVolumeWorker(string mangaId, int volumeNumber, TrangaSettin
             return [];
         }
 
-        var manga = volumeMetadata.Manga;
+        var manga = volumeMetadata.Series;
 
         if (volumeMetadata.ArchiveFileName is null)
         {

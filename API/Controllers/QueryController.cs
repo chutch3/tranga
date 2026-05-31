@@ -45,7 +45,7 @@ public class QueryController(MangaContext mangaContext) : ControllerBase
     {
         Stats stats = await mangaContext.Database.SqlQueryRaw<Stats>($"""
                                                                    SELECT * FROM
-                                                                                (SELECT count("Key") "{nameof(Stats.NumberManga)}" FROM "Mangas") a CROSS JOIN
+                                                                                (SELECT count("Key") "{nameof(Stats.NumberManga)}" FROM "Series") a CROSS JOIN
                                                                                     (SELECT count("Key") "{nameof(Stats.NumberChapters)}" FROM "Chapters") b CROSS JOIN
                                                                                     (SELECT count("Key") "{nameof(Stats.DownloadedChapters)}" FROM "Chapters" WHERE "Downloaded" = true) c CROSS JOIN
                                                                                     (SELECT count("Key") "{nameof(Stats.MissingChapters)}" FROM "Chapters" WHERE "Downloaded" = false) d CROSS JOIN

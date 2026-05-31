@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 namespace API.Workers.PeriodicWorkers;
 
 /// <summary>
-/// Create new Workers for Chapters on Manga marked for Download, that havent been downloaded yet.
+/// Create new Workers for Chapters on Series marked for Download, that havent been downloaded yet.
 /// </summary>
 public class StartNewChapterDownloadsWorker(TrangaSettings settings, IWorkerQueue workerQueue, IEnumerable<MangaConnector> connectors, TimeSpan? interval = null, IEnumerable<BaseWorker>? dependsOn = null)
     : BaseWorkerWithContexts(dependsOn), IPeriodic

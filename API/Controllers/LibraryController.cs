@@ -26,7 +26,7 @@ public class LibraryController(MangaContext context) : ControllerBase
     [ProducesResponseType<UnresolvedDashboardResult>(Status200OK, "application/json")]
     public async Task<Ok<UnresolvedDashboardResult>> GetUnresolved()
     {
-        var entries = await context.Mangas
+        var entries = await context.Series
             .Where(m => m.LibraryId != null)
             .Select(m => new
             {

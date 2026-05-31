@@ -37,7 +37,7 @@ public class MetadataSourceControllerAniListTests
         return controller;
     }
 
-    private static API.Schema.MangaContext.Manga MakeTestManga(string name = "Test Manga")
+    private static API.Schema.MangaContext.Series MakeTestManga(string name = "Test Series")
         => new(name, "", "http://example.com/img.jpg", MangaReleaseStatus.Continuing, [], [], [], []);
 
     [Fact]
@@ -45,7 +45,7 @@ public class MetadataSourceControllerAniListTests
     {
         using var ctx = CreateContext();
         var manga = MakeTestManga("Berserk");
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
         await ctx.SaveChangesAsync();
 
         var mockMangaDex = new Mock<IMangaDexSearchService>();
@@ -82,7 +82,7 @@ public class MetadataSourceControllerAniListTests
     {
         using var ctx = CreateContext();
         var manga = MakeTestManga("One Piece");
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
         await ctx.SaveChangesAsync();
 
         var mockMangaDex = new Mock<IMangaDexSearchService>();
@@ -116,7 +116,7 @@ public class MetadataSourceControllerAniListTests
     {
         using var ctx = CreateContext();
         var manga = MakeTestManga("Naruto");
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
         await ctx.SaveChangesAsync();
 
         var mockMangaDex = new Mock<IMangaDexSearchService>();
@@ -149,7 +149,7 @@ public class MetadataSourceControllerAniListTests
     {
         using var ctx = CreateContext();
         var manga = MakeTestManga("Berserk");
-        ctx.Mangas.Add(manga);
+        ctx.Series.Add(manga);
         await ctx.SaveChangesAsync();
 
         var mockAniList = new Mock<IAniListSearchService>();

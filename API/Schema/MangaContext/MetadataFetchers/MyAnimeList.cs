@@ -10,7 +10,7 @@ public class MyAnimeList : MetadataFetcher
     private static readonly Jikan Jikan = new ();
     private static readonly Regex GetIdFromUrl = new(@"https?:\/\/myanimelist\.net\/manga\/([0-9]+)\/?.*");
     
-    public override async Task<MetadataSearchResult[]> SearchMetadataEntry(Manga manga)
+    public override async Task<MetadataSearchResult[]> SearchMetadataEntry(Series manga)
     {
         if (manga.Links.Any(link => link.LinkProvider.Equals("MyAnimeList", StringComparison.InvariantCultureIgnoreCase)))
         {
@@ -40,7 +40,7 @@ public class MyAnimeList : MetadataFetcher
     }
 
     /// <summary>
-    /// Updates the Manga linked in the MetadataEntry
+    /// Updates the Series linked in the MetadataEntry
     /// </summary>
     /// <param name="metadataEntry"></param>
     /// <param name="dbContext"></param>
@@ -50,12 +50,12 @@ public class MyAnimeList : MetadataFetcher
     public override async Task UpdateMetadata(MetadataEntry metadataEntry, MangaContext dbContext, CancellationToken token)
     {
         Log.DebugFormat("Updating Metadata: {0}", metadataEntry.MangaId);
-        Manga? dbManga = metadataEntry.Manga; //Might be null!
+        Series? dbManga = metadataEntry.Series; //Might be null!
         if (dbManga is null)
         {
-            if (await dbContext.Mangas.FirstOrDefaultAsync(m => m.Key == metadataEntry.MangaId, token) is not
+            if (await dbContext.Series.FirstOrDefaultAsync(m => m.Key == metadataEntry.MangaId, token) is not
                 { } update)
-                throw new DbUpdateException("Manga not found");
+                throw new DbUpdateException("Series not found");
             dbManga = update;
         }
 
@@ -73,7 +73,7 @@ public class MyAnimeList : MetadataFetcher
             long id = long.Parse(metadataEntry.Identifier);
             if (await Jikan.GetMangaFullDataAsync(id, token) is not { } response)
             {
-                Log.ErrorFormat("Manga Data not found: {0}", metadataEntry.MangaId);
+                Log.ErrorFormat("Series Data not found: {0}", metadataEntry.MangaId);
                 return;
             }
             resultData = response.Data;

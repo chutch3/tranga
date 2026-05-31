@@ -26,20 +26,20 @@ public class RefreshMetadataSourceWorker(
 
     protected override async Task<BaseWorker[]> DoWorkInternal()
     {
-        var manga = await _mangaContext.Mangas
+        var manga = await _mangaContext.Series
             .Include(m => m.MetadataSource)
             .Include(m => m.Chapters)
             .FirstOrDefaultAsync(m => m.Key == mangaId, CancellationToken);
 
         if (manga is null)
         {
-            Log.WarnFormat("Manga {0} not found; skipping refresh.", mangaId);
+            Log.WarnFormat("Series {0} not found; skipping refresh.", mangaId);
             return [];
         }
 
         if (manga.MetadataSource is not { Status: MetadataSourceStatus.Confirmed, ExternalId: { Length: > 0 } externalId })
         {
-            Log.WarnFormat("Manga {0} has no confirmed external ID; skipping refresh.", mangaId);
+            Log.WarnFormat("Series {0} has no confirmed external ID; skipping refresh.", mangaId);
             return [];
         }
 
