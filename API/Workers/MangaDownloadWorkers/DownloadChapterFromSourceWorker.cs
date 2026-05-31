@@ -1,7 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
-using System.IO.Compression;
-using System.Runtime.InteropServices;
-using System.Text;
+using API.Acquirers;
 using API.MangaConnectors;
 using API.Schema.ActionsContext;
 using API.Schema.ActionsContext.Actions;
@@ -9,24 +7,25 @@ using API.Schema.SeriesContext;
 using API.Schema.NotificationsContext;
 using API.Workers.PeriodicWorkers;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.ChangeTracking;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats.Jpeg;
-using SixLabors.ImageSharp.Processing;
-using SixLabors.ImageSharp.Processing.Processors.Binarization;
-using static System.IO.UnixFileMode;
 
 namespace API.Workers.MangaDownloadWorkers;
 
 /// <summary>
-/// Downloads single chapter for Series from Mangaconnector
+/// Downloads a single chapter for a Series by delegating the actual file-fetch+package step to an
+/// IChapterAcquirer (defaults to ImageListAcquirer for the historical image-by-image flow). The
+/// worker owns resolving the chapter, persisting download state, library refresh decisions, and
+/// cover propagation; the acquirer owns producing the .cbz on disk.
 /// </summary>
-/// <param name="chId"></param>
-/// <param name="dependsOn"></param>
-public class DownloadChapterFromSourceWorker(SourceId<Chapter> chId, IEnumerable<SeriesSource> connectors, TrangaSettings settings, IEnumerable<BaseWorker>? dependsOn = null)
+public class DownloadChapterFromSourceWorker(
+    SourceId<Chapter> chId,
+    IEnumerable<SeriesSource> connectors,
+    TrangaSettings settings,
+    IChapterAcquirer? acquirer = null,
+    IEnumerable<BaseWorker>? dependsOn = null)
     : BaseWorkerWithContexts(dependsOn)
 {
     public readonly string ChapterIdId = chId.Key;
+    private readonly IChapterAcquirer _acquirer = acquirer ?? new ImageListAcquirer(settings);
 
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     private SeriesContext SeriesContext = null!;
@@ -79,50 +78,20 @@ public class DownloadChapterFromSourceWorker(SourceId<Chapter> chId, IEnumerable
             return [];
         }
 
-        List<Stream> images = new();
+        string saveArchiveFilePath = chapter.GetFullFilepath(settings.ChapterNamingScheme);
+        string? directoryPath = Path.GetDirectoryName(saveArchiveFilePath);
+        if (directoryPath != null && !Directory.Exists(directoryPath))
+            Directory.CreateDirectory(directoryPath);
+
+        // Delegate the actual fetch + package step. Acquirer logs its own errors and returns null on failure.
+        string? acquiredPath = await _acquirer.AcquireAsync(mangaConnectorId, seriesSource, saveArchiveFilePath, CancellationToken);
+        if (acquiredPath is null)
+            return [];
+
         try
         {
-            string[] imageUrls = await seriesSource.GetChapterImageUrls(mangaConnectorId);
-            foreach (string imageUrl in imageUrls)
-            {
-                Stream? imageStream = await seriesSource.DownloadImage(imageUrl, CancellationToken);
-                if (imageStream is not null)
-                    images.Add(await ProcessImage(imageStream, CancellationToken));
-            }
-
-            Log.Debug($"Images downloaded for chapter {chapter}. Packaging...");
-
-            string saveArchiveFilePath = chapter.GetFullFilepath(settings.ChapterNamingScheme);
-            string? directoryPath = Path.GetDirectoryName(saveArchiveFilePath);
-            if (directoryPath != null && !Directory.Exists(directoryPath))
-                Directory.CreateDirectory(directoryPath);
-
-            //ZIP-it and ship-it
-            using (ZipArchive archive = ZipFile.Open(saveArchiveFilePath, ZipArchiveMode.Create))
-            {
-                if (Constants.CreateComicInfoXml)
-                {
-                    Log.Debug("Writing ComicInfo.xml");
-                    Stream comicStream = archive.CreateEntry("ComicInfo.xml").Open();
-                    string comicInfo = chapter.GetComicInfoXmlString();
-                    await comicStream.WriteAsync(Encoding.UTF8.GetBytes(comicInfo), CancellationToken);
-                    await comicStream.DisposeAsync();
-                }
-
-                for (int i = 0; i < images.Count; i++)
-                {
-                    Log.Debug($"Packaging images to archive {chapter} , image {i}");
-                    Stream zipStream = archive.CreateEntry($"{i}.jpg").Open();
-                    Stream imageStream = images[i];
-                    imageStream.Position = 0;
-                    await imageStream.CopyToAsync(zipStream, CancellationToken);
-                    await zipStream.DisposeAsync();
-                }
-            }
-
             chapter.Downloaded = true;
-            chapter.FileName = new FileInfo(saveArchiveFilePath).Name;
-            // Sync moved to end
+            chapter.FileName = new FileInfo(acquiredPath).Name;
 
             Log.Debug($"Downloaded chapter {chapter}.");
 
@@ -147,7 +116,7 @@ public class DownloadChapterFromSourceWorker(SourceId<Chapter> chId, IEnumerable
             {
                 if (!result.success) Log.Error($"Failed to save database changes: {result.exceptionMessage}");
             }
-            
+
             if (directoryPath != null)
             {
                 var sourceIdForSeries = chapter.ParentManga.SourceIds.FirstOrDefault(id => id.MangaConnectorName == seriesSource.Name);
@@ -157,12 +126,8 @@ public class DownloadChapterFromSourceWorker(SourceId<Chapter> chId, IEnumerable
         }
         catch (Exception ex)
         {
-            Log.ErrorFormat("Failed to download chapter {0}: {1}", chapter, ex);
+            Log.ErrorFormat("Failed to finalise chapter {0}: {1}", chapter, ex);
             return []; // Fail early!
-        }
-        finally
-        {
-            images.ForEach(i => i.Dispose());
         }
 
         bool refreshLibrary = await CheckLibraryRefresh();
@@ -174,7 +139,7 @@ public class DownloadChapterFromSourceWorker(SourceId<Chapter> chId, IEnumerable
     private async Task EnsureCoverInPublicationFolder(Series manga, SeriesSource seriesSource, SourceId<Series> mangaConnectorId, string publicationFolder)
     {
         if (File.Exists(Path.Join(publicationFolder, "cover.jpg"))) return;
-        
+
         string? coverFileNameInCache = manga.CoverFileNameInCache;
         if (coverFileNameInCache is null)
         {
@@ -184,7 +149,7 @@ public class DownloadChapterFromSourceWorker(SourceId<Chapter> chId, IEnumerable
             if (await SeriesContext.Sync(CancellationToken, reason: "Update cover filename") is { success: false } result)
                 Log.Error($"Couldn't update cover filename {result.exceptionMessage}");
         }
-        
+
         if (coverFileNameInCache is null)
         {
             Log.Error("Could not retrieve cover image cache filename.");
@@ -213,44 +178,6 @@ public class DownloadChapterFromSourceWorker(SourceId<Chapter> chId, IEnumerable
         _ => true
     };
     private async Task<bool> AllDownloadsFinished() => (await StartNewChapterDownloadsWorker.GetMissingChapters(SeriesContext, CancellationToken)).Count == 0;
-
-    private async Task<Stream> ProcessImage(Stream imageStream, CancellationToken? cancellationToken = null)
-    {
-        Log.Debug("Processing image");
-        imageStream.Position = 0;
-        if (!settings.BlackWhiteImages && settings.ImageCompression == 100)
-        {
-            Log.Debug("No processing requested for image");
-            // No new stream is created; the caller still owns and disposes imageStream.
-            return imageStream;
-        }
-
-        MemoryStream processedImage = new();
-        try
-        {
-            using Image image = await Image.LoadAsync(imageStream, cancellationToken ?? CancellationToken.None);
-            Log.Debug("Image loaded");
-            if (settings.BlackWhiteImages)
-                image.Mutate(i => i.ApplyProcessor(new AdaptiveThresholdProcessor()));
-            await image.SaveAsJpegAsync(processedImage, new JpegEncoder()
-            {
-                Quality = settings.ImageCompression
-            }, cancellationToken ?? CancellationToken.None);
-            Log.Debug("Image processed");
-        }
-        catch (Exception e)
-        {
-            Log.Error(e);
-            // Processing failed: fall back to the raw source stream (caller disposes it).
-            await processedImage.DisposeAsync();
-            return imageStream;
-        }
-        // Processing succeeded: a new stream now holds the image data, so dispose the source to avoid
-        // leaking the underlying network stream/handle.
-        await imageStream.DisposeAsync();
-        processedImage.Position = 0;
-        return processedImage;
-    }
 
     public override string ToString() => $"{base.ToString()} {ChapterIdId}";
 }
