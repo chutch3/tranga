@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using API.Acquirers;
 using API.MangaConnectors;
 using API.Schema.SeriesContext;
 using API.Workers.MangaDownloadWorkers;
@@ -9,9 +10,10 @@ namespace API.Workers.PeriodicWorkers;
 /// <summary>
 /// Create new Workers for Chapters on Series marked for Download, that havent been downloaded yet.
 /// </summary>
-public class StartNewChapterDownloadsWorker(TrangaSettings settings, IWorkerQueue workerQueue, IEnumerable<SeriesSource> connectors, TimeSpan? interval = null, IEnumerable<BaseWorker>? dependsOn = null)
+public class StartNewChapterDownloadsWorker(TrangaSettings settings, IWorkerQueue workerQueue, IEnumerable<SeriesSource> connectors, IEnumerable<IChapterAcquirer>? acquirers = null, TimeSpan? interval = null, IEnumerable<BaseWorker>? dependsOn = null)
     : BaseWorkerWithContexts(dependsOn), IPeriodic
 {
+    private readonly IChapterAcquirer[] _acquirers = acquirers?.ToArray() ?? [];
 
     public DateTime LastExecution { get; set; } = DateTime.UnixEpoch;
     public TimeSpan Interval { get; set; } = interval ?? TimeSpan.FromSeconds(10);
@@ -51,9 +53,18 @@ public class StartNewChapterDownloadsWorker(TrangaSettings settings, IWorkerQueu
         Log.DebugFormat("{0} in-flight download Workers. {1} available new download Workers.", downloadWorkers, amountNewWorkers);
         IEnumerable<SourceId<Chapter>> newDownloadChapters = missingChapters.OrderBy(ch => ch.Obj, new Chapter.ChapterComparer()).Take(amountNewWorkers);
 
-        // Create new jobs
-        List<BaseWorker> newWorkers = newDownloadChapters.Select(mcId => new DownloadChapterFromSourceWorker(mcId, connectors, settings)).ToList<BaseWorker>();
-        
+        // Create new jobs. Each download worker gets the acquirer that matches its source's Kind;
+        // if none is registered the worker falls back to the default image-list path.
+        List<BaseWorker> newWorkers = newDownloadChapters.Select(mcId =>
+        {
+            SeriesSource? source = connectors.FirstOrDefault(c =>
+                c.Name.Equals(mcId.MangaConnectorName, StringComparison.InvariantCultureIgnoreCase));
+            IChapterAcquirer? acquirer = source is null
+                ? null
+                : _acquirers.FirstOrDefault(a => a.Kind == source.Kind);
+            return (BaseWorker)new DownloadChapterFromSourceWorker(mcId, connectors, settings, acquirer);
+        }).ToList();
+
         return newWorkers.ToArray();
     }
     

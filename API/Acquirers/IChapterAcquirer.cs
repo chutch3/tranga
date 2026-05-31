@@ -10,6 +10,10 @@ namespace API.Acquirers;
 /// </summary>
 public interface IChapterAcquirer
 {
+    /// <summary>The acquisition kind this implementation handles. Used by the dispatcher to pick the
+    /// right acquirer for a given connector's declared Kind.</summary>
+    AcquisitionKind Kind { get; }
+
     /// <summary>
     /// Acquires the chapter and writes a .cbz to <paramref name="saveArchiveFilePath"/>.
     /// Returns the path on success, or null on failure. Implementations are responsible for logging

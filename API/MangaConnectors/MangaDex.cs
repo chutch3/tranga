@@ -5,6 +5,8 @@ using API.MangaDownloadClients;
 using API.Schema.SeriesContext;
 using Newtonsoft.Json.Linq;
 
+using API.Acquirers;
+
 namespace API.MangaConnectors;
 
 public class MangaDex : SeriesSource
@@ -21,6 +23,8 @@ public class MangaDex : SeriesSource
     }
 
     private const int Limit = 100;
+    public override AcquisitionKind Kind => AcquisitionKind.ImageList;
+
     public override async Task<(Series, SourceId<Series>)[]> SearchManga(string mangaSearchName)
     {
         Log.InfoFormat("Searching Obj: {0}", mangaSearchName);

@@ -10,6 +10,8 @@ using System.Text.Json;
 using System.Text;
 using System.Threading;
 
+using API.Acquirers;
+
 namespace API.MangaConnectors;
 
 public class WeebCentral : SeriesSource
@@ -18,6 +20,8 @@ public class WeebCentral : SeriesSource
     {
         this.downloadClient = new HttpDownloadClient(rateLimitHandler, settings);
     }
+
+    public override AcquisitionKind Kind => AcquisitionKind.ImageList;
 
     public override async Task<(Series, SourceId<Series>)[]> SearchManga(string mangaSearchName)
     {

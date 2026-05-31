@@ -20,6 +20,8 @@ public class ImageListAcquirer(TrangaSettings settings) : IChapterAcquirer
 {
     private static readonly ILog Log = LogManager.GetLogger(typeof(ImageListAcquirer));
 
+    public AcquisitionKind Kind => AcquisitionKind.ImageList;
+
     public async Task<string?> AcquireAsync(
         SourceId<Chapter> chapter,
         SeriesSource source,

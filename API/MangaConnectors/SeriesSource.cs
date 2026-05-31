@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.RegularExpressions;
+using API.Acquirers;
 using API.MangaDownloadClients;
 using API.Schema.SeriesContext;
 using log4net;
@@ -22,6 +23,9 @@ public abstract class SeriesSource(string name, string[] supportedLanguages, str
     [StringLength(256)] public string[] BaseUris { get; init; } = baseUris;
     public bool Enabled { get; internal set; } = true;
     protected TrangaSettings Settings => settings;
+
+    /// <summary>How this source delivers chapters. Drives dispatch to the matching IChapterAcquirer.</summary>
+    [NotMapped] public abstract AcquisitionKind Kind { get; }
 
     public abstract Task<(Series, SourceId<Series>)[]> SearchManga(string mangaSearchName);
 

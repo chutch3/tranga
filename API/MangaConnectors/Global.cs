@@ -1,6 +1,8 @@
 using API.Schema.SeriesContext;
 using Microsoft.Extensions.DependencyInjection;
 
+using API.Acquirers;
+
 namespace API.MangaConnectors;
 
 public class Global : SeriesSource
@@ -14,6 +16,8 @@ public class Global : SeriesSource
 
     private IEnumerable<SeriesSource> GetConnectors() =>
         _serviceProvider.GetServices<SeriesSource>().Where(c => c.Name != "Global");
+
+    public override AcquisitionKind Kind => AcquisitionKind.ImageList;
 
         public override async Task<(Series, SourceId<Series>)[]> SearchManga(string mangaSearchName)
     {

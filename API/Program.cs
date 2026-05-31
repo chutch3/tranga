@@ -120,6 +120,9 @@ builder.Services.AddSingleton<SeriesSource, WeebCentral>();
 // 3. Register your Metadata Fetchers
 builder.Services.AddSingleton<MetadataFetcher, MyAnimeList>();
 
+// 3b. Register your Chapter Acquirers (one per AcquisitionKind)
+builder.Services.AddSingleton<API.Acquirers.IChapterAcquirer, API.Acquirers.ImageListAcquirer>();
+
 // 4. Register your Workers
 builder.Services.AddSingleton<UpdateMetadataWorker>();
 builder.Services.AddSingleton<SendNotificationsWorker>();

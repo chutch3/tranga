@@ -6,6 +6,8 @@ using API.MangaDownloadClients;
 using API.Schema.SeriesContext;
 using HtmlAgilityPack;
 
+using API.Acquirers;
+
 namespace API.MangaConnectors;
 
 public sealed class Mangaworld : SeriesSource
@@ -26,6 +28,8 @@ public sealed class Mangaworld : SeriesSource
     {
         downloadClient = new HttpDownloadClient(rateLimitHandler, settings);
     }
+
+    public override AcquisitionKind Kind => AcquisitionKind.ImageList;
 
     public override async Task<(Series, SourceId<Series>)[]> SearchManga(string mangaSearchName)
     {

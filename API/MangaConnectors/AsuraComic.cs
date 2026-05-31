@@ -10,6 +10,8 @@ using System.Text.Json;
 using System.Text;
 using System.Threading;
 
+using API.Acquirers;
+
 namespace API.MangaConnectors;
 
 public class AsuraComic : SeriesSource
@@ -23,6 +25,8 @@ public class AsuraComic : SeriesSource
         _rateLimitHandler = rateLimitHandler;
         this.downloadClient = new HttpDownloadClient(rateLimitHandler, settings);
     }
+
+    public override AcquisitionKind Kind => AcquisitionKind.ImageList;
 
     public override async Task<(Series, SourceId<Series>)[]> SearchManga(string mangaSearchName)
     {
