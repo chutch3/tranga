@@ -11,6 +11,7 @@ using SixLabors.ImageSharp.Processing;
 namespace API.MangaConnectors;
 
 [PrimaryKey("Name")]
+[Table("MangaConnector")] // Existing DB table; will be renamed to "SeriesSource" in a follow-up migration.
 public abstract class SeriesSource(string name, string[] supportedLanguages, string[] baseUris, string iconUrl, TrangaSettings settings)
 {
     [NotMapped] internal IDownloadClient downloadClient { get; init; } = null!;
