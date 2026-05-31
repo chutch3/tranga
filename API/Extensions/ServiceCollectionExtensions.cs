@@ -1,5 +1,6 @@
 using API.Acquirers;
 using API.Indexers;
+using API.MangaConnectors;
 using API.MangaDownloadClients;
 using API.TorrentClients;
 using API.Workers.PeriodicWorkers;
@@ -46,6 +47,12 @@ public static class ServiceCollectionExtensions
         // Aggregate search surface over all providers.
         services.AddSingleton<IIndexerClient>(sp =>
             new AggregateIndexerSearch(sp.GetServices<IIndexerProvider>()));
+
+        // The user-facing torrent-backed series source. Registering it as a SeriesSource makes it
+        // appear in search + chapter discovery alongside the scrape connectors; its Kind=Torrent
+        // routes its chapters through the torrent acquirer.
+        services.AddSingleton<SeriesSource>(sp =>
+            new IndexerBackedSeriesSource(sp.GetRequiredService<IIndexerClient>(), settings));
 
         services.AddSingleton<ITorrentClient>(sp =>
         {
