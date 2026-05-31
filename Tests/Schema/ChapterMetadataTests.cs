@@ -1,20 +1,20 @@
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using Microsoft.EntityFrameworkCore;
 
 namespace Tests.Schema;
 
 public class ChapterMetadataTests
 {
-    private MangaContext CreateContext()
+    private SeriesContext CreateContext()
     {
-        var options = new DbContextOptionsBuilder<MangaContext>()
+        var options = new DbContextOptionsBuilder<SeriesContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
-        return new MangaContext(options);
+        return new SeriesContext(options);
     }
 
     private static Series MakeTestManga(string name = "Test Series")
-        => new(name, "", "http://example.com/img.jpg", MangaReleaseStatus.Continuing, [], [], [], []);
+        => new(name, "", "http://example.com/img.jpg", SeriesReleaseStatus.Continuing, [], [], [], []);
 
     [Fact]
     public void NewChapter_MetadataConfidence_IsNull_ByDefault()

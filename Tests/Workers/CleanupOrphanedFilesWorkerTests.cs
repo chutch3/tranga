@@ -1,5 +1,5 @@
 using API.Schema.ActionsContext;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using API.Workers;
 using API.Workers.MaintenanceWorkers;
 using Microsoft.EntityFrameworkCore;
@@ -13,7 +13,7 @@ public class CleanupOrphanedFilesWorkerTests : IDisposable
 {
     private readonly string _testRoot;
     private readonly Mock<IServiceScope> _mockScope;
-    private readonly MangaContext _mangaContext;
+    private readonly SeriesContext _mangaContext;
     private readonly ActionsContext _actionsContext;
 
     public CleanupOrphanedFilesWorkerTests()
@@ -21,10 +21,10 @@ public class CleanupOrphanedFilesWorkerTests : IDisposable
         _testRoot = Path.Combine(Path.GetTempPath(), $"CleanupTest_{Guid.NewGuid()}");
         Directory.CreateDirectory(_testRoot);
 
-        var mangaOptions = new DbContextOptionsBuilder<MangaContext>()
+        var mangaOptions = new DbContextOptionsBuilder<SeriesContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .Options;
-        _mangaContext = new MangaContext(mangaOptions);
+        _mangaContext = new SeriesContext(mangaOptions);
 
         var actionsOptions = new DbContextOptionsBuilder<ActionsContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
@@ -32,7 +32,7 @@ public class CleanupOrphanedFilesWorkerTests : IDisposable
         _actionsContext = new ActionsContext(actionsOptions);
 
         var serviceProvider = new Mock<IServiceProvider>();
-        serviceProvider.Setup(x => x.GetService(typeof(MangaContext))).Returns(_mangaContext);
+        serviceProvider.Setup(x => x.GetService(typeof(SeriesContext))).Returns(_mangaContext);
         serviceProvider.Setup(x => x.GetService(typeof(ActionsContext))).Returns(_actionsContext);
 
         _mockScope = new Mock<IServiceScope>();
@@ -55,7 +55,7 @@ public class CleanupOrphanedFilesWorkerTests : IDisposable
         _mangaContext.FileLibraries.Add(library);
         
         // Setup tracked manga and chapter
-        var manga = new Series("Tracked Series", "Desc", "http://example.com/cover.jpg", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        var manga = new Series("Tracked Series", "Desc", "http://example.com/cover.jpg", SeriesReleaseStatus.Continuing, [], [], [], [], library);
         _mangaContext.Series.Add(manga);
         
         var chapter = new Chapter(manga, "1", 1) { Downloaded = true, FileName = "tracked.cbz" };
@@ -86,7 +86,7 @@ public class CleanupOrphanedFilesWorkerTests : IDisposable
         _mangaContext.FileLibraries.Add(library);
         
         // Setup tracked manga and chapter pointing to a subdirectory
-        var manga = new Series("MoveManga", "Desc", "http://example.com/cover.jpg", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        var manga = new Series("MoveManga", "Desc", "http://example.com/cover.jpg", SeriesReleaseStatus.Continuing, [], [], [], [], library);
         _mangaContext.Series.Add(manga);
         
         string subDir = "Volume 1";

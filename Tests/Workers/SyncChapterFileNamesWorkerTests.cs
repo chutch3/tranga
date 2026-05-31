@@ -1,6 +1,6 @@
 using API;
 using API.Schema.ActionsContext;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using API.Workers;
 using API.Workers.MaintenanceWorkers;
 using Microsoft.EntityFrameworkCore;
@@ -14,7 +14,7 @@ public class SyncChapterFileNamesWorkerTests : IDisposable
 {
     private readonly string _testRoot;
     private readonly Mock<IServiceScope> _mockScope;
-    private readonly MangaContext _mangaContext;
+    private readonly SeriesContext _mangaContext;
     private readonly ActionsContext _actionsContext;
     private const string NamingScheme = "?V(%M Vol %V/)%M - Ch.%C";
 
@@ -23,10 +23,10 @@ public class SyncChapterFileNamesWorkerTests : IDisposable
         _testRoot = Path.Combine(Path.GetTempPath(), $"SyncFileNamesTest_{Guid.NewGuid()}");
         Directory.CreateDirectory(_testRoot);
 
-        var mangaOptions = new DbContextOptionsBuilder<MangaContext>()
+        var mangaOptions = new DbContextOptionsBuilder<SeriesContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .Options;
-        _mangaContext = new MangaContext(mangaOptions);
+        _mangaContext = new SeriesContext(mangaOptions);
 
         var actionsOptions = new DbContextOptionsBuilder<ActionsContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
@@ -34,7 +34,7 @@ public class SyncChapterFileNamesWorkerTests : IDisposable
         _actionsContext = new ActionsContext(actionsOptions);
 
         var serviceProvider = new Mock<IServiceProvider>();
-        serviceProvider.Setup(x => x.GetService(typeof(MangaContext))).Returns(_mangaContext);
+        serviceProvider.Setup(x => x.GetService(typeof(SeriesContext))).Returns(_mangaContext);
         serviceProvider.Setup(x => x.GetService(typeof(ActionsContext))).Returns(_actionsContext);
 
         _mockScope = new Mock<IServiceScope>();
@@ -53,7 +53,7 @@ public class SyncChapterFileNamesWorkerTests : IDisposable
     {
         var library = new FileLibrary(_testRoot, "Test Library");
         _mangaContext.FileLibraries.Add(library);
-        var manga = new Series(mangaName, "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        var manga = new Series(mangaName, "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], [], library);
         _mangaContext.Series.Add(manga);
         return (library, manga);
     }

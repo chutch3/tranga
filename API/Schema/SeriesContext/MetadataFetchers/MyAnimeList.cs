@@ -3,7 +3,7 @@ using JikanDotNet;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 
-namespace API.Schema.MangaContext.MetadataFetchers;
+namespace API.Schema.SeriesContext.MetadataFetchers;
 
 public class MyAnimeList : MetadataFetcher
 {
@@ -47,7 +47,7 @@ public class MyAnimeList : MetadataFetcher
     /// <param name="token"></param>
     /// <exception cref="FormatException"></exception>
     /// <exception cref="DbUpdateException"></exception>
-    public override async Task UpdateMetadata(MetadataEntry metadataEntry, MangaContext dbContext, CancellationToken token)
+    public override async Task UpdateMetadata(MetadataEntry metadataEntry, SeriesContext dbContext, CancellationToken token)
     {
         Log.DebugFormat("Updating Metadata: {0}", metadataEntry.MangaId);
         Series? dbManga = metadataEntry.Series; //Might be null!

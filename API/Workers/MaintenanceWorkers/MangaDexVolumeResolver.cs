@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using Newtonsoft.Json.Linq;
 
 namespace API.Workers.MaintenanceWorkers;

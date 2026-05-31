@@ -1,5 +1,5 @@
 ﻿using API.Controllers.Requests;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -14,7 +14,7 @@ namespace API.Controllers;
 [ApiVersion(2)]
 [ApiController]
 [Route("v{v:apiVersion}/[controller]")]
-public class FileLibraryController(MangaContext context) : ControllerBase
+public class FileLibraryController(SeriesContext context) : ControllerBase
 {
     /// <summary>
     /// Returns all <see cref="DTOs.FileLibrary"/>
@@ -102,7 +102,7 @@ public class FileLibraryController(MangaContext context) : ControllerBase
     public async Task<Results<Created<string>, InternalServerError<string>>> CreateNewLibrary ([FromBody]CreateLibraryRecord requestData)
     {
         //TODO Parameter check
-        Schema.MangaContext.FileLibrary library = new (requestData.BasePath, requestData.LibraryName);
+        Schema.SeriesContext.FileLibrary library = new (requestData.BasePath, requestData.LibraryName);
         context.FileLibraries.Add(library);
         
         if(await context.Sync(HttpContext.RequestAborted, GetType(), System.Reflection.MethodBase.GetCurrentMethod()?.Name) is { success: false } result)

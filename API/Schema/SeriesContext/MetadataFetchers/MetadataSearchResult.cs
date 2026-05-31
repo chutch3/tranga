@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace API.Schema.MangaContext.MetadataFetchers;
+namespace API.Schema.SeriesContext.MetadataFetchers;
 
 public record MetadataSearchResult(
     string Identifier,

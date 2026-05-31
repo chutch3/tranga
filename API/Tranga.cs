@@ -2,8 +2,8 @@
 using System.Diagnostics.CodeAnalysis;
 using API.MangaConnectors;
 using API.MangaDownloadClients;
-using API.Schema.MangaContext;
-using API.Schema.MangaContext.MetadataFetchers;
+using API.Schema.SeriesContext;
+using API.Schema.SeriesContext.MetadataFetchers;
 using API.Workers;
 using API.Workers.MangaDownloadWorkers;
 using API.Workers.PeriodicWorkers;
@@ -83,11 +83,11 @@ public class Tranga
         return seriesSource != null;
     }
 
-    // 5. Removed 'this' from MangaContext. It is now just a normal method you call on Tranga.
-    internal async Task<(Series manga, SourceId<Series> id)?> AddMangaToContext(MangaContext context, (Series, SourceId<Series>) addManga, CancellationToken token) =>
+    // 5. Removed 'this' from SeriesContext. It is now just a normal method you call on Tranga.
+    internal async Task<(Series manga, SourceId<Series> id)?> AddMangaToContext(SeriesContext context, (Series, SourceId<Series>) addManga, CancellationToken token) =>
         await AddMangaToContext(context, addManga.Item1, addManga.Item2, token);
 
-    internal async Task<(Series manga, SourceId<Series> id)?> AddMangaToContext(MangaContext context, Series addManga, SourceId<Series> addMcId, CancellationToken token)
+    internal async Task<(Series manga, SourceId<Series> id)?> AddMangaToContext(SeriesContext context, Series addManga, SourceId<Series> addMcId, CancellationToken token)
     {
         context.ChangeTracker.Clear();
         Log.DebugFormat("Adding Series to Context: {0}", addManga);
@@ -126,9 +126,9 @@ public class Tranga
         else
         {
             Log.Debug("Series does not exist yet.");
-            IEnumerable<MangaTag> mergedTags = addManga.MangaTags.Select(mt =>
+            IEnumerable<SeriesTag> mergedTags = addManga.MangaTags.Select(mt =>
             {
-                MangaTag? inDb = context.Tags.Find(mt.Tag);
+                SeriesTag? inDb = context.Tags.Find(mt.Tag);
                 return inDb ?? mt;
             });
             addManga.MangaTags = mergedTags.ToList();

@@ -1,6 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using API.MangaConnectors;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using API.Workers.MangaDownloadWorkers;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,16 +18,16 @@ public class UpdateCoversWorker(IEnumerable<SeriesSource> connectors, TimeSpan? 
     public TimeSpan Interval { get; set; } = interval ?? TimeSpan.FromHours(6);
     
     [SuppressMessage("ReSharper", "InconsistentNaming")]
-    private MangaContext MangaContext = null!;
+    private SeriesContext SeriesContext = null!;
 
     protected override void SetContexts(IServiceScope serviceScope)
     {
-        MangaContext = GetContext<MangaContext>(serviceScope);
+        SeriesContext = GetContext<SeriesContext>(serviceScope);
     }
     
     protected override async Task<BaseWorker[]> DoWorkInternal()
     {
-        List<SourceId<Series>> manga = await MangaContext.MangaConnectorToManga.Where(mcId => mcId.UseForDownload).ToListAsync(CancellationToken);
+        List<SourceId<Series>> manga = await SeriesContext.MangaConnectorToManga.Where(mcId => mcId.UseForDownload).ToListAsync(CancellationToken);
         List<BaseWorker> newWorkers = manga.Select(m => new DownloadCoverFromSourceWorker(m, connectors)).ToList<BaseWorker>();
         return newWorkers.ToArray();
     }

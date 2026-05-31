@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using API.MangaConnectors;
 using Microsoft.EntityFrameworkCore;
 
-namespace API.Schema.MangaContext;
+namespace API.Schema.SeriesContext;
 
 [PrimaryKey("Key")]
 public class SourceId<T> : Identifiable where T : Identifiable

@@ -1,18 +1,18 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 
-namespace API.Schema.MangaContext;
+namespace API.Schema.SeriesContext;
 
 /// <summary>
 /// Used only by EF design-time tools (migrations). Not used at runtime.
 /// </summary>
-public class MangaContextDesignTimeFactory : IDesignTimeDbContextFactory<MangaContext>
+public class SeriesContextDesignTimeFactory : IDesignTimeDbContextFactory<SeriesContext>
 {
-    public MangaContext CreateDbContext(string[] args)
+    public SeriesContext CreateDbContext(string[] args)
     {
-        var optionsBuilder = new DbContextOptionsBuilder<MangaContext>();
+        var optionsBuilder = new DbContextOptionsBuilder<SeriesContext>();
         // Placeholder connection string — only used by EF design-time tooling
         optionsBuilder.UseNpgsql("Host=localhost;Database=tranga;Username=tranga;Password=tranga");
-        return new MangaContext(optionsBuilder.Options);
+        return new SeriesContext(optionsBuilder.Options);
     }
 }

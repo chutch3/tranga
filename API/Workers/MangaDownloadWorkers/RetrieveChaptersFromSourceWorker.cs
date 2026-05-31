@@ -2,7 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using API.MangaConnectors;
 using API.Schema.ActionsContext;
 using API.Schema.ActionsContext.Actions;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using Microsoft.EntityFrameworkCore;
 
 namespace API.Workers.MangaDownloadWorkers;
@@ -19,13 +19,13 @@ public class RetrieveChaptersFromSourceWorker(SourceId<Series> mcId, string lang
     private readonly string _mangaConnectorIdId = mcId.Key;
 
     [SuppressMessage("ReSharper", "InconsistentNaming")]
-    private MangaContext MangaContext = null!;
+    private SeriesContext SeriesContext = null!;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     private ActionsContext ActionsContext = null!;
 
     protected override void SetContexts(IServiceScope serviceScope)
     {
-        MangaContext = GetContext<MangaContext>(serviceScope);
+        SeriesContext = GetContext<SeriesContext>(serviceScope);
         ActionsContext = GetContext<ActionsContext>(serviceScope);
     }
     
@@ -33,7 +33,7 @@ public class RetrieveChaptersFromSourceWorker(SourceId<Series> mcId, string lang
     {
         Log.DebugFormat("Getting Chapters for SourceId {0}...", _mangaConnectorIdId);
         // Getting SeriesSource info
-        if (await MangaContext.MangaConnectorToManga
+        if (await SeriesContext.MangaConnectorToManga
                 .Include(id => id.Obj)
                 .ThenInclude(m => m.Chapters)
                 .ThenInclude(ch => ch.SourceIds)
@@ -89,7 +89,7 @@ public class RetrieveChaptersFromSourceWorker(SourceId<Series> mcId, string lang
         Log.DebugFormat("Got {0} new download-Ids.", newIds.Count);
         
         // Add new ChapterIds to Database
-        MangaContext.MangaConnectorToChapter.AddRange(newIds);
+        SeriesContext.MangaConnectorToChapter.AddRange(newIds);
 
         // If Series is marked for Download from Connector, mark the new Chapters as UseForDownload
         if (mangaConnectorId.UseForDownload)
@@ -100,7 +100,7 @@ public class RetrieveChaptersFromSourceWorker(SourceId<Series> mcId, string lang
             }
         }
 
-        if(await MangaContext.Sync(CancellationToken, GetType(), "Chapters retrieved") is { success: false } mangaContextException)
+        if(await SeriesContext.Sync(CancellationToken, GetType(), "Chapters retrieved") is { success: false } mangaContextException)
             Log.ErrorFormat("Failed to save database changes: {0}", mangaContextException.exceptionMessage);
 
         ActionsContext.Actions.Add(new ChaptersRetrievedActionRecord(manga));

@@ -2,8 +2,8 @@ using API;
 using API.Controllers;
 using API.Tests.Schema;
 using API.Schema.ActionsContext;
-using API.Schema.MangaContext;
-using API.Schema.MangaContext.MetadataFetchers;
+using API.Schema.SeriesContext;
+using API.Schema.SeriesContext.MetadataFetchers;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -13,8 +13,8 @@ namespace API.Tests.Controllers;
 
 public class MetadataFetcherControllerTests
 {
-    private MangaContext CreateMangaContext() =>
-        new(new DbContextOptionsBuilder<MangaContext>()
+    private SeriesContext CreateMangaContext() =>
+        new(new DbContextOptionsBuilder<SeriesContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options);
 
@@ -24,7 +24,7 @@ public class MetadataFetcherControllerTests
             .Options);
 
     private MetadataFetcherController CreateController(
-        MangaContext mangaCtx,
+        SeriesContext mangaCtx,
         ActionsContext actionsCtx,
         IEnumerable<MetadataFetcher> fetchers)
     {
@@ -41,7 +41,7 @@ public class MetadataFetcherControllerTests
     {
         public override Task<MetadataSearchResult[]> SearchMetadataEntry(Series manga) => Task.FromResult<MetadataSearchResult[]>([]);
         public override Task<MetadataSearchResult[]> SearchMetadataEntry(string searchTerm) => Task.FromResult<MetadataSearchResult[]>([]);
-        public override Task UpdateMetadata(MetadataEntry metadataEntry, MangaContext dbContext, CancellationToken token) => Task.CompletedTask;
+        public override Task UpdateMetadata(MetadataEntry metadataEntry, SeriesContext dbContext, CancellationToken token) => Task.CompletedTask;
     }
 
     [Fact]
@@ -186,7 +186,7 @@ public class MetadataFetcherControllerTests
     {
         public override Task<MetadataSearchResult[]> SearchMetadataEntry(Series manga) => throw new Exception("Jikan Gateway Timeout");
         public override Task<MetadataSearchResult[]> SearchMetadataEntry(string searchTerm) => Task.FromResult<MetadataSearchResult[]>([]);
-        public override Task UpdateMetadata(MetadataEntry metadataEntry, MangaContext dbContext, CancellationToken token) => Task.CompletedTask;
+        public override Task UpdateMetadata(MetadataEntry metadataEntry, SeriesContext dbContext, CancellationToken token) => Task.CompletedTask;
     }
 
     [Fact]
@@ -194,7 +194,7 @@ public class MetadataFetcherControllerTests
     {
         using var mangaCtx = CreateMangaContext();
         using var actionsCtx = CreateActionsContext();
-        var manga = new Series("Test", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], []);
+        var manga = new Series("Test", "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], []);
         mangaCtx.Series.Add(manga);
         await mangaCtx.SaveChangesAsync();
         

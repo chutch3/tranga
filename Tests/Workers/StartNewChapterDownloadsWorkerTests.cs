@@ -1,6 +1,6 @@
 using API;
 using API.MangaConnectors;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using API.Workers;
 using API.Workers.MangaDownloadWorkers;
 using API.Workers.PeriodicWorkers;
@@ -13,19 +13,19 @@ namespace API.Tests.Workers;
 
 public class StartNewChapterDownloadsWorkerTests
 {
-    private static (MangaContext context, SourceId<Chapter> chapterId, SeriesSource connector, TrangaSettings settings)
+    private static (SeriesContext context, SourceId<Chapter> chapterId, SeriesSource connector, TrangaSettings settings)
         SetupMissingChapter(string dbName)
     {
-        var options = new DbContextOptionsBuilder<MangaContext>()
+        var options = new DbContextOptionsBuilder<SeriesContext>()
             .UseInMemoryDatabase(databaseName: dbName)
             .Options;
-        var context = new MangaContext(options);
+        var context = new SeriesContext(options);
 
         var library = new FileLibrary("/tmp/manga", "Test Lib");
         context.FileLibraries.Add(library);
 
-        var manga = new Series("Test Series", "Desc", "http://cover.com", MangaReleaseStatus.Continuing,
-            new List<Author>(), new List<MangaTag>(), new List<Link>(), new List<AltTitle>(),
+        var manga = new Series("Test Series", "Desc", "http://cover.com", SeriesReleaseStatus.Continuing,
+            new List<Author>(), new List<SeriesTag>(), new List<Link>(), new List<AltTitle>(),
             library, 0f, 2024, "en");
         context.Series.Add(manga);
 
@@ -42,7 +42,7 @@ public class StartNewChapterDownloadsWorkerTests
         return (context, chapterId, connector, settings);
     }
 
-    private static IServiceScope ScopeFor(MangaContext context)
+    private static IServiceScope ScopeFor(SeriesContext context)
     {
         var services = new ServiceCollection();
         services.AddSingleton(context);

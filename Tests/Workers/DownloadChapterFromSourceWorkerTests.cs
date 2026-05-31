@@ -1,6 +1,6 @@
 using API.MangaConnectors;
 using API.MangaDownloadClients;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using API.Workers.MangaDownloadWorkers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -56,15 +56,15 @@ public class DownloadChapterFromSourceWorkerTests
             var libraryPath = Path.Combine(tempRoot, "library");
             Directory.CreateDirectory(libraryPath);
 
-            var options = new DbContextOptionsBuilder<MangaContext>()
+            var options = new DbContextOptionsBuilder<SeriesContext>()
                 .UseInMemoryDatabase(databaseName: "DownloadWorkerDispose-" + Guid.NewGuid().ToString("N"))
                 .Options;
-            using var context = new MangaContext(options);
+            using var context = new SeriesContext(options);
 
             var library = new FileLibrary(libraryPath, "Test Lib");
             context.FileLibraries.Add(library);
-            var manga = new Series("Test Series", "Desc", "http://cover.com/c.jpg", MangaReleaseStatus.Continuing,
-                new List<Author>(), new List<MangaTag>(), new List<Link>(), new List<AltTitle>(),
+            var manga = new Series("Test Series", "Desc", "http://cover.com/c.jpg", SeriesReleaseStatus.Continuing,
+                new List<Author>(), new List<SeriesTag>(), new List<Link>(), new List<AltTitle>(),
                 library, 0f, 2024, "en");
 
             // Provide a cached cover so EnsureCoverInPublicationFolder does not make a network request.
@@ -112,17 +112,17 @@ public class DownloadChapterFromSourceWorkerTests
     public async Task DoWorkInternal_OnFailure_DoesNotMarkAsDownloaded()
     {
         // 1. Setup - Create a real DB but mock the Connector
-        var options = new DbContextOptionsBuilder<MangaContext>()
+        var options = new DbContextOptionsBuilder<SeriesContext>()
             .UseInMemoryDatabase(databaseName: "DownloadWorkerFailure")
             .Options;
 
-        using var context = new MangaContext(options);
+        using var context = new SeriesContext(options);
         
         var library = new FileLibrary("/tmp/manga", "Test Lib");
         context.FileLibraries.Add(library);
         
-        var manga = new Series("Test Series", "Desc", "http://cover.com", MangaReleaseStatus.Continuing, 
-            new List<Author>(), new List<MangaTag>(), new List<Link>(), new List<AltTitle>(),
+        var manga = new Series("Test Series", "Desc", "http://cover.com", SeriesReleaseStatus.Continuing, 
+            new List<Author>(), new List<SeriesTag>(), new List<Link>(), new List<AltTitle>(),
             library, 0f, 2024, "en");
         context.Series.Add(manga);
         

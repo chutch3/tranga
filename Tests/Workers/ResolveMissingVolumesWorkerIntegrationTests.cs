@@ -3,7 +3,7 @@ using System.IO.Compression;
 using API;
 using API.MangaConnectors;
 using API.Schema.ActionsContext;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using API.Services;
 using API.Workers;
 using API.Workers.MaintenanceWorkers;
@@ -37,9 +37,9 @@ public class ResolveMissingVolumesWorkerIntegrationTests : IAsyncLifetime
         return Task.CompletedTask;
     }
 
-    private MangaContext CreateMangaContext(DbContextOptions<MangaContext> options) => new(options);
+    private SeriesContext CreateMangaContext(DbContextOptions<SeriesContext> options) => new(options);
 
-    private IServiceScope CreateScope(MangaContext mangaContext)
+    private IServiceScope CreateScope(SeriesContext mangaContext)
     {
         var actionsContext = new ActionsContext(
             new DbContextOptionsBuilder<ActionsContext>()
@@ -47,7 +47,7 @@ public class ResolveMissingVolumesWorkerIntegrationTests : IAsyncLifetime
                 .Options);
 
         var sp = new Mock<IServiceProvider>();
-        sp.Setup(x => x.GetService(typeof(MangaContext))).Returns(mangaContext);
+        sp.Setup(x => x.GetService(typeof(SeriesContext))).Returns(mangaContext);
         sp.Setup(x => x.GetService(typeof(ActionsContext))).Returns(actionsContext);
         var scope = new Mock<IServiceScope>();
         scope.Setup(x => x.ServiceProvider).Returns(sp.Object);
@@ -96,7 +96,7 @@ public class ResolveMissingVolumesWorkerIntegrationTests : IAsyncLifetime
     {
         const string berserkUuid = "801513ba-a712-498c-8f57-cae55b38cc92";
         string dbName = Guid.NewGuid().ToString();
-        var dbOptions = new DbContextOptionsBuilder<MangaContext>()
+        var dbOptions = new DbContextOptionsBuilder<SeriesContext>()
             .UseInMemoryDatabase(dbName).Options;
 
         string mangaKey;
@@ -104,7 +104,7 @@ public class ResolveMissingVolumesWorkerIntegrationTests : IAsyncLifetime
         {
             var library = new FileLibrary(_tempDir, "Integration Library");
             setupDb.FileLibraries.Add(library);
-            var manga = new Series("Berserk", "Dark fantasy", "url", MangaReleaseStatus.Continuing,
+            var manga = new Series("Berserk", "Dark fantasy", "url", SeriesReleaseStatus.Continuing,
                 [], [], [], [], library);
             manga.SourceIds.Add(
                 new SourceId<Series>(manga, "MangaDex", berserkUuid, null));
@@ -133,7 +133,7 @@ public class ResolveMissingVolumesWorkerIntegrationTests : IAsyncLifetime
     {
         const string berserkUuid = "801513ba-a712-498c-8f57-cae55b38cc92";
         string dbName = Guid.NewGuid().ToString();
-        var dbOptions = new DbContextOptionsBuilder<MangaContext>()
+        var dbOptions = new DbContextOptionsBuilder<SeriesContext>()
             .UseInMemoryDatabase(dbName).Options;
 
         string mangaKey;
@@ -141,7 +141,7 @@ public class ResolveMissingVolumesWorkerIntegrationTests : IAsyncLifetime
         {
             var library = new FileLibrary(_tempDir, "Integration Library");
             setupDb.FileLibraries.Add(library);
-            var manga = new Series("Berserk", "Dark fantasy", "url", MangaReleaseStatus.Continuing,
+            var manga = new Series("Berserk", "Dark fantasy", "url", SeriesReleaseStatus.Continuing,
                 [], [], [], [], library);
             manga.SourceIds.Add(
                 new SourceId<Series>(manga, "MangaDex", berserkUuid, null));
@@ -171,7 +171,7 @@ public class ResolveMissingVolumesWorkerIntegrationTests : IAsyncLifetime
         const string berserkUuid = "801513ba-a712-498c-8f57-cae55b38cc92";
 
         var library = new FileLibrary(_tempDir, "Integration Library");
-        var manga = new Series("Berserk", "Dark fantasy", "url", MangaReleaseStatus.Continuing,
+        var manga = new Series("Berserk", "Dark fantasy", "url", SeriesReleaseStatus.Continuing,
             [], [], [], [], library);
         manga.SourceIds.Add(
             new SourceId<Series>(manga, "MangaDex", berserkUuid, null));
@@ -191,7 +191,7 @@ public class ResolveMissingVolumesWorkerIntegrationTests : IAsyncLifetime
         const string chainmanChapter1Uuid = "73af4d8d-1532-4a72-b1b9-8f4e5cd295c9";
 
         string dbName = Guid.NewGuid().ToString();
-        var dbOptions = new DbContextOptionsBuilder<MangaContext>()
+        var dbOptions = new DbContextOptionsBuilder<SeriesContext>()
             .UseInMemoryDatabase(dbName)
             .Options;
 
@@ -203,7 +203,7 @@ public class ResolveMissingVolumesWorkerIntegrationTests : IAsyncLifetime
             library = new FileLibrary(_tempDir, "Integration Library");
             setupDb.FileLibraries.Add(library);
             manga = new Series("One Punch-Man", "Superhero comedy", "url",
-                MangaReleaseStatus.Continuing, [], [], [], [], library);
+                SeriesReleaseStatus.Continuing, [], [], [], [], library);
             manga.SourceIds.Add(
                 new SourceId<Series>(manga, "MangaDex", opmMangaDexUuid, null));
             setupDb.Series.Add(manga);

@@ -1,8 +1,8 @@
 using log4net;
 using API.Schema.ActionsContext;
 using API.Schema.ActionsContext.Actions;
-using API.Schema.MangaContext;
-using API.Schema.MangaContext.MetadataFetchers;
+using API.Schema.SeriesContext;
+using API.Schema.SeriesContext.MetadataFetchers;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -17,7 +17,7 @@ namespace API.Controllers;
 [ApiController]
 [Route("v{v:apiVersion}/[controller]")]
 public class MetadataFetcherController(
-    MangaContext mangaContext, ActionsContext actionsContext, IEnumerable<MetadataFetcher> fetchers) : ControllerBase
+    SeriesContext mangaContext, ActionsContext actionsContext, IEnumerable<MetadataFetcher> fetchers) : ControllerBase
 {
     private static readonly ILog Log = LogManager.GetLogger(typeof(MetadataFetcherController));
     /// <summary>

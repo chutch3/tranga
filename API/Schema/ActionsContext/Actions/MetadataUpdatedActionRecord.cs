@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using API.Schema.ActionsContext.Actions.Generic;
-using API.Schema.MangaContext;
-using API.Schema.MangaContext.MetadataFetchers;
+using API.Schema.SeriesContext;
+using API.Schema.SeriesContext.MetadataFetchers;
 
 namespace API.Schema.ActionsContext.Actions;
 

@@ -1,6 +1,6 @@
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 
 namespace API.Controllers.DTOs;
 

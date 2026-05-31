@@ -2,30 +2,30 @@ using System.Reflection;
 using API;
 using API.Controllers;
 using API.Controllers.DTOs;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using Moq;
 using MangaDto = API.Controllers.DTOs.Series;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using SchemaManga = API.Schema.MangaContext.Series;
-using SchemaConnectorId = API.Schema.MangaContext.SourceId<API.Schema.MangaContext.Series>;
+using SchemaManga = API.Schema.SeriesContext.Series;
+using SchemaConnectorId = API.Schema.SeriesContext.SourceId<API.Schema.SeriesContext.Series>;
 
 namespace API.Tests.Controllers;
 
 public class SearchControllerTests
 {
-    private MangaContext CreateContext()
+    private SeriesContext CreateContext()
     {
-        var options = new DbContextOptionsBuilder<MangaContext>()
+        var options = new DbContextOptionsBuilder<SeriesContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
-        return new MangaContext(options);
+        return new SeriesContext(options);
     }
 
     private static SearchController CreateController(
-        MangaContext ctx,
+        SeriesContext ctx,
         Func<string, string, (SchemaManga, SchemaConnectorId)?>? connectorLookup = null)
     {
         var connectors = Enumerable.Empty<API.MangaConnectors.SeriesSource>();
@@ -39,7 +39,7 @@ public class SearchControllerTests
     }
 
     private static SchemaManga MakeTestManga(string name, string coverUrl = "http://example.com/cover.jpg")
-        => new(name, "A description", coverUrl, MangaReleaseStatus.Continuing, [], [], [], []);
+        => new(name, "A description", coverUrl, SeriesReleaseStatus.Continuing, [], [], [], []);
 
     private static SchemaConnectorId MakeConnectorId(SchemaManga manga, string connectorName, string idOnSite)
         => new(manga, connectorName, idOnSite, null, false);
@@ -146,7 +146,7 @@ public class SearchControllerTests
     public async Task GetMangaFromConnector_ExistingTrackedManga_ReturnsRealFileLibraryId()
     {
         using var ctx = CreateContext();
-        var library = new API.Schema.MangaContext.FileLibrary("/manga", "Main Lib");
+        var library = new API.Schema.SeriesContext.FileLibrary("/manga", "Main Lib");
         ctx.FileLibraries.Add(library);
         
         var manga = MakeTestManga("One Piece");
@@ -170,7 +170,7 @@ public class SearchControllerTests
     public async Task SearchManga_ExistingTrackedManga_ReturnsRealFileLibraryId()
     {
         using var ctx = CreateContext();
-        var library = new API.Schema.MangaContext.FileLibrary("/manga", "Main Lib");
+        var library = new API.Schema.SeriesContext.FileLibrary("/manga", "Main Lib");
         ctx.FileLibraries.Add(library);
         
         var manga = MakeTestManga("One Piece");

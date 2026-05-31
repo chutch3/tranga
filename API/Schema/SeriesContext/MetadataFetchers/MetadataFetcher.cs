@@ -1,7 +1,7 @@
 using log4net;
 using Microsoft.EntityFrameworkCore;
 
-namespace API.Schema.MangaContext.MetadataFetchers;
+namespace API.Schema.SeriesContext.MetadataFetchers;
 
 [PrimaryKey("Name")]
 public abstract class MetadataFetcher
@@ -36,5 +36,5 @@ public abstract class MetadataFetcher
     /// <summary>
     /// Updates the Series linked in the MetadataEntry
     /// </summary>
-    public abstract Task UpdateMetadata(MetadataEntry metadataEntry, MangaContext dbContext, CancellationToken token);
+    public abstract Task UpdateMetadata(MetadataEntry metadataEntry, SeriesContext dbContext, CancellationToken token);
 }

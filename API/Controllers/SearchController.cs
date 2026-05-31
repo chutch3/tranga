@@ -2,14 +2,14 @@ using Microsoft.EntityFrameworkCore;
 using API.Controllers.DTOs;
 using API.MangaConnectors;
 using MangaConnectorImpl = API.MangaConnectors.SeriesSource;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using API.Workers;
 using API.Workers.MangaDownloadWorkers;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using static Microsoft.AspNetCore.Http.StatusCodes;
-using Series = API.Schema.MangaContext.Series;
+using Series = API.Schema.SeriesContext.Series;
 
 // ReSharper disable InconsistentNaming
 
@@ -19,13 +19,13 @@ namespace API.Controllers;
 [ApiController]
 [Route("v{v:apiVersion}/[controller]")]
 public class SearchController(
-    MangaContext context,
+    SeriesContext context,
     IEnumerable<MangaConnectorImpl> connectors,
     IWorkerQueue workerQueue,
-    Func<string, string, (Series, Schema.MangaContext.SourceId<Series>)?>? connectorLookup = null)
+    Func<string, string, (Series, Schema.SeriesContext.SourceId<Series>)?>? connectorLookup = null)
     : ControllerBase
 {
-    private async Task<(Series, Schema.MangaContext.SourceId<Series>)?> LookupFromConnector(string connectorName, string mangaIdOnSite)
+    private async Task<(Series, Schema.SeriesContext.SourceId<Series>)?> LookupFromConnector(string connectorName, string mangaIdOnSite)
     {
         if (connectorLookup is not null)
             return connectorLookup(connectorName, mangaIdOnSite);
@@ -36,11 +36,11 @@ public class SearchController(
     }
 
     /// <summary>
-    /// Initiate a search for a <see cref="Schema.MangaContext.Series"/> on <see cref="SeriesSource"/> with searchTerm
+    /// Initiate a search for a <see cref="Schema.SeriesContext.Series"/> on <see cref="SeriesSource"/> with searchTerm
     /// </summary>
     /// <param name="MangaConnectorName"><see cref="SeriesSource"/>.Name</param>
     /// <param name="Query">searchTerm</param>
-    /// <response code="200"><see cref="MinimalSeries"/> exert of <see cref="Schema.MangaContext.Series"/></response>
+    /// <response code="200"><see cref="MinimalSeries"/> exert of <see cref="Schema.SeriesContext.Series"/></response>
     /// <response code="404"><see cref="SeriesSource"/> with Name not found</response>
     /// <response code="412"><see cref="SeriesSource"/> with Name is disabled</response>
     [HttpGet("{MangaConnectorName}/{Query}")]
@@ -54,12 +54,12 @@ public class SearchController(
         if (!connector.Enabled)
             return TypedResults.StatusCode(Status412PreconditionFailed);
 
-        (Series manga, Schema.MangaContext.SourceId<Series> id)[] mangas = await connector.SearchManga(Query);
+        (Series manga, Schema.SeriesContext.SourceId<Series> id)[] mangas = await connector.SearchManga(Query);
 
         IEnumerable<MinimalSeries> result = mangas.Select(kv =>
         {
             Series m = kv.manga;
-            Schema.MangaContext.SourceId<Series> id = kv.id;
+            Schema.SeriesContext.SourceId<Series> id = kv.id;
             IEnumerable<DTOs.SourceId<DTOs.Series>> ids =
             [
                 new DTOs.SourceId<DTOs.Series>(id.Key, id.MangaConnectorName, id.ObjId, id.IdOnConnectorSite, id.WebsiteUrl, id.UseForDownload)
@@ -75,7 +75,7 @@ public class SearchController(
     }
 
     /// <summary>
-    /// Returns full <see cref="Schema.MangaContext.Series"/> detail from a <see cref="SeriesSource"/> by its site ID, without saving to the database
+    /// Returns full <see cref="Schema.SeriesContext.Series"/> detail from a <see cref="SeriesSource"/> by its site ID, without saving to the database
     /// </summary>
     /// <param name="MangaConnectorName"><see cref="SeriesSource"/>.Name</param>
     /// <param name="ConnectorSeriesId">The manga's ID on the connector site</param>
@@ -108,10 +108,10 @@ public class SearchController(
     }
 
     /// <summary>
-    /// Returns <see cref="Schema.MangaContext.Series"/> from the <see cref="SeriesSource"/> associated with <paramref name="url"/>
+    /// Returns <see cref="Schema.SeriesContext.Series"/> from the <see cref="SeriesSource"/> associated with <paramref name="url"/>
     /// </summary>
     /// <param name="url"></param>
-    /// <response code="200"><see cref="MinimalSeries"/> exert of <see cref="Schema.MangaContext.Series"/>.</response>
+    /// <response code="200"><see cref="MinimalSeries"/> exert of <see cref="Schema.SeriesContext.Series"/>.</response>
     /// <response code="404"><see cref="Series"/> not found</response>
     /// <response code="500">Error during Database Operation</response>
     [HttpGet]

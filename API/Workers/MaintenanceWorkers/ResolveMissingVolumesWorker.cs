@@ -1,5 +1,5 @@
 using System.Collections.Concurrent;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -8,14 +8,14 @@ namespace API.Workers.MaintenanceWorkers;
 public class ResolveMissingVolumesWorker(TrangaSettings settings, IBatchWorkerFactory<string> factory, IEnumerable<BaseWorker>? dependsOn = null)
     : BaseWorkerWithContexts(dependsOn), IPeriodic
 {
-    private MangaContext _mangaContext = null!;
+    private SeriesContext _mangaContext = null!;
 
     public DateTime LastExecution { get; set; } = DateTime.MinValue;
     public TimeSpan Interval { get; set; } = TimeSpan.FromDays(1);
 
     protected override void SetContexts(IServiceScope serviceScope)
     {
-        _mangaContext = GetContext<MangaContext>(serviceScope);
+        _mangaContext = GetContext<SeriesContext>(serviceScope);
     }
 
     protected override async Task<BaseWorker[]> DoWorkInternal()

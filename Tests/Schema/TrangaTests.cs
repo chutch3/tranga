@@ -2,9 +2,9 @@ using API;
 using API.MangaConnectors;
 using API.MangaDownloadClients;
 using API.Schema.ActionsContext;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using API.Schema.NotificationsContext;
-using API.Schema.MangaContext.MetadataFetchers;
+using API.Schema.SeriesContext.MetadataFetchers;
 using API.Workers;
 using API.Workers.PeriodicWorkers;
 using API.Workers.PeriodicWorkers.MaintenanceWorkers;
@@ -61,11 +61,11 @@ public class TrangaTests
         services.AddTransient<ResolveMissingVolumesWorker>(_ => new ResolveMissingVolumesWorker(testSettings, Mock.Of<IBatchWorkerFactory<string>>()));
         services.AddTransient<SyncChapterFileNamesWorker>(_ => new SyncChapterFileNamesWorker(testSettings));
 
-        // 4. Inject empty fetchers, rate limiter, worker queue, and MangaContext
+        // 4. Inject empty fetchers, rate limiter, worker queue, and SeriesContext
         services.AddSingleton<IEnumerable<MetadataFetcher>>(emptyFetchers);
         services.AddSingleton(new RateLimitHandler(testSettings));
         services.AddSingleton(mockWorkerQueue);
-        services.AddDbContext<MangaContext>(o => o.UseInMemoryDatabase(Guid.NewGuid().ToString()));
+        services.AddDbContext<SeriesContext>(o => o.UseInMemoryDatabase(Guid.NewGuid().ToString()));
         services.AddDbContext<ActionsContext>(o => o.UseInMemoryDatabase(Guid.NewGuid().ToString()));
         services.AddDbContext<NotificationsContext>(o => o.UseInMemoryDatabase(Guid.NewGuid().ToString()));
 
@@ -75,12 +75,12 @@ public class TrangaTests
         return services.BuildServiceProvider();
     }
 
-    private MangaContext GetInMemoryDbContext()
+    private SeriesContext GetInMemoryDbContext()
     {
-        var options = new DbContextOptionsBuilder<MangaContext>()
+        var options = new DbContextOptionsBuilder<SeriesContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString()) // Unique DB per test
             .Options;
-        return new MangaContext(options);
+        return new SeriesContext(options);
     }
 
     [Fact]
@@ -141,7 +141,7 @@ public class TrangaTests
 
         using var dbContext = GetInMemoryDbContext();
 
-        var newManga = new Series("Berserk", "A dark fantasy", "cover.jpg", MangaReleaseStatus.Continuing, [], [], [], []);
+        var newManga = new Series("Berserk", "A dark fantasy", "cover.jpg", SeriesReleaseStatus.Continuing, [], [], [], []);
         var newConnectorId = new SourceId<Series>(newManga, "MangaDex", "12345", "https://mangadex.org/title/12345");
 
         var result = await trangaManager.AddMangaToContext(dbContext, newManga, newConnectorId, CancellationToken.None);

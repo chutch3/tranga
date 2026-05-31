@@ -2,7 +2,7 @@
 using API.MangaConnectors;
 using API.Schema.ActionsContext;
 using API.Schema.ActionsContext.Actions;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using API.Workers;
 using API.Workers.MangaDownloadWorkers;
 using Asp.Versioning;
@@ -14,7 +14,7 @@ using Soenneker.Utils.String.NeedlemanWunsch;
 using static Microsoft.AspNetCore.Http.StatusCodes;
 using AltTitle = API.Controllers.DTOs.AltTitle;
 using Author = API.Controllers.DTOs.Author;
-using Chapter = API.Schema.MangaContext.Chapter;
+using Chapter = API.Schema.SeriesContext.Chapter;
 using Link = API.Controllers.DTOs.Link;
 using Series = API.Controllers.DTOs.Series;
 using MangaConnectorImpl = API.MangaConnectors.SeriesSource;
@@ -26,13 +26,13 @@ namespace API.Controllers;
 [ApiVersion(2)]
 [ApiController]
 [Route("v{v:apiVersion}/[controller]")]
-public class MangaController(MangaContext context, ActionsContext actionsContext, TrangaSettings settings, IEnumerable<MangaConnectorImpl> connectors, IWorkerQueue workerQueue) : ControllerBase
+public class SeriesController(SeriesContext context, ActionsContext actionsContext, TrangaSettings settings, IEnumerable<MangaConnectorImpl> connectors, IWorkerQueue workerQueue) : ControllerBase
 {
     
     /// <summary>
     /// Returns all cached <see cref="DTOs.Series"/>
     /// </summary>
-    /// <response code="200"><see cref="MinimalSeries"/> exert of <see cref="Schema.MangaContext.Series"/>. Use <see cref="GetManga"/> for more information</response>
+    /// <response code="200"><see cref="MinimalSeries"/> exert of <see cref="Schema.SeriesContext.Series"/>. Use <see cref="GetManga"/> for more information</response>
     /// <response code="500">Error during Database Operation</response>
     [HttpGet]
     [ProducesResponseType<List<MinimalSeries>>(Status200OK, "application/json")]
@@ -53,9 +53,9 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
     }
     
     /// <summary>
-    /// Returns all <see cref="Schema.MangaContext.Series"/> that are being downloaded from at least one <see cref="API.MangaConnectors.SeriesSource"/>
+    /// Returns all <see cref="Schema.SeriesContext.Series"/> that are being downloaded from at least one <see cref="API.MangaConnectors.SeriesSource"/>
     /// </summary>
-    /// <response code="200"><see cref="MinimalSeries"/> exert of <see cref="Schema.MangaContext.Series"/>. Use <see cref="GetManga"/> for more information</response>
+    /// <response code="200"><see cref="MinimalSeries"/> exert of <see cref="Schema.SeriesContext.Series"/>. Use <see cref="GetManga"/> for more information</response>
     /// <response code="500">Error during Database Operation</response>
     [HttpGet("Downloading")]
     [ProducesResponseType<MinimalSeries[]>(Status200OK, "application/json")]
@@ -77,9 +77,9 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
     }
 
     /// <summary>
-    /// Return <see cref="Schema.MangaContext.Series"/> with <paramref name="MangaId"/>
+    /// Return <see cref="Schema.SeriesContext.Series"/> with <paramref name="MangaId"/>
     /// </summary>
-    /// <param name="MangaId"><see cref="Schema.MangaContext.Series"/>.Key</param>
+    /// <param name="MangaId"><see cref="Schema.SeriesContext.Series"/>.Key</param>
     /// <response code="200"></response>
     /// <response code="404"><see cref="Series"/> with <paramref name="MangaId"/> not found</response>
     [HttpGet("{MangaId}")]
@@ -172,9 +172,9 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
 
         string cache = CoverSize switch
         {
-            MangaController.CoverSize.Small => settings.CoverImageCacheSmall,
-            MangaController.CoverSize.Medium => settings.CoverImageCacheMedium,
-            MangaController.CoverSize.Large => settings.CoverImageCacheLarge,
+            SeriesController.CoverSize.Small => settings.CoverImageCacheSmall,
+            SeriesController.CoverSize.Medium => settings.CoverImageCacheMedium,
+            SeriesController.CoverSize.Large => settings.CoverImageCacheLarge,
             _ => settings.CoverImageCacheOriginal
         };
 
@@ -300,7 +300,7 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
         if (manga.Chapters.SelectMany(ch =>
                 ch.SourceIds.Where(chID => chID.MangaConnectorName == MangaConnectorName)) is { } chIds)
         {
-            foreach (Schema.MangaContext.SourceId<Chapter> chId in chIds)
+            foreach (Schema.SeriesContext.SourceId<Chapter> chId in chIds)
             {
                 chId.UseForDownload = IsRequested;
             }
@@ -317,11 +317,11 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
     }
     
     /// <summary>
-    /// Initiate a search for <see cref="API.Schema.MangaContext.Series"/> on a different <see cref="API.MangaConnectors.SeriesSource"/>
+    /// Initiate a search for <see cref="API.Schema.SeriesContext.Series"/> on a different <see cref="API.MangaConnectors.SeriesSource"/>
     /// </summary>
-    /// <param name="MangaId"><see cref="API.Schema.MangaContext.Series"/> with <paramref name="MangaId"/></param>
+    /// <param name="MangaId"><see cref="API.Schema.SeriesContext.Series"/> with <paramref name="MangaId"/></param>
     /// <param name="MangaConnectorName"><see cref="API.MangaConnectors.SeriesSource"/>.Name</param>
-    /// <response code="200"><see cref="MinimalSeries"/> exert of <see cref="Schema.MangaContext.Series"/></response>
+    /// <response code="200"><see cref="MinimalSeries"/> exert of <see cref="Schema.SeriesContext.Series"/></response>
     /// <response code="404"><see cref="API.MangaConnectors.SeriesSource"/> with Name not found</response>
     /// <response code="412"><see cref="API.MangaConnectors.SeriesSource"/> with Name is disabled</response>
     [HttpGet("{MangaId}/OnMangaConnector/{MangaConnectorName}")]
@@ -397,11 +397,11 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
     }
 
     /// <summary>
-    /// Returns <see cref="Schema.MangaContext.Series"/> with names similar to <see cref="Schema.MangaContext.Series"/> (identified by <paramref name="MangaId"/>)
+    /// Returns <see cref="Schema.SeriesContext.Series"/> with names similar to <see cref="Schema.SeriesContext.Series"/> (identified by <paramref name="MangaId"/>)
     /// </summary>
-    /// <param name="MangaId">Key of <see cref="Schema.MangaContext.Series"/></param>
+    /// <param name="MangaId">Key of <see cref="Schema.SeriesContext.Series"/></param>
     /// <response code="200"></response>
-    /// <response code="404"><see cref="Schema.MangaContext.Series"/> with <paramref name="MangaId"/> not found</response>
+    /// <response code="404"><see cref="Schema.SeriesContext.Series"/> with <paramref name="MangaId"/> not found</response>
     /// <response code="500">Error during Database Operation</response>
     [HttpGet("WithSimilarName/{MangaId}")]
     [ProducesResponseType<List<string>>(Status200OK, "application/json")]
@@ -455,7 +455,7 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
     [ProducesResponseType<int>(Status200OK, "text/plain")]
     public async Task<Ok<int>> ForceRecheckMangaChapters(string? mangaId = null)
     {
-        IQueryable<Schema.MangaContext.SourceId<Chapter>> queryable = context.MangaConnectorToChapter.Where(chId  => chId.Obj!.Downloaded);
+        IQueryable<Schema.SeriesContext.SourceId<Chapter>> queryable = context.MangaConnectorToChapter.Where(chId  => chId.Obj!.Downloaded);
         if(mangaId is not null)
             queryable = queryable.Where(chId => chId.Obj!.ParentMangaId == mangaId);
         
@@ -473,7 +473,7 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
     [ProducesResponseType<int>(Status200OK, "text/plain")]
     public async Task<Ok<int>> ForceRecheckChapter(string chapterId)
     {
-        IQueryable<Schema.MangaContext.SourceId<Chapter>> queryable = context.MangaConnectorToChapter.Where(chId  => chId.ObjId == chapterId);
+        IQueryable<Schema.SeriesContext.SourceId<Chapter>> queryable = context.MangaConnectorToChapter.Where(chId  => chId.ObjId == chapterId);
         
         int rowsAffected = await queryable.ExecuteDeleteAsync(HttpContext.RequestAborted);
 

@@ -1,14 +1,14 @@
 using API;
 using API.Controllers;
 using API.Controllers.DTOs;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using SchemaManga = API.Schema.MangaContext.Series;
-using SchemaFileLibrary = API.Schema.MangaContext.FileLibrary;
-using SchemaChapter = API.Schema.MangaContext.Chapter;
+using SchemaManga = API.Schema.SeriesContext.Series;
+using SchemaFileLibrary = API.Schema.SeriesContext.FileLibrary;
+using SchemaChapter = API.Schema.SeriesContext.Chapter;
 
 namespace API.Tests.Controllers;
 
@@ -28,15 +28,15 @@ public class LibraryControllerTests : IDisposable
             Directory.Delete(_tempDir, true);
     }
 
-    private MangaContext CreateContext()
+    private SeriesContext CreateContext()
     {
-        var options = new DbContextOptionsBuilder<MangaContext>()
+        var options = new DbContextOptionsBuilder<SeriesContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
-        return new MangaContext(options);
+        return new SeriesContext(options);
     }
 
-    private LibraryController CreateController(MangaContext ctx)
+    private LibraryController CreateController(SeriesContext ctx)
     {
         var controller = new LibraryController(ctx);
         controller.ControllerContext = new ControllerContext
@@ -54,7 +54,7 @@ public class LibraryControllerTests : IDisposable
     }
 
     private static SchemaManga MakeTestManga(string name, SchemaFileLibrary library)
-        => new(name, "", "http://example.com/img.jpg", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        => new(name, "", "http://example.com/img.jpg", SeriesReleaseStatus.Continuing, [], [], [], [], library);
 
     // ──────────────────────────────────────────────────────
     // GET /v2/Library/unresolved
@@ -165,7 +165,7 @@ public class LibraryControllerTests : IDisposable
 
         // Series with no library (search result / not tracked)
         var manga = new SchemaManga("Search Result", "", "http://example.com/img.jpg",
-            MangaReleaseStatus.Continuing, [], [], [], []);
+            SeriesReleaseStatus.Continuing, [], [], [], []);
         ctx.Series.Add(manga);
 
         var ch = new SchemaChapter(manga, "1", null);

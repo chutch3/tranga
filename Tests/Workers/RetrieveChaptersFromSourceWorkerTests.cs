@@ -1,30 +1,30 @@
 using API.MangaConnectors;
 using API.Schema.ActionsContext;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using API.Workers.MangaDownloadWorkers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Xunit;
-using Chapter = API.Schema.MangaContext.Chapter;
-using Series = API.Schema.MangaContext.Series;
-using SourceId = API.Schema.MangaContext.SourceId<API.Schema.MangaContext.Series>;
-using ChapterConnectorId = API.Schema.MangaContext.SourceId<API.Schema.MangaContext.Chapter>;
+using Chapter = API.Schema.SeriesContext.Chapter;
+using Series = API.Schema.SeriesContext.Series;
+using SourceId = API.Schema.SeriesContext.SourceId<API.Schema.SeriesContext.Series>;
+using ChapterConnectorId = API.Schema.SeriesContext.SourceId<API.Schema.SeriesContext.Chapter>;
 
 namespace API.Tests.Workers;
 
 public class RetrieveChaptersFromSourceWorkerTests : IDisposable
 {
     private readonly Mock<IServiceScope> _mockScope;
-    private readonly MangaContext _mangaContext;
+    private readonly SeriesContext _mangaContext;
     private readonly ActionsContext _actionsContext;
 
     public RetrieveChaptersFromSourceWorkerTests()
     {
-        var mangaOptions = new DbContextOptionsBuilder<MangaContext>()
+        var mangaOptions = new DbContextOptionsBuilder<SeriesContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .Options;
-        _mangaContext = new MangaContext(mangaOptions);
+        _mangaContext = new SeriesContext(mangaOptions);
 
         var actionsOptions = new DbContextOptionsBuilder<ActionsContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
@@ -32,7 +32,7 @@ public class RetrieveChaptersFromSourceWorkerTests : IDisposable
         _actionsContext = new ActionsContext(actionsOptions);
 
         var serviceProvider = new Mock<IServiceProvider>();
-        serviceProvider.Setup(x => x.GetService(typeof(MangaContext))).Returns(_mangaContext);
+        serviceProvider.Setup(x => x.GetService(typeof(SeriesContext))).Returns(_mangaContext);
         serviceProvider.Setup(x => x.GetService(typeof(ActionsContext))).Returns(_actionsContext);
 
         _mockScope = new Mock<IServiceScope>();
@@ -48,7 +48,7 @@ public class RetrieveChaptersFromSourceWorkerTests : IDisposable
     [Fact]
     public async Task DoWork_UpdatesExistingChapterWithMissingVolume()
     {
-        var manga = new Series("Test Series", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], []);
+        var manga = new Series("Test Series", "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], []);
         _mangaContext.Series.Add(manga);
 
         var mockConnector = new Mock<SeriesSource>("MangaDex", new[] { "en" }, new[] { "mangadex.org" }, "icon.png", new TrangaSettings());

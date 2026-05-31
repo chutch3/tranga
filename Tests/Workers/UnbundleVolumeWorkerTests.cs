@@ -1,7 +1,7 @@
 using System.IO.Compression;
 using API;
 using API.Schema.ActionsContext;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using API.Workers.MaintenanceWorkers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,7 +14,7 @@ public class UnbundleVolumeWorkerTests : IDisposable
 {
     private readonly string _testRoot;
     private readonly Mock<IServiceScope> _mockScope;
-    private readonly MangaContext _mangaContext;
+    private readonly SeriesContext _mangaContext;
     private readonly ActionsContext _actionsContext;
     private const string NamingScheme = "%M - Ch.%C";
 
@@ -23,10 +23,10 @@ public class UnbundleVolumeWorkerTests : IDisposable
         _testRoot = Path.Combine(Path.GetTempPath(), $"UnbundleVolumeTest_{Guid.NewGuid()}");
         Directory.CreateDirectory(_testRoot);
 
-        var mangaOptions = new DbContextOptionsBuilder<MangaContext>()
+        var mangaOptions = new DbContextOptionsBuilder<SeriesContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .Options;
-        _mangaContext = new MangaContext(mangaOptions);
+        _mangaContext = new SeriesContext(mangaOptions);
 
         var actionsOptions = new DbContextOptionsBuilder<ActionsContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
@@ -34,7 +34,7 @@ public class UnbundleVolumeWorkerTests : IDisposable
         _actionsContext = new ActionsContext(actionsOptions);
 
         var serviceProvider = new Mock<IServiceProvider>();
-        serviceProvider.Setup(x => x.GetService(typeof(MangaContext))).Returns(_mangaContext);
+        serviceProvider.Setup(x => x.GetService(typeof(SeriesContext))).Returns(_mangaContext);
         serviceProvider.Setup(x => x.GetService(typeof(ActionsContext))).Returns(_actionsContext);
 
         _mockScope = new Mock<IServiceScope>();
@@ -75,7 +75,7 @@ public class UnbundleVolumeWorkerTests : IDisposable
         _mangaContext.FileLibraries.Add(library);
 
         var manga = new Series("Bundle Test Series", "Desc", "http://example.com/cover.jpg",
-            MangaReleaseStatus.Continuing, [], [], [], [], library);
+            SeriesReleaseStatus.Continuing, [], [], [], [], library);
         _mangaContext.Series.Add(manga);
 
         string bundleName = $"Vol {volumeNumber}.cbz";
@@ -148,7 +148,7 @@ public class UnbundleVolumeWorkerTests : IDisposable
         var library = new FileLibrary(_testRoot, "Lib");
         _mangaContext.FileLibraries.Add(library);
         var manga = new Series("No Map Series", "Desc", "http://example.com/cover.jpg",
-            MangaReleaseStatus.Continuing, [], [], [], [], library);
+            SeriesReleaseStatus.Continuing, [], [], [], [], library);
         _mangaContext.Series.Add(manga);
         var vol = new VolumeMetadata(manga, 1);
         vol.ArchiveFileName = "Vol 1.cbz";

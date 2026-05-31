@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 using System.IO.Compression;
 using API;
 using API.Schema.ActionsContext;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using API.Services;
 using API.Workers;
 using API.Workers.MaintenanceWorkers;
@@ -18,7 +18,7 @@ public class ResolveMissingVolumesForMangaWorkerTests : IDisposable
 {
     private readonly string _testRoot;
     private readonly Mock<IServiceScope> _mockScope;
-    private readonly MangaContext _mangaContext;
+    private readonly SeriesContext _mangaContext;
     private readonly ActionsContext _actionsContext;
     private readonly Mock<IMangaDexVolumeResolver> _mockMangaDexResolver;
     private readonly Mock<IMangaDexSearchService> _mockSearchService;
@@ -28,10 +28,10 @@ public class ResolveMissingVolumesForMangaWorkerTests : IDisposable
         _testRoot = Path.Combine(Path.GetTempPath(), $"ResolveForMangaTest_{Guid.NewGuid()}");
         Directory.CreateDirectory(_testRoot);
 
-        var mangaOptions = new DbContextOptionsBuilder<MangaContext>()
+        var mangaOptions = new DbContextOptionsBuilder<SeriesContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .Options;
-        _mangaContext = new MangaContext(mangaOptions);
+        _mangaContext = new SeriesContext(mangaOptions);
 
         var actionsOptions = new DbContextOptionsBuilder<ActionsContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
@@ -39,7 +39,7 @@ public class ResolveMissingVolumesForMangaWorkerTests : IDisposable
         _actionsContext = new ActionsContext(actionsOptions);
 
         var serviceProvider = new Mock<IServiceProvider>();
-        serviceProvider.Setup(x => x.GetService(typeof(MangaContext))).Returns(_mangaContext);
+        serviceProvider.Setup(x => x.GetService(typeof(SeriesContext))).Returns(_mangaContext);
         serviceProvider.Setup(x => x.GetService(typeof(ActionsContext))).Returns(_actionsContext);
 
         _mockScope = new Mock<IServiceScope>();
@@ -82,7 +82,7 @@ public class ResolveMissingVolumesForMangaWorkerTests : IDisposable
         var settings = new TrangaSettings { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactThenGuess };
         var library = new FileLibrary(_testRoot, "Test Library");
         _mangaContext.FileLibraries.Add(library);
-        var manga = new Series("Test Series", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        var manga = new Series("Test Series", "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], [], library);
         _mangaContext.Series.Add(manga);
         _mangaContext.Chapters.Add(new Chapter(manga, "1", null, "Title 1") { Downloaded = true, FileName = "chap1.cbz" });
         _mangaContext.Chapters.Add(new Chapter(manga, "2", null, "Title 2") { Downloaded = true, FileName = "chap2.cbz" });
@@ -105,7 +105,7 @@ public class ResolveMissingVolumesForMangaWorkerTests : IDisposable
         var settings = new TrangaSettings { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactThenGuess };
         var library = new FileLibrary(_testRoot, "Test Library");
         _mangaContext.FileLibraries.Add(library);
-        var manga = new Series("Test No Cover", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        var manga = new Series("Test No Cover", "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], [], library);
         _mangaContext.Series.Add(manga);
         _mangaContext.Chapters.Add(new Chapter(manga, "1", null, "Title 1") { Downloaded = true, FileName = "chap1.cbz" });
         _mangaContext.Chapters.Add(new Chapter(manga, "2", null, "Title 2") { Downloaded = true, FileName = "chap2.cbz" });
@@ -128,7 +128,7 @@ public class ResolveMissingVolumesForMangaWorkerTests : IDisposable
         var settings = new TrangaSettings { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactOnly };
         var library = new FileLibrary(_testRoot, "Test Library");
         _mangaContext.FileLibraries.Add(library);
-        var manga = new Series("Test Exact Only", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        var manga = new Series("Test Exact Only", "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], [], library);
         _mangaContext.Series.Add(manga);
         _mangaContext.Chapters.Add(new Chapter(manga, "1", null, "Title 1") { Downloaded = true, FileName = "chap1.cbz" });
         await _mangaContext.SaveChangesAsync();
@@ -148,7 +148,7 @@ public class ResolveMissingVolumesForMangaWorkerTests : IDisposable
         var settings = new TrangaSettings { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactThenGuess };
         var library = new FileLibrary(_testRoot, "Test Library");
         _mangaContext.FileLibraries.Add(library);
-        var manga = new Series("Test Missing File", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        var manga = new Series("Test Missing File", "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], [], library);
         _mangaContext.Series.Add(manga);
         _mangaContext.Chapters.Add(new Chapter(manga, "1", null, "Title 1") { Downloaded = true, FileName = "chap1.cbz" });
         _mangaContext.Chapters.Add(new Chapter(manga, "2", null, "Title 2") { Downloaded = true, FileName = "chap2.cbz" });
@@ -170,24 +170,24 @@ public class ResolveMissingVolumesForMangaWorkerTests : IDisposable
     {
         var settings = new TrangaSettings { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactThenGuess };
         string dbName = Guid.NewGuid().ToString();
-        var options = new DbContextOptionsBuilder<MangaContext>().UseInMemoryDatabase(dbName).Options;
+        var options = new DbContextOptionsBuilder<SeriesContext>().UseInMemoryDatabase(dbName).Options;
 
         FileLibrary library;
         Series manga;
-        using (var setupContext = new MangaContext(options))
+        using (var setupContext = new SeriesContext(options))
         {
             library = new FileLibrary(_testRoot, "Test Library");
             setupContext.FileLibraries.Add(library);
-            manga = new Series("Test Continuation", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+            manga = new Series("Test Continuation", "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], [], library);
             setupContext.Series.Add(manga);
             setupContext.Chapters.Add(new Chapter(manga, "1", 10, "Title 1") { Downloaded = true, FileName = "chap1.cbz" });
             setupContext.Chapters.Add(new Chapter(manga, "2", null, "Title 2") { Downloaded = true, FileName = "chap2.cbz" });
             await setupContext.SaveChangesAsync();
         }
 
-        using var workerContext = new MangaContext(options);
+        using var workerContext = new SeriesContext(options);
         var sp = new Mock<IServiceProvider>();
-        sp.Setup(x => x.GetService(typeof(MangaContext))).Returns(workerContext);
+        sp.Setup(x => x.GetService(typeof(SeriesContext))).Returns(workerContext);
         sp.Setup(x => x.GetService(typeof(ActionsContext))).Returns(_actionsContext);
         var scope = new Mock<IServiceScope>();
         scope.Setup(x => x.ServiceProvider).Returns(sp.Object);
@@ -209,7 +209,7 @@ public class ResolveMissingVolumesForMangaWorkerTests : IDisposable
         var settings = new TrangaSettings { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactOnly };
         var library = new FileLibrary(_testRoot, "Test Library");
         _mangaContext.FileLibraries.Add(library);
-        var manga = new Series("Test MangaDex Full", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        var manga = new Series("Test MangaDex Full", "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], [], library);
         _mangaContext.Series.Add(manga);
         _mangaContext.Chapters.Add(new Chapter(manga, "1", null, "Title 1") { Downloaded = true, FileName = "chap1.cbz" });
         _mangaContext.Chapters.Add(new Chapter(manga, "2", null, "Title 2") { Downloaded = true, FileName = "chap2.cbz" });
@@ -231,7 +231,7 @@ public class ResolveMissingVolumesForMangaWorkerTests : IDisposable
         var settings = new TrangaSettings { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactOnly };
         var library = new FileLibrary(_testRoot, "Test Library");
         _mangaContext.FileLibraries.Add(library);
-        var manga = new Series("Test MangaDex Partial", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        var manga = new Series("Test MangaDex Partial", "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], [], library);
         _mangaContext.Series.Add(manga);
         _mangaContext.Chapters.Add(new Chapter(manga, "1", null, "Title 1") { Downloaded = true, FileName = "chap1.cbz" });
         _mangaContext.Chapters.Add(new Chapter(manga, "2", null, "Title 2") { Downloaded = true, FileName = "chap2.cbz" });
@@ -255,7 +255,7 @@ public class ResolveMissingVolumesForMangaWorkerTests : IDisposable
         var settings = new TrangaSettings { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactThenGuess };
         var library = new FileLibrary(_testRoot, "Test Library");
         _mangaContext.FileLibraries.Add(library);
-        var manga = new Series("Test Fallback", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        var manga = new Series("Test Fallback", "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], [], library);
         _mangaContext.Series.Add(manga);
         _mangaContext.Chapters.Add(new Chapter(manga, "1", null, "Title 1") { Downloaded = true, FileName = "chap1.cbz" });
         _mangaContext.Chapters.Add(new Chapter(manga, "2", null, "Title 2") { Downloaded = true, FileName = "chap2.cbz" });
@@ -278,7 +278,7 @@ public class ResolveMissingVolumesForMangaWorkerTests : IDisposable
         var settings = new TrangaSettings { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactThenGuess };
         var library = new FileLibrary(_testRoot, "Test Library");
         _mangaContext.FileLibraries.Add(library);
-        var manga = new Series("Test Consecutive", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        var manga = new Series("Test Consecutive", "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], [], library);
         _mangaContext.Series.Add(manga);
         _mangaContext.Chapters.Add(new Chapter(manga, "1", null, "Title 1") { Downloaded = true, FileName = "chap1.cbz" });
         _mangaContext.Chapters.Add(new Chapter(manga, "2", null, "Title 2") { Downloaded = true, FileName = "chap2.cbz" });
@@ -300,24 +300,24 @@ public class ResolveMissingVolumesForMangaWorkerTests : IDisposable
     {
         var settings = new TrangaSettings { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactThenGuess };
         string dbName = Guid.NewGuid().ToString();
-        var options = new DbContextOptionsBuilder<MangaContext>().UseInMemoryDatabase(dbName).Options;
+        var options = new DbContextOptionsBuilder<SeriesContext>().UseInMemoryDatabase(dbName).Options;
 
         FileLibrary library;
         Series manga;
-        using (var setupContext = new MangaContext(options))
+        using (var setupContext = new SeriesContext(options))
         {
             library = new FileLibrary(_testRoot, "Test Library");
             setupContext.FileLibraries.Add(library);
-            manga = new Series("Test Grayscale Continuation", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+            manga = new Series("Test Grayscale Continuation", "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], [], library);
             setupContext.Series.Add(manga);
             setupContext.Chapters.Add(new Chapter(manga, "1", 10, "Title 1") { Downloaded = true, FileName = "chap1.cbz" });
             setupContext.Chapters.Add(new Chapter(manga, "2", null, "Title 2") { Downloaded = true, FileName = "chap2.cbz" });
             await setupContext.SaveChangesAsync();
         }
 
-        using var workerContext = new MangaContext(options);
+        using var workerContext = new SeriesContext(options);
         var sp = new Mock<IServiceProvider>();
-        sp.Setup(x => x.GetService(typeof(MangaContext))).Returns(workerContext);
+        sp.Setup(x => x.GetService(typeof(SeriesContext))).Returns(workerContext);
         sp.Setup(x => x.GetService(typeof(ActionsContext))).Returns(_actionsContext);
         var scope = new Mock<IServiceScope>();
         scope.Setup(x => x.ServiceProvider).Returns(sp.Object);
@@ -339,7 +339,7 @@ public class ResolveMissingVolumesForMangaWorkerTests : IDisposable
         var settings = new TrangaSettings { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactThenGuess };
         var library = new FileLibrary(_testRoot, "Test Library");
         _mangaContext.FileLibraries.Add(library);
-        var manga = new Series("Test Moves", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        var manga = new Series("Test Moves", "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], [], library);
         _mangaContext.Series.Add(manga);
         _mangaContext.Chapters.Add(new Chapter(manga, "1", null, "Title 1") { Downloaded = true, FileName = "chap1.cbz" });
         await _mangaContext.SaveChangesAsync();
@@ -362,7 +362,7 @@ public class ResolveMissingVolumesForMangaWorkerTests : IDisposable
         var settings = new TrangaSettings { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactThenGuess };
         var library = new FileLibrary(_testRoot, "Test Library");
         _mangaContext.FileLibraries.Add(library);
-        var manga = new Series("Test No Rename", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        var manga = new Series("Test No Rename", "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], [], library);
         _mangaContext.Series.Add(manga);
         _mangaContext.Chapters.Add(new Chapter(manga, "1", null, "Title 1") { Downloaded = true, FileName = "chap1.cbz" });
         await _mangaContext.SaveChangesAsync();
@@ -389,7 +389,7 @@ public class ResolveMissingVolumesForMangaWorkerTests : IDisposable
         };
         var library = new FileLibrary(_testRoot, "Test Library");
         _mangaContext.FileLibraries.Add(library);
-        var manga = new Series("Test No Volume Scheme", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        var manga = new Series("Test No Volume Scheme", "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], [], library);
         _mangaContext.Series.Add(manga);
         var chapter = new Chapter(manga, "1", null, "Title 1") { Downloaded = true };
         chapter.FileName = chapter.GetArchiveFileName(settings.ChapterNamingScheme);
@@ -411,7 +411,7 @@ public class ResolveMissingVolumesForMangaWorkerTests : IDisposable
         var settings = new TrangaSettings { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactThenGuess };
         var library = new FileLibrary(_testRoot, "Test Library");
         _mangaContext.FileLibraries.Add(library);
-        var manga = new Series("Test Empty Zip", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        var manga = new Series("Test Empty Zip", "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], [], library);
         _mangaContext.Series.Add(manga);
         _mangaContext.Chapters.Add(new Chapter(manga, "1", null, "Title 1") { Downloaded = true, FileName = "chap1.cbz" });
         _mangaContext.Chapters.Add(new Chapter(manga, "2", null, "Title 2") { Downloaded = true, FileName = "chap2.cbz" });
@@ -435,7 +435,7 @@ public class ResolveMissingVolumesForMangaWorkerTests : IDisposable
         var settings = new TrangaSettings { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactOnly };
         var library = new FileLibrary(_testRoot, "Test Library");
         _mangaContext.FileLibraries.Add(library);
-        var manga = new Series("Test Exact Empty", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        var manga = new Series("Test Exact Empty", "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], [], library);
         _mangaContext.Series.Add(manga);
         _mangaContext.Chapters.Add(new Chapter(manga, "1", null, "Title 1") { Downloaded = true, FileName = "chap1.cbz" });
         await _mangaContext.SaveChangesAsync();
@@ -455,7 +455,7 @@ public class ResolveMissingVolumesForMangaWorkerTests : IDisposable
         var settings = new TrangaSettings { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactThenGuess };
         var library = new FileLibrary(_testRoot, "Test Library");
         _mangaContext.FileLibraries.Add(library);
-        var manga = new Series("Test Corrupt Zip", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        var manga = new Series("Test Corrupt Zip", "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], [], library);
         _mangaContext.Series.Add(manga);
         _mangaContext.Chapters.Add(new Chapter(manga, "1", null, "Title 1") { Downloaded = true, FileName = "chap1.cbz" });
         _mangaContext.Chapters.Add(new Chapter(manga, "2", null, "Title 2") { Downloaded = true, FileName = "chap2.cbz" });
@@ -478,7 +478,7 @@ public class ResolveMissingVolumesForMangaWorkerTests : IDisposable
         var settings = new TrangaSettings { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactThenGuess };
         var library = new FileLibrary(_testRoot, "Test Library");
         _mangaContext.FileLibraries.Add(library);
-        var manga = new Series("Test Not Downloaded", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        var manga = new Series("Test Not Downloaded", "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], [], library);
         _mangaContext.Series.Add(manga);
         _mangaContext.Chapters.Add(new Chapter(manga, "1", null, "Title 1") { Downloaded = false, FileName = "chap1.cbz" });
         await _mangaContext.SaveChangesAsync();
@@ -494,8 +494,8 @@ public class ResolveMissingVolumesForMangaWorkerTests : IDisposable
         var settings = new TrangaSettings { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactThenGuess };
         var library = new FileLibrary(_testRoot, "Test Library");
         _mangaContext.FileLibraries.Add(library);
-        var manga1 = new Series("Test Multi One", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
-        var manga2 = new Series("Test Multi Two", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        var manga1 = new Series("Test Multi One", "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], [], library);
+        var manga2 = new Series("Test Multi Two", "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], [], library);
         _mangaContext.Series.AddRange(manga1, manga2);
         _mangaContext.Chapters.Add(new Chapter(manga1, "1", null, "Title 1") { Downloaded = true, FileName = "chap1.cbz" });
         _mangaContext.Chapters.Add(new Chapter(manga2, "1", null, "Title 1") { Downloaded = true, FileName = "chap1.cbz" });
@@ -520,7 +520,7 @@ public class ResolveMissingVolumesForMangaWorkerTests : IDisposable
         var settings = new TrangaSettings { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactThenGuess };
         var library = new FileLibrary(_testRoot, "Test Library");
         _mangaContext.FileLibraries.Add(library);
-        var manga = new Series("Test Cover Name", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        var manga = new Series("Test Cover Name", "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], [], library);
         _mangaContext.Series.Add(manga);
         _mangaContext.Chapters.Add(new Chapter(manga, "1", null, "Title 1") { Downloaded = true, FileName = "chap1.cbz" });
         await _mangaContext.SaveChangesAsync();
@@ -544,7 +544,7 @@ public class ResolveMissingVolumesForMangaWorkerTests : IDisposable
         var settings = new TrangaSettings { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactThenGuess };
         var library = new FileLibrary(_testRoot, "Test Library");
         _mangaContext.FileLibraries.Add(library);
-        var manga = new Series("Test Exception Fallback", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        var manga = new Series("Test Exception Fallback", "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], [], library);
         _mangaContext.Series.Add(manga);
         _mangaContext.Chapters.Add(new Chapter(manga, "1", null, "Title") { Downloaded = true, FileName = "chap1.cbz" });
         await _mangaContext.SaveChangesAsync();
@@ -569,7 +569,7 @@ public class ResolveMissingVolumesForMangaWorkerTests : IDisposable
         var settings = new TrangaSettings { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactThenGuess };
         var library = new FileLibrary(_testRoot, "Test Library");
         _mangaContext.FileLibraries.Add(library);
-        var manga = new Series("Test No Match Fallback", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        var manga = new Series("Test No Match Fallback", "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], [], library);
         _mangaContext.Series.Add(manga);
         _mangaContext.Chapters.Add(new Chapter(manga, "50", null, "Title") { Downloaded = true, FileName = "chap50.cbz" });
         _mangaContext.Chapters.Add(new Chapter(manga, "51", null, "Title") { Downloaded = true, FileName = "chap51.cbz" });
@@ -601,7 +601,7 @@ public class ResolveMissingVolumesForMangaWorkerTests : IDisposable
         var settings = new TrangaSettings { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactOnly };
         var library = new FileLibrary(_testRoot, "Test Library");
         _mangaContext.FileLibraries.Add(library);
-        var manga = new Series("Test Exact Confidence", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        var manga = new Series("Test Exact Confidence", "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], [], library);
         manga.MetadataSource!.ExternalId = "confirmed-uuid";
         manga.MetadataSource.Status = MetadataSourceStatus.Confirmed;
         _mangaContext.Series.Add(manga);
@@ -629,7 +629,7 @@ public class ResolveMissingVolumesForMangaWorkerTests : IDisposable
         var settings = new TrangaSettings { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactThenGuess };
         var library = new FileLibrary(_testRoot, "Test Library");
         _mangaContext.FileLibraries.Add(library);
-        var manga = new Series("Test Heuristic Confidence", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        var manga = new Series("Test Heuristic Confidence", "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], [], library);
         // Status remains Unlinked but search returns nothing → heuristic fallback
         _mockSearchService
             .Setup(s => s.SearchAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -661,7 +661,7 @@ public class ResolveMissingVolumesForMangaWorkerTests : IDisposable
         var library = new FileLibrary(_testRoot, "Test Library");
         _mangaContext.FileLibraries.Add(library);
         // Series with 2 chapters — chapter count matches the search result
-        var manga = new Series("Berserk", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        var manga = new Series("Berserk", "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], [], library);
         manga.MetadataSource!.Status = MetadataSourceStatus.Unlinked;
         _mangaContext.Series.Add(manga);
         _mangaContext.Chapters.Add(new Chapter(manga, "1", null, "Title 1") { Downloaded = true, FileName = "chap1.cbz" });
@@ -697,7 +697,7 @@ public class ResolveMissingVolumesForMangaWorkerTests : IDisposable
         var settings = new TrangaSettings { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactOnly };
         var library = new FileLibrary(_testRoot, "Test Library");
         _mangaContext.FileLibraries.Add(library);
-        var manga = new Series("XYZ Series", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        var manga = new Series("XYZ Series", "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], [], library);
         manga.MetadataSource!.Status = MetadataSourceStatus.Unlinked;
         _mangaContext.Series.Add(manga);
         _mangaContext.Chapters.Add(new Chapter(manga, "1", null, "Title 1") { Downloaded = true, FileName = "chap1.cbz" });
@@ -728,7 +728,7 @@ public class ResolveMissingVolumesForMangaWorkerTests : IDisposable
         var library = new FileLibrary(_testRoot, "Test Library");
         _mangaContext.FileLibraries.Add(library);
         // Use a title that produces similar scores for two candidates
-        var manga = new Series("Berserk", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        var manga = new Series("Berserk", "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], [], library);
         manga.MetadataSource!.Status = MetadataSourceStatus.Unlinked;
         _mangaContext.Series.Add(manga);
         _mangaContext.Chapters.Add(new Chapter(manga, "1", null, "Title 1") { Downloaded = true, FileName = "chap1.cbz" });
@@ -757,7 +757,7 @@ public class ResolveMissingVolumesForMangaWorkerTests : IDisposable
         var settings = new TrangaSettings { VolumeResolutionStrategy = VolumeResolutionStrategy.ExactOnly };
         var library = new FileLibrary(_testRoot, "Test Library");
         _mangaContext.FileLibraries.Add(library);
-        var manga = new Series("Berserk", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        var manga = new Series("Berserk", "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], [], library);
         manga.MetadataSource!.Status = MetadataSourceStatus.Unlinked;
         _mangaContext.Series.Add(manga);
         _mangaContext.Chapters.Add(new Chapter(manga, "1", null, "Title 1") { Downloaded = true, FileName = "chap1.cbz" });

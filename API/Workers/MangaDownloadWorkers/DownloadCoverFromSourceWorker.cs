@@ -2,7 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using API.MangaConnectors;
 using API.Schema.ActionsContext;
 using API.Schema.ActionsContext.Actions;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using Microsoft.EntityFrameworkCore;
 
 namespace API.Workers.MangaDownloadWorkers;
@@ -16,13 +16,13 @@ public class DownloadCoverFromSourceWorker(SourceId<Series> mcId, IEnumerable<Se
     private readonly string _mangaConnectorIdId = mcId.Key;
 
     [SuppressMessage("ReSharper", "InconsistentNaming")]
-    private MangaContext MangaContext = null!;
+    private SeriesContext SeriesContext = null!;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     private ActionsContext ActionsContext = null!;
 
     protected override void SetContexts(IServiceScope serviceScope)
     {
-        MangaContext = GetContext<MangaContext>(serviceScope);
+        SeriesContext = GetContext<SeriesContext>(serviceScope);
         ActionsContext = GetContext<ActionsContext>(serviceScope);
     }
     
@@ -30,7 +30,7 @@ public class DownloadCoverFromSourceWorker(SourceId<Series> mcId, IEnumerable<Se
     {
         Log.Debug($"Getting Cover for SourceId {_mangaConnectorIdId}...");
         // Getting SeriesSource info
-        if (await MangaContext.MangaConnectorToManga
+        if (await SeriesContext.MangaConnectorToManga
                 .Include(id => id.Obj)
                 .FirstOrDefaultAsync(c => c.Key == _mangaConnectorIdId, CancellationToken) is not { } mangaConnectorId)
         {
@@ -52,10 +52,10 @@ public class DownloadCoverFromSourceWorker(SourceId<Series> mcId, IEnumerable<Se
             return [];
         }
         
-        await MangaContext.Entry(mangaConnectorId).Reference(m => m.Obj).LoadAsync(CancellationToken);
+        await SeriesContext.Entry(mangaConnectorId).Reference(m => m.Obj).LoadAsync(CancellationToken);
         mangaConnectorId.Obj.CoverFileNameInCache = coverFileName;
 
-        if(await MangaContext.Sync(CancellationToken, GetType(), System.Reflection.MethodBase.GetCurrentMethod()?.Name) is { success: false } mangaContextException)
+        if(await SeriesContext.Sync(CancellationToken, GetType(), System.Reflection.MethodBase.GetCurrentMethod()?.Name) is { success: false } mangaContextException)
             Log.Error($"Failed to save database changes: {mangaContextException.exceptionMessage}");
         
         ActionsContext.Actions.Add(new CoverDownloadedActionRecord(mcId.Obj, coverFileName));

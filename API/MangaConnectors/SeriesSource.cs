@@ -2,7 +2,7 @@
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.RegularExpressions;
 using API.MangaDownloadClients;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using log4net;
 using Microsoft.EntityFrameworkCore;
 using SixLabors.ImageSharp;

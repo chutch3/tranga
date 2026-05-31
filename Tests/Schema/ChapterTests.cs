@@ -1,5 +1,5 @@
 using API;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using Microsoft.EntityFrameworkCore;
 
 namespace API.Tests.Schema;
@@ -16,19 +16,19 @@ public class ChapterTests : IDisposable
 
     public void Dispose() => Directory.Delete(_tmpDir, true);
 
-    private MangaContext CreateContext()
+    private SeriesContext CreateContext()
     {
-        var options = new DbContextOptionsBuilder<MangaContext>()
+        var options = new DbContextOptionsBuilder<SeriesContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
-        return new MangaContext(options);
+        return new SeriesContext(options);
     }
 
     [Fact]
     public void GetArchiveFileName_VolumeSubdirectoryScheme_IncludesSubdirectory()
     {
         var manga = new Series("Dandadan", "", "http://example.com/img.jpg",
-            MangaReleaseStatus.Continuing, [], [], [], []);
+            SeriesReleaseStatus.Continuing, [], [], [], []);
         var chapter = new Chapter(manga, "1", 1);
 
         Assert.Equal("Dandadan Vol 1/Dandadan - Ch.1.cbz",
@@ -39,7 +39,7 @@ public class ChapterTests : IDisposable
     public void GetArchiveFileName_NullVolume_OmitsNullableVolumeSection()
     {
         var manga = new Series("Dandadan", "", "http://example.com/img.jpg",
-            MangaReleaseStatus.Continuing, [], [], [], []);
+            SeriesReleaseStatus.Continuing, [], [], [], []);
         var chapter = new Chapter(manga, "1", null);
 
         Assert.Equal("Dandadan - Ch.1.cbz",
@@ -50,7 +50,7 @@ public class ChapterTests : IDisposable
     public void GetArchiveFileName_WithTitle_IncludesTitleSection()
     {
         var manga = new Series("Dandadan", "", "http://example.com/img.jpg",
-            MangaReleaseStatus.Continuing, [], [], [], []);
+            SeriesReleaseStatus.Continuing, [], [], [], []);
         var chapter = new Chapter(manga, "1", 1, "Dragon Dance");
 
         Assert.Equal("Dandadan - Ch.1 - Dragon Dance.cbz",
@@ -61,7 +61,7 @@ public class ChapterTests : IDisposable
     public void GetArchiveFileName_NullTitle_OmitsTitleSection()
     {
         var manga = new Series("Dandadan", "", "http://example.com/img.jpg",
-            MangaReleaseStatus.Continuing, [], [], [], []);
+            SeriesReleaseStatus.Continuing, [], [], [], []);
         var chapter = new Chapter(manga, "1", 1);
 
         Assert.Equal("Dandadan - Ch.1.cbz",
@@ -72,7 +72,7 @@ public class ChapterTests : IDisposable
     public void GetArchiveFileName_FlatScheme_NoSubdirectory()
     {
         var manga = new Series("Dandadan", "", "http://example.com/img.jpg",
-            MangaReleaseStatus.Continuing, [], [], [], []);
+            SeriesReleaseStatus.Continuing, [], [], [], []);
         var chapter = new Chapter(manga, "1", 1);
 
         Assert.Equal("Dandadan - Ch.1.cbz",
@@ -83,7 +83,7 @@ public class ChapterTests : IDisposable
     public void GetArchiveFileName_SlashInMangaName_SlashStrippedFromValueNotSeparator()
     {
         var manga = new Series("A/B", "", "http://example.com/img.jpg",
-            MangaReleaseStatus.Continuing, [], [], [], []);
+            SeriesReleaseStatus.Continuing, [], [], [], []);
         var chapter = new Chapter(manga, "1", 1);
 
         Assert.Equal("AB Vol 1/AB - Ch.1.cbz",
@@ -95,7 +95,7 @@ public class ChapterTests : IDisposable
     {
         var library = new FileLibrary(_tmpDir, "Test");
         var manga = new Series("Dandadan", "", "http://example.com/img.jpg",
-            MangaReleaseStatus.Continuing, [], [], [], [], library);
+            SeriesReleaseStatus.Continuing, [], [], [], [], library);
         var chapter = new Chapter(manga, "1", 1);
         chapter.FileName = "Vol 1/Dandadan - Ch.1.cbz";
 
@@ -111,7 +111,7 @@ public class ChapterTests : IDisposable
     {
         var library = new FileLibrary(_tmpDir, "Test");
         var manga = new Series("Dandadan", "", "http://example.com/img.jpg",
-            MangaReleaseStatus.Continuing, [], [], [], [], library);
+            SeriesReleaseStatus.Continuing, [], [], [], [], library);
         var chapter = new Chapter(manga, "1", 1);
 
         string? fullPath = chapter.GetFullFilepath("?V(%M Vol %V/)%M - Ch.%C");
@@ -127,7 +127,7 @@ public class ChapterTests : IDisposable
         using var context = CreateContext();
 
         var manga = new Series("Dandadan", "", "http://example.com/img.jpg",
-            MangaReleaseStatus.Continuing, [], [], [], []);
+            SeriesReleaseStatus.Continuing, [], [], [], []);
         var chapter = new Chapter(manga, "1", 1);
 
         context.Series.Add(manga);
@@ -147,7 +147,7 @@ public class ChapterTests : IDisposable
 
         var library = new FileLibrary(_tmpDir, "Test");
         var manga = new Series("Dandadan", "", "http://example.com/img.jpg",
-            MangaReleaseStatus.Continuing, [], [], [], [], library);
+            SeriesReleaseStatus.Continuing, [], [], [], [], library);
         var chapter = new Chapter(manga, "1", 1);
 
         context.FileLibraries.Add(library);
@@ -172,7 +172,7 @@ public class ChapterTests : IDisposable
 
         var library = new FileLibrary(_tmpDir, "Test");
         var manga = new Series("Dandadan", "", "http://example.com/img.jpg",
-            MangaReleaseStatus.Continuing, [], [], [], [], library);
+            SeriesReleaseStatus.Continuing, [], [], [], [], library);
         var chapter = new Chapter(manga, "1", 1);
         chapter.FileName = "Dandadan Vol 1/Dandadan - Ch.1.cbz";
 

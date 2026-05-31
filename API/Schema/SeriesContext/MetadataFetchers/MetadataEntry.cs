@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 
-namespace API.Schema.MangaContext.MetadataFetchers;
+namespace API.Schema.SeriesContext.MetadataFetchers;
 
 [PrimaryKey("MetadataFetcherName", "Identifier")]
 public class MetadataEntry

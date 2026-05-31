@@ -1,20 +1,20 @@
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using Microsoft.EntityFrameworkCore;
 
 namespace Tests.Schema;
 
 public class VolumeMetadataTests
 {
-    private MangaContext CreateContext()
+    private SeriesContext CreateContext()
     {
-        var options = new DbContextOptionsBuilder<MangaContext>()
+        var options = new DbContextOptionsBuilder<SeriesContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
-        return new MangaContext(options);
+        return new SeriesContext(options);
     }
 
     private static Series MakeTestManga(string name = "Test Series")
-        => new(name, "", "http://example.com/img.jpg", MangaReleaseStatus.Continuing, [], [], [], []);
+        => new(name, "", "http://example.com/img.jpg", SeriesReleaseStatus.Continuing, [], [], [], []);
 
     [Fact]
     public void VolumeMetadata_Constructor_SetsFieldsCorrectly()
@@ -65,12 +65,12 @@ public class VolumeMetadataTests
     public async Task VolumeMetadata_PersistsToDatabase()
     {
         string dbName = Guid.NewGuid().ToString();
-        var options = new DbContextOptionsBuilder<MangaContext>()
+        var options = new DbContextOptionsBuilder<SeriesContext>()
             .UseInMemoryDatabase(dbName)
             .Options;
 
         string volKey;
-        await using (var ctx = new MangaContext(options))
+        await using (var ctx = new SeriesContext(options))
         {
             var manga = MakeTestManga("Bleach");
             ctx.Series.Add(manga);
@@ -80,7 +80,7 @@ public class VolumeMetadataTests
             volKey = vol.Key;
         }
 
-        await using var ctx2 = new MangaContext(options);
+        await using var ctx2 = new SeriesContext(options);
         var loaded = await ctx2.VolumeMetadata.FirstAsync(v => v.Key == volKey);
         Assert.Equal(1, loaded.VolumeNumber);
         Assert.Equal("Substitute Shinigami", loaded.Title);

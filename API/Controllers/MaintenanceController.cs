@@ -1,5 +1,5 @@
 using API.Schema.ActionsContext;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using API.Workers;
 using API.Workers.MaintenanceWorkers;
 using Asp.Versioning;
@@ -13,7 +13,7 @@ namespace API.Controllers;
 [ApiVersion(2)]
 [ApiController]
 [Route("v{v:apiVersion}/[controller]")]
-public class MaintenanceController(MangaContext mangaContext, ActionsContext actionContext) : ControllerBase
+public class MaintenanceController(SeriesContext mangaContext, ActionsContext actionContext) : ControllerBase
 {
     
     /// <summary>

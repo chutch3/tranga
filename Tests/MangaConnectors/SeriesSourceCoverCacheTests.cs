@@ -2,7 +2,7 @@ using System.Net;
 using API;
 using API.MangaConnectors;
 using API.MangaDownloadClients;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using Xunit;
@@ -54,8 +54,8 @@ public class SeriesSourceCoverCacheTests
             var connector = new FakeConnector(settings, downloadClient);
 
             var library = new FileLibrary(Path.Combine(tempRoot, "lib"), "Lib");
-            var manga = new Series("Cover Series", "Desc", "https://example.com/img/cover.png", MangaReleaseStatus.Continuing,
-                new List<Author>(), new List<MangaTag>(), new List<Link>(), new List<AltTitle>(),
+            var manga = new Series("Cover Series", "Desc", "https://example.com/img/cover.png", SeriesReleaseStatus.Continuing,
+                new List<Author>(), new List<SeriesTag>(), new List<Link>(), new List<AltTitle>(),
                 library, 0f, 2024, "en");
             // Connector name contains a Windows-forbidden character (':') so a cleaned-vs-uncleaned
             // mismatch in the returned filename is observable.

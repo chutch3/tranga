@@ -1,5 +1,5 @@
 using API.MangaConnectors;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Xunit;
@@ -15,13 +15,13 @@ public class GlobalTests
         var services = new ServiceCollection();
 
         var mockItConnector = new Mock<SeriesSource>("Mangaworld", new[] { "it" }, new[] { "mangaworld.mx" }, "icon", settings);
-        var mangaIt = new Series("Dan Da Dan IT", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], []);
+        var mangaIt = new Series("Dan Da Dan IT", "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], []);
         var idIt = new SourceId<Series>(mangaIt, mockItConnector.Object, "it-id", "url");
         mockItConnector.Setup(c => c.SearchManga(It.IsAny<string>())).ReturnsAsync([(mangaIt, idIt)]);
         mockItConnector.Object.Enabled = true;
 
         var mockEnConnector = new Mock<SeriesSource>("WeebCentral", new[] { "en" }, new[] { "weebcentral.com" }, "icon", settings);
-        var mangaEn = new Series("Dan Da Dan EN", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], []);
+        var mangaEn = new Series("Dan Da Dan EN", "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], []);
         var idEn = new SourceId<Series>(mangaEn, mockEnConnector.Object, "en-id", "url");
         mockEnConnector.Setup(c => c.SearchManga(It.IsAny<string>())).ReturnsAsync([(mangaEn, idEn)]);
         mockEnConnector.Object.Enabled = true;

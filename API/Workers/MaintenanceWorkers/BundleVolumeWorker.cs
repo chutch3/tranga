@@ -1,6 +1,6 @@
 using System.IO.Compression;
 using System.Text;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using API.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,11 +10,11 @@ namespace API.Workers.MaintenanceWorkers;
 public class BundleVolumeWorker(string mangaId, int volumeNumber, TrangaSettings settings, IEnumerable<BaseWorker>? dependsOn = null)
     : BaseWorkerWithContexts(dependsOn)
 {
-    private MangaContext _mangaContext = null!;
+    private SeriesContext _mangaContext = null!;
 
     protected override void SetContexts(IServiceScope serviceScope)
     {
-        _mangaContext = GetContext<MangaContext>(serviceScope);
+        _mangaContext = GetContext<SeriesContext>(serviceScope);
     }
 
     protected override async Task<BaseWorker[]> DoWorkInternal()

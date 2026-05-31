@@ -7,7 +7,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using static System.IO.UnixFileMode;
 
-namespace API.Schema.MangaContext;
+namespace API.Schema.SeriesContext;
 
 [PrimaryKey("Key")]
 [Table("Mangas")] // Existing DB table; will be renamed to "Series" in a follow-up migration.
@@ -16,11 +16,11 @@ public class Series : Identifiable
     [StringLength(512)] public string Name { get; internal set; }
     [Required] public string Description { get; internal set; }
     [Url] [StringLength(512)] public string CoverUrl { get; internal set; }
-    public MangaReleaseStatus ReleaseStatus { get; internal set; }
+    public SeriesReleaseStatus ReleaseStatus { get; internal set; }
     [StringLength(64)] public string? LibraryId { get; private set; }
     public FileLibrary? Library = null!;
     public ICollection<Author> Authors { get; internal set; } = null!;
-    public ICollection<MangaTag> MangaTags { get; internal set; } = null!;
+    public ICollection<SeriesTag> MangaTags { get; internal set; } = null!;
     public ICollection<Link> Links { get; internal set; } = null!;
     public ICollection<AltTitle> AltTitles { get; internal set; } = null!;
     public float IgnoreChaptersBefore { get; internal set; }
@@ -54,8 +54,8 @@ public class Series : Identifiable
     [JsonIgnore]
     public ICollection<SourceId<Series>> SourceIds = null!;
 
-    public Series(string name, string description, string coverUrl, MangaReleaseStatus releaseStatus,
-        ICollection<Author> authors, ICollection<MangaTag> mangaTags, ICollection<Link> links, ICollection<AltTitle> altTitles,
+    public Series(string name, string description, string coverUrl, SeriesReleaseStatus releaseStatus,
+        ICollection<Author> authors, ICollection<SeriesTag> mangaTags, ICollection<Link> links, ICollection<AltTitle> altTitles,
         FileLibrary? library = null, float ignoreChaptersBefore = 0f, uint? year = null, string? originalLanguage = null)
     :base(TokenGen.CreateToken(typeof(Series), name))
     {
@@ -81,7 +81,7 @@ public class Series : Identifiable
     /// EF ONLY!!!
     /// </summary>
     public Series(string key, string name, string description, string coverUrl,
-        MangaReleaseStatus releaseStatus,
+        SeriesReleaseStatus releaseStatus,
         string directoryName, float ignoreChaptersBefore, string? libraryId, uint? year, string? originalLanguage,
         LibraryLayout libraryLayout = LibraryLayout.Flat)
         : base(key)
@@ -110,9 +110,9 @@ public class Series : Identifiable
     /// Merges another Series (SourceIds and Chapters)
     /// </summary>
     /// <param name="other">The other <see cref="Series" /> to merge</param>
-    /// <param name="context"><see cref="MangaContext"/> to use for Database operations</param>
+    /// <param name="context"><see cref="SeriesContext"/> to use for Database operations</param>
     /// <returns>An array of <see cref="MoveFileOrFolderWorker"/> for moving <see cref="Chapter"/> to new Directory</returns>
-    public BaseWorker[] MergeFrom(Series other, MangaContext context)
+    public BaseWorker[] MergeFrom(Series other, SeriesContext context)
     {
         context.Series.Remove(other);
         List<BaseWorker> newJobs = new();
@@ -151,7 +151,7 @@ public class Series : Identifiable
     public override string ToString() => $"{base.ToString()} {Name}";
 }
 
-public enum MangaReleaseStatus
+public enum SeriesReleaseStatus
 {
     Continuing,
     Completed,

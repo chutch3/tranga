@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using System.IO.Compression;
 using System.Text.RegularExpressions;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using API.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,11 +19,11 @@ public class ResolveMissingVolumesForMangaWorker(
     IEnumerable<BaseWorker>? dependsOn = null)
     : PoolWorker<string>(queue, dependsOn)
 {
-    private MangaContext _mangaContext = null!;
+    private SeriesContext _mangaContext = null!;
 
     protected override void SetContexts(IServiceScope serviceScope)
     {
-        _mangaContext = GetContext<MangaContext>(serviceScope);
+        _mangaContext = GetContext<SeriesContext>(serviceScope);
     }
 
     protected override async Task<IEnumerable<BaseWorker>> ProcessItem(string mangaId)

@@ -1,5 +1,5 @@
 ﻿using API.Controllers.DTOs;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -16,7 +16,7 @@ namespace API.Controllers;
 [ApiVersion(2)]
 [ApiController]
 [Route("v{v:apiVersion}/")]
-public class QueryController(MangaContext mangaContext) : ControllerBase
+public class QueryController(SeriesContext mangaContext) : ControllerBase
 {
     /// <summary>
     /// Returns the <see cref="Author"/> with <paramref name="AuthorId"/>

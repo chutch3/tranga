@@ -1,14 +1,14 @@
 using API.Controllers;
 using API.Controllers.DTOs;
 using API.Controllers.Requests;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using API.Workers;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Moq;
-using SchemaChapter = API.Schema.MangaContext.Chapter;
+using SchemaChapter = API.Schema.SeriesContext.Chapter;
 
 namespace Tests.Controllers;
 
@@ -17,15 +17,15 @@ namespace Tests.Controllers;
 /// </summary>
 public class ChaptersControllerMetadataTests
 {
-    private MangaContext CreateContext()
+    private SeriesContext CreateContext()
     {
-        var options = new DbContextOptionsBuilder<MangaContext>()
+        var options = new DbContextOptionsBuilder<SeriesContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
-        return new MangaContext(options);
+        return new SeriesContext(options);
     }
 
-    private static ChaptersController CreateController(MangaContext ctx)
+    private static ChaptersController CreateController(SeriesContext ctx)
     {
         var testSettings = new API.TrangaSettings { AppData = Path.GetTempPath() };
         var mockWorkerQueue = new Mock<IWorkerQueue>();
@@ -39,8 +39,8 @@ public class ChaptersControllerMetadataTests
         return controller;
     }
 
-    private static API.Schema.MangaContext.Series MakeTestManga(string name = "Test Series")
-        => new(name, "", "http://example.com/img.jpg", MangaReleaseStatus.Continuing, [], [], [], []);
+    private static API.Schema.SeriesContext.Series MakeTestManga(string name = "Test Series")
+        => new(name, "", "http://example.com/img.jpg", SeriesReleaseStatus.Continuing, [], [], [], []);
 
     [Fact]
     public async Task AssignVolume_NonNullVolume_SetsVolumeNumberAndManualConfidence()

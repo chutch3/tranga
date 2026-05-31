@@ -1,6 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using API.MangaConnectors;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using API.Workers.MangaDownloadWorkers;
 using Microsoft.EntityFrameworkCore;
 
@@ -17,11 +17,11 @@ public class StartNewChapterDownloadsWorker(TrangaSettings settings, IWorkerQueu
     public TimeSpan Interval { get; set; } = interval ?? TimeSpan.FromSeconds(10);
     
     [SuppressMessage("ReSharper", "InconsistentNaming")]
-    private MangaContext MangaContext = null!;
+    private SeriesContext SeriesContext = null!;
 
     protected override void SetContexts(IServiceScope serviceScope)
     {
-        MangaContext = GetContext<MangaContext>(serviceScope);
+        SeriesContext = GetContext<SeriesContext>(serviceScope);
     }
     
     protected override async Task<BaseWorker[]> DoWorkInternal()
@@ -29,7 +29,7 @@ public class StartNewChapterDownloadsWorker(TrangaSettings settings, IWorkerQueu
         Log.Debug("Checking for missing chapters...");
         
         // Get missing chapters
-        List<SourceId<Chapter>> missingChapters = await GetMissingChapters(MangaContext, CancellationToken);
+        List<SourceId<Chapter>> missingChapters = await GetMissingChapters(SeriesContext, CancellationToken);
         
         Log.DebugFormat("Found {0} missing chapters.", missingChapters.Count);
 
@@ -57,7 +57,7 @@ public class StartNewChapterDownloadsWorker(TrangaSettings settings, IWorkerQueu
         return newWorkers.ToArray();
     }
     
-    internal static async Task<List<SourceId<Chapter>>> GetMissingChapters(MangaContext ctx, CancellationToken cancellationToken) => await ctx.MangaConnectorToChapter
+    internal static async Task<List<SourceId<Chapter>>> GetMissingChapters(SeriesContext ctx, CancellationToken cancellationToken) => await ctx.MangaConnectorToChapter
         .Include(id => id.Obj)
         .Where(id => !id.Obj.Downloaded && id.UseForDownload)
         .ToListAsync(cancellationToken);

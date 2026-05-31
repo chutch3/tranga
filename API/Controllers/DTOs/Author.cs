@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations;
 namespace API.Controllers.DTOs;
 
 /// <summary>
-/// The <see cref="API.Schema.MangaContext.Author"/> DTO
+/// The <see cref="API.Schema.SeriesContext.Author"/> DTO
 /// </summary>
 public sealed record Author(string Key, string Name) : Identifiable(Key)
 {

@@ -1,20 +1,20 @@
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using Microsoft.EntityFrameworkCore;
 
 namespace Tests.Schema;
 
 public class MetadataSourceTests
 {
-    private MangaContext CreateContext()
+    private SeriesContext CreateContext()
     {
-        var options = new DbContextOptionsBuilder<MangaContext>()
+        var options = new DbContextOptionsBuilder<SeriesContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
-        return new MangaContext(options);
+        return new SeriesContext(options);
     }
 
     private static Series MakeTestManga(string name = "Test Series")
-        => new(name, "", "http://example.com/img.jpg", MangaReleaseStatus.Continuing, [], [], [], []);
+        => new(name, "", "http://example.com/img.jpg", SeriesReleaseStatus.Continuing, [], [], [], []);
 
     [Fact]
     public void NewManga_InitializesMetadataSource_WithConnectorTypeAndUnlinkedStatus()
@@ -41,16 +41,16 @@ public class MetadataSourceTests
     public async Task Manga_MetadataSource_PersistsToDatabase()
     {
         string dbName = Guid.NewGuid().ToString();
-        var options = new DbContextOptionsBuilder<MangaContext>()
+        var options = new DbContextOptionsBuilder<SeriesContext>()
             .UseInMemoryDatabase(dbName)
             .Options;
 
-        await using var ctx = new MangaContext(options);
+        await using var ctx = new SeriesContext(options);
         var manga = MakeTestManga("Bleach");
         ctx.Series.Add(manga);
         await ctx.SaveChangesAsync();
 
-        await using var ctx2 = new MangaContext(options);
+        await using var ctx2 = new SeriesContext(options);
         var loaded = await ctx2.Series
             .Include(m => m.MetadataSource)
             .FirstAsync(m => m.Key == manga.Key);

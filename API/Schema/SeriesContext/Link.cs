@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Microsoft.EntityFrameworkCore;
 
-namespace API.Schema.MangaContext;
+namespace API.Schema.SeriesContext;
 
 [PrimaryKey("Key")]
 public class Link(string linkProvider, string linkUrl) : Identifiable(TokenGen.CreateToken(typeof(Link), linkProvider, linkUrl))

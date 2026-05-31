@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Microsoft.EntityFrameworkCore;
 
-namespace API.Schema.MangaContext;
+namespace API.Schema.SeriesContext;
 
 [PrimaryKey("Key")]
 public class AltTitle(string language, string title) : Identifiable(TokenGen.CreateToken("AltTitle"))

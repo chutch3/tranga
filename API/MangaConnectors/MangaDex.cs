@@ -2,7 +2,7 @@
 using System.Web;
 using API.Exceptions;
 using API.MangaDownloadClients;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using Newtonsoft.Json.Linq;
 
 namespace API.MangaConnectors;
@@ -295,11 +295,11 @@ public class MangaDex : SeriesSource
                 return new AltTitle(p.Name, p.Value.ToString());
             }).Where(x => x is not null).Cast<AltTitle>().ToList()??[];
 
-        List<MangaTag> tags = tagsJArray?
+        List<SeriesTag> tags = tagsJArray?
             .Where(t => t.Value<string>("type") == "tag")
             .Select(t => t["attributes"]?["name"]?.Value<string>("en")??t["attributes"]?["name"]?.First?.First?.Value<string>())
-            .Select(str => str is not null ? new MangaTag(str) : null)
-            .Where(x => x is not null).Cast<MangaTag>().ToList()??[];
+            .Select(str => str is not null ? new SeriesTag(str) : null)
+            .Where(x => x is not null).Cast<SeriesTag>().ToList()??[];
 
         List<Author> authors = relationships
             .Where(r => r["type"]?.Value<string>() == "author")
@@ -308,13 +308,13 @@ public class MangaDex : SeriesSource
             .Where(x => x is not null).Cast<Author>().ToList();
 
 
-        MangaReleaseStatus releaseStatus = status switch
+        SeriesReleaseStatus releaseStatus = status switch
         {
-            "completed" => MangaReleaseStatus.Completed,
-            "ongoing" => MangaReleaseStatus.Continuing,
-            "cancelled" => MangaReleaseStatus.Cancelled,
-            "hiatus" => MangaReleaseStatus.OnHiatus,
-            _ => MangaReleaseStatus.Unreleased
+            "completed" => SeriesReleaseStatus.Completed,
+            "ongoing" => SeriesReleaseStatus.Continuing,
+            "cancelled" => SeriesReleaseStatus.Cancelled,
+            "hiatus" => SeriesReleaseStatus.OnHiatus,
+            _ => SeriesReleaseStatus.Unreleased
         };
         string websiteUrl = $"https://mangadex.org/title/{id}";
         string coverUrl = $"https://uploads.mangadex.org/covers/{id}/{coverFileName}";

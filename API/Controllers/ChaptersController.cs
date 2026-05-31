@@ -1,7 +1,7 @@
 using API.Controllers.DTOs;
 using API.Controllers.Requests;
 using API.MangaConnectors;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using API.Services;
 using API.Workers.MangaDownloadWorkers;
 using API.Workers;
@@ -22,12 +22,12 @@ namespace API.Controllers;
 [ApiVersion(2)]
 [ApiController]
 [Route("v{v:apiVersion}/[controller]")]
-public class ChaptersController(MangaContext context, TrangaSettings settings, IEnumerable<MangaConnectorImpl> connectors, IWorkerQueue workerQueue, IChapterThumbnailService chapterThumbnailService) : ControllerBase
+public class ChaptersController(SeriesContext context, TrangaSettings settings, IEnumerable<MangaConnectorImpl> connectors, IWorkerQueue workerQueue, IChapterThumbnailService chapterThumbnailService) : ControllerBase
 {
     /// <summary>
-    /// Returns all <see cref="Schema.MangaContext.Chapter"/> of <see cref="Schema.MangaContext.Series"/> with <paramref name="MangaId"/>
+    /// Returns all <see cref="Schema.SeriesContext.Chapter"/> of <see cref="Schema.SeriesContext.Series"/> with <paramref name="MangaId"/>
     /// </summary>
-    /// <param name="MangaId"><see cref="Schema.MangaContext.Series"/>.Key</param>
+    /// <param name="MangaId"><see cref="Schema.SeriesContext.Series"/>.Key</param>
     /// <param name="filter"></param>
     /// <param name="page">Page to request (default 1)</param>
     /// <param name="pageSize">Size of Page (default 10)</param>
@@ -43,7 +43,7 @@ public class ChaptersController(MangaContext context, TrangaSettings settings, I
         if (page < 1 || pageSize < 1)
             return TypedResults.BadRequest();
 
-        IQueryable<Schema.MangaContext.Chapter> queryable = context.Chapters
+        IQueryable<Schema.SeriesContext.Chapter> queryable = context.Chapters
             .Include(ch => ch.SourceIds)
             .Where(ch => ch.ParentMangaId == MangaId);
 
@@ -74,12 +74,12 @@ public class ChaptersController(MangaContext context, TrangaSettings settings, I
     }
 
     /// <summary>
-    /// Returns the latest <see cref="Chapter"/> of requested <see cref="Schema.MangaContext.Series"/>
+    /// Returns the latest <see cref="Chapter"/> of requested <see cref="Schema.SeriesContext.Series"/>
     /// </summary>
-    /// <param name="MangaId"><see cref="Schema.MangaContext.Series"/>.Key</param>
+    /// <param name="MangaId"><see cref="Schema.SeriesContext.Series"/>.Key</param>
     /// <response code="200"></response>
     /// <response code="204">No available chapters</response>
-    /// <response code="404"><see cref="Schema.MangaContext.Series"/> with <paramref name="MangaId"/> not found.</response>
+    /// <response code="404"><see cref="Schema.SeriesContext.Series"/> with <paramref name="MangaId"/> not found.</response>
     [HttpGet("LatestAvailable/{MangaId}")]
     [ProducesResponseType<int>(Status200OK, "application/json")]
     [ProducesResponseType(Status204NoContent)]
@@ -95,7 +95,7 @@ public class ChaptersController(MangaContext context, TrangaSettings settings, I
             .Where(ch => ch.ParentMangaId == MangaId)
             .ToListAsync(HttpContext.RequestAborted);
 
-        Schema.MangaContext.Chapter? c = dbChapters.Max();
+        Schema.SeriesContext.Chapter? c = dbChapters.Max();
 
         // 3. If Series exists but has 0 chapters, return NoContent
         if (c is null)
@@ -107,12 +107,12 @@ public class ChaptersController(MangaContext context, TrangaSettings settings, I
         return TypedResults.Ok(new Chapter(c.Key, c.ParentMangaId, c.VolumeNumber, c.ChapterNumber, c.Title, ids, c.Downloaded, c.FileName));
     }
     /// <summary>
-    /// Returns the latest <see cref="Chapter"/> of requested <see cref="Schema.MangaContext.Series"/> that is downloaded
+    /// Returns the latest <see cref="Chapter"/> of requested <see cref="Schema.SeriesContext.Series"/> that is downloaded
     /// </summary>
-    /// <param name="MangaId"><see cref="Schema.MangaContext.Series"/>.Key</param>
+    /// <param name="MangaId"><see cref="Schema.SeriesContext.Series"/>.Key</param>
     /// <response code="200"></response>
     /// <response code="204">No available chapters</response>
-    /// <response code="404"><see cref="Schema.MangaContext.Series"/> with <paramref name="MangaId"/> not found.</response>
+    /// <response code="404"><see cref="Schema.SeriesContext.Series"/> with <paramref name="MangaId"/> not found.</response>
     /// <response code="412">Could not retrieve the maximum chapter-number</response>
     /// <response code="503">Retry after timeout, updating value</response>
     [HttpGet("LatestDownloaded/{MangaId}")]
@@ -129,7 +129,7 @@ public class ChaptersController(MangaContext context, TrangaSettings settings, I
            is not { } dbChapters)
             return TypedResults.NotFound(nameof(MangaId));
 
-        Schema.MangaContext.Chapter? c = dbChapters.Max();
+        Schema.SeriesContext.Chapter? c = dbChapters.Max();
         if (c is null)
             return TypedResults.NoContent();
 
@@ -139,12 +139,12 @@ public class ChaptersController(MangaContext context, TrangaSettings settings, I
     }
 
     /// <summary>
-    /// Configure the <see cref="Chapter"/> cut-off for <see cref="Schema.MangaContext.Series"/>
+    /// Configure the <see cref="Chapter"/> cut-off for <see cref="Schema.SeriesContext.Series"/>
     /// </summary>
-    /// <param name="MangaId"><see cref="Schema.MangaContext.Series"/>.Key</param>
+    /// <param name="MangaId"><see cref="Schema.SeriesContext.Series"/>.Key</param>
     /// <param name="chapterThreshold">Threshold (<see cref="Chapter"/> ChapterNumber)</param>
     /// <response code="202"></response>
-    /// <response code="404"><see cref="Schema.MangaContext.Series"/> with <paramref name="MangaId"/> not found.</response>
+    /// <response code="404"><see cref="Schema.SeriesContext.Series"/> with <paramref name="MangaId"/> not found.</response>
     /// <response code="500">Error during Database Operation</response>
     [HttpPatch("IgnoreBefore/{MangaId}")]
     [ProducesResponseType(Status200OK)]
@@ -182,7 +182,7 @@ public class ChaptersController(MangaContext context, TrangaSettings settings, I
     }
 
     /// <summary>
-    /// Updates mutable metadata (<see cref="Schema.MangaContext.Chapter.FileName"/> and <see cref="Schema.MangaContext.Chapter.VolumeNumber"/>) on a <see cref="Chapter"/>
+    /// Updates mutable metadata (<see cref="Schema.SeriesContext.Chapter.FileName"/> and <see cref="Schema.SeriesContext.Chapter.VolumeNumber"/>) on a <see cref="Chapter"/>
     /// </summary>
     /// <param name="ChapterId"><see cref="Chapter"/>.Key</param>
     /// <param name="patch">Fields to update</param>
@@ -312,13 +312,13 @@ public class ChaptersController(MangaContext context, TrangaSettings settings, I
     }
 
     /// <summary>
-    /// Manually assigns a volume number to a <see cref="Schema.MangaContext.Chapter"/>.
+    /// Manually assigns a volume number to a <see cref="Schema.SeriesContext.Chapter"/>.
     /// Passing null clears the volume assignment and confidence.
     /// </summary>
-    /// <param name="ChapterId"><see cref="Schema.MangaContext.Chapter"/>.Key</param>
+    /// <param name="ChapterId"><see cref="Schema.SeriesContext.Chapter"/>.Key</param>
     /// <param name="patch">Volume number to assign (null to clear)</param>
     /// <response code="200">Volume number updated</response>
-    /// <response code="404"><see cref="Schema.MangaContext.Chapter"/> with <paramref name="ChapterId"/> not found</response>
+    /// <response code="404"><see cref="Schema.SeriesContext.Chapter"/> with <paramref name="ChapterId"/> not found</response>
     /// <response code="500">Error during Database Operation</response>
     [HttpPut("{ChapterId}/volume")]
     [ProducesResponseType<DTOs.ChapterVolumeAssignmentResult>(Status200OK, "application/json")]
@@ -332,7 +332,7 @@ public class ChaptersController(MangaContext context, TrangaSettings settings, I
         if (patch.VolumeNumber is not null)
         {
             chapter.VolumeNumber = patch.VolumeNumber;
-            chapter.MetadataConfidence = Schema.MangaContext.MetadataConfidence.Manual;
+            chapter.MetadataConfidence = Schema.SeriesContext.MetadataConfidence.Manual;
         }
         else
         {
@@ -355,7 +355,7 @@ public class ChaptersController(MangaContext context, TrangaSettings settings, I
     /// Returns a 200×300 JPEG preview thumbnail of the first page of the chapter archive.
     /// The thumbnail is generated lazily and cached at <c>{AppData}/previews/{chapter.Key}.jpg</c>.
     /// </summary>
-    /// <param name="ChapterId"><see cref="Schema.MangaContext.Chapter"/>.Key</param>
+    /// <param name="ChapterId"><see cref="Schema.SeriesContext.Chapter"/>.Key</param>
     /// <response code="200">JPEG thumbnail, 200×300 pixels</response>
     /// <response code="404">Chapter not found, archive unreadable, no images in archive, or chapter is bundled</response>
     [HttpGet("{ChapterId}/preview")]

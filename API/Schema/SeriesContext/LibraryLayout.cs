@@ -1,4 +1,4 @@
-namespace API.Schema.MangaContext;
+namespace API.Schema.SeriesContext;
 
 public enum LibraryLayout
 {

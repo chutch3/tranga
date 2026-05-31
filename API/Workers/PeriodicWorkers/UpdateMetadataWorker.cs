@@ -1,8 +1,8 @@
 using System.Diagnostics.CodeAnalysis;
 using API.Schema.ActionsContext;
 using API.Schema.ActionsContext.Actions;
-using API.Schema.MangaContext;
-using API.Schema.MangaContext.MetadataFetchers;
+using API.Schema.SeriesContext;
+using API.Schema.SeriesContext.MetadataFetchers;
 using Microsoft.EntityFrameworkCore;
 
 namespace API.Workers.PeriodicWorkers;
@@ -21,13 +21,13 @@ public class UpdateMetadataWorker(IEnumerable<MetadataFetcher> metadataFetchers,
     public TimeSpan Interval { get; set; } = interval ?? TimeSpan.FromHours(12);
 
     [SuppressMessage("ReSharper", "InconsistentNaming")]
-    private MangaContext MangaContext = null!;
+    private SeriesContext SeriesContext = null!;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     private ActionsContext ActionsContext = null!;
 
     protected override void SetContexts(IServiceScope serviceScope)
     {
-        MangaContext = GetContext<MangaContext>(serviceScope);
+        SeriesContext = GetContext<SeriesContext>(serviceScope);
         ActionsContext = GetContext<ActionsContext>(serviceScope);
     }
     
@@ -35,10 +35,10 @@ public class UpdateMetadataWorker(IEnumerable<MetadataFetcher> metadataFetchers,
     {
         Log.Debug("Updating metadata...");
         // Get MetadataEntries of Series marked for download
-        List<MetadataEntry> metadataEntriesToUpdate = await MangaContext.MangaConnectorToManga
+        List<MetadataEntry> metadataEntriesToUpdate = await SeriesContext.MangaConnectorToManga
             .Where(m => m.UseForDownload) // Get marked Series
             .Join(
-                MangaContext.MetadataEntries.Include(e => e.Series),
+                SeriesContext.MetadataEntries.Include(e => e.Series),
                 mcId => mcId.ObjId,
                 e => e.MangaId,
                 (mcId, e) => e) // return MetadataEntry
@@ -50,12 +50,12 @@ public class UpdateMetadataWorker(IEnumerable<MetadataFetcher> metadataFetchers,
             Log.DebugFormat("Updating metadata of {0}...", metadataEntry);
             if(metadataFetchers.FirstOrDefault(f => f.Name == metadataEntry.MetadataFetcherName) is not { } fetcher)
                 continue;
-            await fetcher.UpdateMetadata(metadataEntry, MangaContext, CancellationToken);
+            await fetcher.UpdateMetadata(metadataEntry, SeriesContext, CancellationToken);
             ActionsContext.Actions.Add(new MetadataUpdatedActionRecord(metadataEntry.Series, fetcher));
         }
         Log.Debug("Updated metadata.");
 
-        if(await MangaContext.Sync(CancellationToken, GetType(), System.Reflection.MethodBase.GetCurrentMethod()?.Name) is { success: false } e)
+        if(await SeriesContext.Sync(CancellationToken, GetType(), System.Reflection.MethodBase.GetCurrentMethod()?.Name) is { success: false } e)
             Log.ErrorFormat("Failed to save database changes: {0}", e.exceptionMessage);
         
         if(await ActionsContext.Sync(CancellationToken, GetType(), "Metadata Updated") is { success: false } actionsContextException)

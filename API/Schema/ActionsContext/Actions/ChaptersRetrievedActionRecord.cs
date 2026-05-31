@@ -1,5 +1,5 @@
 using API.Schema.ActionsContext.Actions.Generic;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 
 namespace API.Schema.ActionsContext.Actions;
 

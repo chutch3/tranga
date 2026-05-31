@@ -3,7 +3,7 @@ using System.Text;
 using System.Globalization;
 using System.Web;
 using API.MangaDownloadClients;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using HtmlAgilityPack;
 
 namespace API.MangaConnectors;
@@ -138,19 +138,19 @@ public sealed class Mangaworld : SeriesSource
                 ?.InnerText ?? string.Empty
             ).Trim();
 
-        MangaReleaseStatus status = MangaReleaseStatus.Unreleased;
+        SeriesReleaseStatus status = SeriesReleaseStatus.Unreleased;
         string? detailRawStatus = ExtractItalianStatus(doc);
         if (!string.IsNullOrWhiteSpace(detailRawStatus))
             status = MapItalianStatus(detailRawStatus);
 
         // Generi (badge/link dopo l'etichetta "Generi:")
-        List<MangaTag> tags =
+        List<SeriesTag> tags =
             doc.DocumentNode
                .SelectNodes("//span[normalize-space(text())='Generi:']/following-sibling::a")
                ?.Select(a => HtmlEntity.DeEntitize(a.InnerText).Trim())
                .Where(s => !string.IsNullOrWhiteSpace(s))
                .Distinct(StringComparer.OrdinalIgnoreCase)
-               .Select(s => new MangaTag(s))
+               .Select(s => new SeriesTag(s))
                .ToList()
             ?? [];
 
@@ -351,13 +351,13 @@ public sealed class Mangaworld : SeriesSource
         return Regex.Replace(t, @"\s*(Scan\s\w+\s-\sMangaWorld)$", "", RegexOptions.IgnoreCase).Trim();
     }
 
-    private static MangaReleaseStatus MapItalianStatus(string s) => s.Trim().ToLowerInvariant() switch
+    private static SeriesReleaseStatus MapItalianStatus(string s) => s.Trim().ToLowerInvariant() switch
     {
-        "in corso" or "ongoing" => MangaReleaseStatus.Continuing,
-        "completo" or "concluso" or "finito" => MangaReleaseStatus.Completed,
-        "in pausa" or "hiatus" => MangaReleaseStatus.OnHiatus,
-        "droppato" or "cancellato" or "interrotto" => MangaReleaseStatus.Cancelled,
-        _ => MangaReleaseStatus.Unreleased
+        "in corso" or "ongoing" => SeriesReleaseStatus.Continuing,
+        "completo" or "concluso" or "finito" => SeriesReleaseStatus.Completed,
+        "in pausa" or "hiatus" => SeriesReleaseStatus.OnHiatus,
+        "droppato" or "cancellato" or "interrotto" => SeriesReleaseStatus.Cancelled,
+        _ => SeriesReleaseStatus.Unreleased
     };
 
     private static string? ExtractItalianStatus(HtmlDocument doc)

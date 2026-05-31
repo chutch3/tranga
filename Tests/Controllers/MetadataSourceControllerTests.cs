@@ -1,7 +1,7 @@
 using API.Controllers;
 using API.Controllers.DTOs;
 using API.Controllers.Requests;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using API.Services;
 using API.Workers;
 using Microsoft.AspNetCore.Http;
@@ -14,15 +14,15 @@ namespace Tests.Controllers;
 
 public class MetadataSourceControllerTests
 {
-    private MangaContext CreateContext()
+    private SeriesContext CreateContext()
     {
-        var options = new DbContextOptionsBuilder<MangaContext>()
+        var options = new DbContextOptionsBuilder<SeriesContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
-        return new MangaContext(options);
+        return new SeriesContext(options);
     }
 
-    private MetadataSourceController CreateController(MangaContext ctx, IMangaDexSearchService? searchService = null)
+    private MetadataSourceController CreateController(SeriesContext ctx, IMangaDexSearchService? searchService = null)
     {
         var mockSearchService = searchService ?? new Mock<IMangaDexSearchService>().Object;
         var mockWorkerQueue = new Mock<IWorkerQueue>();
@@ -34,8 +34,8 @@ public class MetadataSourceControllerTests
         return controller;
     }
 
-    private static API.Schema.MangaContext.Series MakeTestManga(string name = "Test Series")
-        => new(name, "", "http://example.com/img.jpg", MangaReleaseStatus.Continuing, [], [], [], []);
+    private static API.Schema.SeriesContext.Series MakeTestManga(string name = "Test Series")
+        => new(name, "", "http://example.com/img.jpg", SeriesReleaseStatus.Continuing, [], [], [], []);
 
     // --- GET /v2/Series/{mangaId}/metadataSource ---
 

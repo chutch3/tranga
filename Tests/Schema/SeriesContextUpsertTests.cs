@@ -1,13 +1,13 @@
 using API;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using Microsoft.EntityFrameworkCore;
 
 namespace API.Tests.Schema;
 
 public class MangaContextUpsertTests
 {
-    private MangaContext CreateContext() =>
-        new(new DbContextOptionsBuilder<MangaContext>()
+    private SeriesContext CreateContext() =>
+        new(new DbContextOptionsBuilder<SeriesContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options);
 

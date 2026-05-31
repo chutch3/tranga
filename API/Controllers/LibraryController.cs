@@ -1,5 +1,5 @@
 using API.Controllers.DTOs;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -13,7 +13,7 @@ namespace API.Controllers;
 [ApiVersion(2)]
 [ApiController]
 [Route("v{v:apiVersion}/Library")]
-public class LibraryController(MangaContext context) : ControllerBase
+public class LibraryController(SeriesContext context) : ControllerBase
 {
     /// <summary>
     /// Returns a dashboard of manga with unresolved chapters or missing files.

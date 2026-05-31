@@ -6,7 +6,7 @@ using System.Xml.Linq;
 using Microsoft.EntityFrameworkCore;
 using Soenneker.Utils.String.NeedlemanWunsch;
 
-namespace API.Schema.MangaContext;
+namespace API.Schema.SeriesContext;
 
 [PrimaryKey("Key")]
 public class Chapter : Identifiable, IComparable<Chapter>
@@ -88,7 +88,7 @@ public class Chapter : Identifiable, IComparable<Chapter>
     /// <param name="token"></param>
     /// <returns>True if archive exists on disk</returns>
     /// <exception cref="KeyNotFoundException">Unable to load Chapter, Parent or Library</exception>
-    public async Task<bool> CheckDownloaded(MangaContext context, string namingScheme, bool? exactMatch = null, CancellationToken? token = null)
+    public async Task<bool> CheckDownloaded(SeriesContext context, string namingScheme, bool? exactMatch = null, CancellationToken? token = null)
     {
         if(await context.Chapters
                .Include(c => c.ParentManga)

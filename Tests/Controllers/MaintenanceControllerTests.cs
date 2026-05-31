@@ -1,6 +1,6 @@
 using API.Controllers;
 using API.Schema.ActionsContext;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using API.Workers;
 using API.Workers.MaintenanceWorkers;
 using Microsoft.AspNetCore.Http;
@@ -13,19 +13,19 @@ namespace API.Tests.Controllers;
 
 public class MaintenanceControllerTests
 {
-    private (MangaContext, ActionsContext) CreateContexts()
+    private (SeriesContext, ActionsContext) CreateContexts()
     {
-        var mangaOptions = new DbContextOptionsBuilder<MangaContext>()
+        var mangaOptions = new DbContextOptionsBuilder<SeriesContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .Options;
         var actionsOptions = new DbContextOptionsBuilder<ActionsContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .Options;
 
-        return (new MangaContext(mangaOptions), new ActionsContext(actionsOptions));
+        return (new SeriesContext(mangaOptions), new ActionsContext(actionsOptions));
     }
 
-    private static MaintenanceController CreateController(MangaContext mangaCtx, ActionsContext actionsCtx)
+    private static MaintenanceController CreateController(SeriesContext mangaCtx, ActionsContext actionsCtx)
     {
         var controller = new MaintenanceController(mangaCtx, actionsCtx);
         controller.ControllerContext = new Microsoft.AspNetCore.Mvc.ControllerContext
@@ -53,7 +53,7 @@ public class MaintenanceControllerTests
     public async Task CleanupNoDownloadManga_RemovesUntrackedManga()
     {
         var (mangaCtx, actionsCtx) = CreateContexts();
-        var untracked = new Series("Untracked", "Desc", "http://example.com/cover.jpg", MangaReleaseStatus.Continuing, [], [], [], []);
+        var untracked = new Series("Untracked", "Desc", "http://example.com/cover.jpg", SeriesReleaseStatus.Continuing, [], [], [], []);
         mangaCtx.Series.Add(untracked);
         await mangaCtx.SaveChangesAsync();
 
@@ -83,7 +83,7 @@ public class MaintenanceControllerTests
         var (mangaCtx, actionsCtx) = CreateContexts();
         var library = new FileLibrary("/tmp/test", "Test Library");
         mangaCtx.FileLibraries.Add(library);
-        var manga = new Series("Test Series", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        var manga = new Series("Test Series", "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], [], library);
         mangaCtx.Series.Add(manga);
         mangaCtx.Chapters.Add(new Chapter(manga, "1", 3, null) { Downloaded = true, FileName = "test1.cbz" });
         mangaCtx.Chapters.Add(new Chapter(manga, "2", 3, null) { Downloaded = true, FileName = "test2.cbz" });
@@ -109,7 +109,7 @@ public class MaintenanceControllerTests
         var (mangaCtx, actionsCtx) = CreateContexts();
         var library = new FileLibrary("/tmp/test", "Test Library");
         mangaCtx.FileLibraries.Add(library);
-        var manga = new Series("Test", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        var manga = new Series("Test", "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], [], library);
         mangaCtx.Series.Add(manga);
         mangaCtx.Chapters.Add(new Chapter(manga, "1", 3, null) { Downloaded = true, FileName = "test1.cbz" });
         await mangaCtx.SaveChangesAsync();
@@ -135,7 +135,7 @@ public class MaintenanceControllerTests
         var (mangaCtx, actionsCtx) = CreateContexts();
         var library = new FileLibrary("/tmp/test", "Test Library");
         mangaCtx.FileLibraries.Add(library);
-        var manga = new Series("Test", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        var manga = new Series("Test", "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], [], library);
         mangaCtx.Series.Add(manga);
         mangaCtx.Chapters.Add(new Chapter(manga, "1", 2, null) { Downloaded = true, FileName = "test1.cbz" });
         mangaCtx.Chapters.Add(new Chapter(manga, "2", 2, null) { Downloaded = false, FileName = null });

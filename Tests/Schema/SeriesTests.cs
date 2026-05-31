@@ -1,20 +1,20 @@
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using Microsoft.EntityFrameworkCore;
 
 namespace API.Tests.Schema;
 
 public class MangaTests
 {
-    private MangaContext CreateContext()
+    private SeriesContext CreateContext()
     {
-        var options = new DbContextOptionsBuilder<MangaContext>()
+        var options = new DbContextOptionsBuilder<SeriesContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
-        return new MangaContext(options);
+        return new SeriesContext(options);
     }
 
     internal static Series MakeTestManga(string name = "Test Series")
-        => new(name, "", "http://example.com/img.jpg", MangaReleaseStatus.Continuing, [], [], [], []);
+        => new(name, "", "http://example.com/img.jpg", SeriesReleaseStatus.Continuing, [], [], [], []);
 
     [Fact]
     public async Task GetTrackedMangas_IncludesManga_WhenIsTrackedTrue()
@@ -104,7 +104,7 @@ public class MangaTests
         // We want to verify that accessing the property doesn't trigger EnsureDirectoryExists side effects
         // that cause UnauthorizedAccessException if the directory doesn't exist yet.
         var library = new FileLibrary("/root/manga_test_forbidden", "Restricted");
-        var manga = new Series("Test Series", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        var manga = new Series("Test Series", "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], [], library);
         
         // This should NOT throw even if we don't have permissions to create /root/manga_test_forbidden/Test_Manga
         var path = manga.FullDirectoryPath;

@@ -1,16 +1,16 @@
 using API;
 using API.Controllers;
 using API.Controllers.DTOs;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using API.Workers;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Moq;
-using SchemaManga = API.Schema.MangaContext.Series;
-using SchemaFileLibrary = API.Schema.MangaContext.FileLibrary;
-using SchemaChapter = API.Schema.MangaContext.Chapter;
+using SchemaManga = API.Schema.SeriesContext.Series;
+using SchemaFileLibrary = API.Schema.SeriesContext.FileLibrary;
+using SchemaChapter = API.Schema.SeriesContext.Chapter;
 
 namespace API.Tests.Controllers;
 
@@ -30,15 +30,15 @@ public class VolumeControllerTests : IDisposable
             Directory.Delete(_tempDir, true);
     }
 
-    private MangaContext CreateContext()
+    private SeriesContext CreateContext()
     {
-        var options = new DbContextOptionsBuilder<MangaContext>()
+        var options = new DbContextOptionsBuilder<SeriesContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
-        return new MangaContext(options);
+        return new SeriesContext(options);
     }
 
-    private (VolumeController controller, Mock<IWorkerQueue> workerQueueMock) CreateController(MangaContext ctx)
+    private (VolumeController controller, Mock<IWorkerQueue> workerQueueMock) CreateController(SeriesContext ctx)
     {
         var settings = new TrangaSettings { AppData = _tempDir };
         var workerQueueMock = new Mock<IWorkerQueue>();
@@ -58,7 +58,7 @@ public class VolumeControllerTests : IDisposable
     }
 
     private static SchemaManga MakeTestManga(string name, SchemaFileLibrary library)
-        => new(name, "", "http://example.com/img.jpg", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        => new(name, "", "http://example.com/img.jpg", SeriesReleaseStatus.Continuing, [], [], [], [], library);
 
     // ──────────────────────────────────────────────────────
     // GET /volumes
@@ -370,7 +370,7 @@ public class VolumeControllerTests : IDisposable
         using var ctx = CreateContext();
         var (controller, _) = CreateController(ctx);
 
-        var result = await controller.PutLibraryLayout("nonexistent-id", new API.Controllers.Requests.PutLibraryLayoutRecord(API.Schema.MangaContext.LibraryLayout.VolumeFolder));
+        var result = await controller.PutLibraryLayout("nonexistent-id", new API.Controllers.Requests.PutLibraryLayoutRecord(API.Schema.SeriesContext.LibraryLayout.VolumeFolder));
 
         Assert.IsType<NotFound<string>>(result.Result);
     }
@@ -386,14 +386,14 @@ public class VolumeControllerTests : IDisposable
         await ctx.SaveChangesAsync();
 
         var (controller, _) = CreateController(ctx);
-        var result = await controller.PutLibraryLayout(manga.Key, new API.Controllers.Requests.PutLibraryLayoutRecord(API.Schema.MangaContext.LibraryLayout.VolumeFolder));
+        var result = await controller.PutLibraryLayout(manga.Key, new API.Controllers.Requests.PutLibraryLayoutRecord(API.Schema.SeriesContext.LibraryLayout.VolumeFolder));
 
         Assert.IsType<Ok<API.Controllers.DTOs.LibraryLayoutResult>>(result.Result);
 
         // Verify DB state persisted
         var updated = await ctx.Series.FindAsync(manga.Key);
         Assert.NotNull(updated);
-        Assert.Equal(API.Schema.MangaContext.LibraryLayout.VolumeFolder, updated!.LibraryLayout);
+        Assert.Equal(API.Schema.SeriesContext.LibraryLayout.VolumeFolder, updated!.LibraryLayout);
     }
 
     [Fact]
@@ -412,7 +412,7 @@ public class VolumeControllerTests : IDisposable
         await ctx.SaveChangesAsync();
 
         var (controller, _) = CreateController(ctx);
-        var result = await controller.PutLibraryLayout(manga.Key, new API.Controllers.Requests.PutLibraryLayoutRecord(API.Schema.MangaContext.LibraryLayout.VolumeFolder));
+        var result = await controller.PutLibraryLayout(manga.Key, new API.Controllers.Requests.PutLibraryLayoutRecord(API.Schema.SeriesContext.LibraryLayout.VolumeFolder));
 
         var ok = Assert.IsType<Ok<API.Controllers.DTOs.LibraryLayoutResult>>(result.Result);
         Assert.NotNull(ok.Value);
@@ -439,7 +439,7 @@ public class VolumeControllerTests : IDisposable
         await ctx.SaveChangesAsync();
 
         var (controller, workerQueueMock) = CreateController(ctx);
-        await controller.PutLibraryLayout(manga.Key, new API.Controllers.Requests.PutLibraryLayoutRecord(API.Schema.MangaContext.LibraryLayout.VolumeFolder));
+        await controller.PutLibraryLayout(manga.Key, new API.Controllers.Requests.PutLibraryLayoutRecord(API.Schema.SeriesContext.LibraryLayout.VolumeFolder));
 
         // No workers should be queued
         workerQueueMock.Verify(q => q.AddWorkers(It.IsAny<IEnumerable<BaseWorker>>()), Times.Never);
@@ -452,7 +452,7 @@ public class VolumeControllerTests : IDisposable
         var library = MakeLibrary();
         ctx.FileLibraries.Add(library);
         var manga = MakeTestManga("Dragon Ball Z", library);
-        manga.LibraryLayout = API.Schema.MangaContext.LibraryLayout.VolumeFolder;
+        manga.LibraryLayout = API.Schema.SeriesContext.LibraryLayout.VolumeFolder;
         ctx.Series.Add(manga);
 
         var ch = new SchemaChapter(manga, "1", 3);
@@ -476,7 +476,7 @@ public class VolumeControllerTests : IDisposable
         var library = MakeLibrary();
         ctx.FileLibraries.Add(library);
         var manga = MakeTestManga("Vinland Saga", library);
-        manga.LibraryLayout = API.Schema.MangaContext.LibraryLayout.VolumeFolder;
+        manga.LibraryLayout = API.Schema.SeriesContext.LibraryLayout.VolumeFolder;
         ctx.Series.Add(manga);
 
         // Chapter with null volume number — must not go into a volume subfolder
@@ -509,7 +509,7 @@ public class VolumeControllerTests : IDisposable
         var library = MakeLibrary();
         ctx.FileLibraries.Add(library);
         var manga = MakeTestManga("Berserk", library);
-        manga.LibraryLayout = API.Schema.MangaContext.LibraryLayout.VolumeFolder;
+        manga.LibraryLayout = API.Schema.SeriesContext.LibraryLayout.VolumeFolder;
         ctx.Series.Add(manga);
         await ctx.SaveChangesAsync();
 
@@ -517,6 +517,6 @@ public class VolumeControllerTests : IDisposable
         var result = await controller.GetVolumes(manga.Key);
 
         var ok = Assert.IsType<Ok<VolumeListResult>>(result.Result);
-        Assert.Equal(API.Schema.MangaContext.LibraryLayout.VolumeFolder, ok.Value!.Layout);
+        Assert.Equal(API.Schema.SeriesContext.LibraryLayout.VolumeFolder, ok.Value!.Layout);
     }
 }

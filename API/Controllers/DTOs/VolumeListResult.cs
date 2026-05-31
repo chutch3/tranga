@@ -1,4 +1,4 @@
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 
 namespace API.Controllers.DTOs;
 

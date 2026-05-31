@@ -1,6 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using API.MangaConnectors;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using API.Workers.MangaDownloadWorkers;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,17 +16,17 @@ public class CheckForNewChaptersWorker(TrangaSettings settings, IEnumerable<Seri
     public TimeSpan Interval { get; set; } = interval??Constants.CheckForNewChaptersInterval;
     
     [SuppressMessage("ReSharper", "InconsistentNaming")]
-    private MangaContext MangaContext = null!;
+    private SeriesContext SeriesContext = null!;
 
     protected override void SetContexts(IServiceScope serviceScope)
     {
-        MangaContext = GetContext<MangaContext>(serviceScope);
+        SeriesContext = GetContext<SeriesContext>(serviceScope);
     }
     
     protected override async Task<BaseWorker[]> DoWorkInternal()
     {
         Log.Debug("Checking for new chapters...");
-        List<SourceId<Series>> connectorIdsManga = await MangaContext.MangaConnectorToManga
+        List<SourceId<Series>> connectorIdsManga = await SeriesContext.MangaConnectorToManga
             .Include(id => id.Obj)
             .Where(id => id.UseForDownload)
             .ToListAsync(CancellationToken);

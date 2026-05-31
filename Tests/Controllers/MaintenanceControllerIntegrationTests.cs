@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using API.Controllers;
 using API.Schema.ActionsContext;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using API.Services;
 using API.Workers;
 using API.Workers.MaintenanceWorkers;
@@ -36,16 +36,16 @@ public class MaintenanceControllerIntegrationTests : IAsyncLifetime
         return Task.CompletedTask;
     }
 
-    private static MangaContext CreateMangaContext(DbContextOptions<MangaContext> options) => new(options);
+    private static SeriesContext CreateMangaContext(DbContextOptions<SeriesContext> options) => new(options);
 
-    private static IServiceScope CreateScope(MangaContext mangaContext)
+    private static IServiceScope CreateScope(SeriesContext mangaContext)
     {
         var actionsContext = new ActionsContext(
             new DbContextOptionsBuilder<ActionsContext>()
                 .UseInMemoryDatabase(Guid.NewGuid().ToString())
                 .Options);
         var sp = new Mock<IServiceProvider>();
-        sp.Setup(x => x.GetService(typeof(MangaContext))).Returns(mangaContext);
+        sp.Setup(x => x.GetService(typeof(SeriesContext))).Returns(mangaContext);
         sp.Setup(x => x.GetService(typeof(ActionsContext))).Returns(actionsContext);
         var scope = new Mock<IServiceScope>();
         scope.Setup(x => x.ServiceProvider).Returns(sp.Object);
@@ -69,17 +69,17 @@ public class MaintenanceControllerIntegrationTests : IAsyncLifetime
     public async Task ThreeMangaWithParallelism2_AllMangaGetVolumesResolved()
     {
         string dbName = Guid.NewGuid().ToString();
-        var dbOptions = new DbContextOptionsBuilder<MangaContext>()
+        var dbOptions = new DbContextOptionsBuilder<SeriesContext>()
             .UseInMemoryDatabase(dbName).Options;
 
         var mangaKeys = new List<string>();
-        using (var setupDb = new MangaContext(dbOptions))
+        using (var setupDb = new SeriesContext(dbOptions))
         {
             var library = new FileLibrary(_tempDir, "Integration Library");
             setupDb.FileLibraries.Add(library);
             for (int i = 1; i <= 3; i++)
             {
-                var manga = new Series($"Series {i}", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], [], library);
+                var manga = new Series($"Series {i}", "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], [], library);
                 manga.SourceIds.Add(new SourceId<Series>(manga, "MangaDex", $"uuid-{i}", null));
                 setupDb.Series.Add(manga);
                 setupDb.Chapters.Add(new Chapter(manga, "1", null, null)
@@ -131,7 +131,7 @@ public class MaintenanceControllerIntegrationTests : IAsyncLifetime
     public async Task ChaptersWithWrongVolumes_AfterResetAndResolve_HaveCorrectVolumesAndFilePaths()
     {
         string dbName = Guid.NewGuid().ToString();
-        var dbOptions = new DbContextOptionsBuilder<MangaContext>()
+        var dbOptions = new DbContextOptionsBuilder<SeriesContext>()
             .UseInMemoryDatabase(dbName).Options;
 
         Series manga;
@@ -140,7 +140,7 @@ public class MaintenanceControllerIntegrationTests : IAsyncLifetime
             var library = new FileLibrary(_tempDir, "Integration Library");
             setupDb.FileLibraries.Add(library);
             manga = new Series("One-Punch Man", "Superhero comedy", "url",
-                MangaReleaseStatus.Continuing, [], [], [], [], library);
+                SeriesReleaseStatus.Continuing, [], [], [], [], library);
             manga.SourceIds.Add(
                 new SourceId<Series>(manga, "MangaDex", "some-uuid", null));
             setupDb.Series.Add(manga);

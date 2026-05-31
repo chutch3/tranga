@@ -1,6 +1,6 @@
 using API.Controllers.DTOs;
 using API.Controllers.Requests;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using API.Services;
 using API.Workers;
 using API.Workers.MaintenanceWorkers;
@@ -19,13 +19,13 @@ namespace API.Controllers;
 [Route("v{v:apiVersion}/Series")]
 public class MetadataSourceController : ControllerBase
 {
-    private readonly MangaContext context;
+    private readonly SeriesContext context;
     private readonly IMangaDexSearchService mangaDexSearchService;
     private readonly IAniListSearchService aniListSearchService;
     private readonly IWorkerQueue workerQueue;
 
     public MetadataSourceController(
-        MangaContext context,
+        SeriesContext context,
         IMangaDexSearchService mangaDexSearchService,
         IAniListSearchService aniListSearchService,
         IWorkerQueue workerQueue)
@@ -40,7 +40,7 @@ public class MetadataSourceController : ControllerBase
     /// Backward-compatible constructor for tests that do not inject <see cref="IAniListSearchService"/>.
     /// </summary>
     public MetadataSourceController(
-        MangaContext context,
+        SeriesContext context,
         IMangaDexSearchService mangaDexSearchService,
         IWorkerQueue workerQueue)
         : this(context, mangaDexSearchService, new NullAniListSearchService(), workerQueue)
@@ -58,9 +58,9 @@ public class MetadataSourceController : ControllerBase
 
 
     /// <summary>
-    /// Returns the <see cref="MetadataSource"/> for a given <see cref="Schema.MangaContext.Series"/>.
+    /// Returns the <see cref="MetadataSource"/> for a given <see cref="Schema.SeriesContext.Series"/>.
     /// </summary>
-    /// <param name="MangaId"><see cref="Schema.MangaContext.Series"/>.Key</param>
+    /// <param name="MangaId"><see cref="Schema.SeriesContext.Series"/>.Key</param>
     /// <response code="200">MetadataSource data</response>
     /// <response code="404">Series not found</response>
     [HttpGet("{MangaId}/metadataSource")]
@@ -88,9 +88,9 @@ public class MetadataSourceController : ControllerBase
     }
 
     /// <summary>
-    /// Sets the <see cref="MetadataSource"/> for a <see cref="Schema.MangaContext.Series"/>, marking it as Confirmed.
+    /// Sets the <see cref="MetadataSource"/> for a <see cref="Schema.SeriesContext.Series"/>, marking it as Confirmed.
     /// </summary>
-    /// <param name="MangaId"><see cref="Schema.MangaContext.Series"/>.Key</param>
+    /// <param name="MangaId"><see cref="Schema.SeriesContext.Series"/>.Key</param>
     /// <param name="request">Source type and external ID</param>
     /// <response code="204">Updated successfully</response>
     /// <response code="400">ExternalId is null or empty</response>
@@ -132,7 +132,7 @@ public class MetadataSourceController : ControllerBase
     /// <summary>
     /// Searches for candidates matching a Series's title, scored by similarity.
     /// </summary>
-    /// <param name="MangaId"><see cref="Schema.MangaContext.Series"/>.Key</param>
+    /// <param name="MangaId"><see cref="Schema.SeriesContext.Series"/>.Key</param>
     /// <param name="q">Title to search for</param>
     /// <param name="source">Metadata source to search: "mangadex" (default) or "anilist"</param>
     /// <response code="200">Top 10 scored candidates</response>
@@ -189,7 +189,7 @@ public class MetadataSourceController : ControllerBase
     /// <summary>
     /// Queues a background worker to refresh chapter volumes for a Series from its confirmed MangaDex ExternalId.
     /// </summary>
-    /// <param name="MangaId"><see cref="Schema.MangaContext.Series"/>.Key</param>
+    /// <param name="MangaId"><see cref="Schema.SeriesContext.Series"/>.Key</param>
     /// <response code="202">Job queued. Returns jobId.</response>
     /// <response code="400">MetadataSource is Unlinked (no ExternalId set)</response>
     /// <response code="404">Series not found</response>

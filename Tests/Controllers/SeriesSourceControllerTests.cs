@@ -3,7 +3,7 @@ using API.Controllers;
 using API.Controllers.DTOs;
 using ConnectorDto = API.Controllers.DTOs.SeriesSource;
 using API.MangaConnectors;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -17,12 +17,12 @@ public class MangaConnectorControllerTests
 {
     private readonly TrangaSettings _settings = new() { AppData = Path.GetTempPath() };
 
-    private MangaContext CreateContext()
+    private SeriesContext CreateContext()
     {
-        var options = new DbContextOptionsBuilder<MangaContext>()
+        var options = new DbContextOptionsBuilder<SeriesContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
-        return new MangaContext(options);
+        return new SeriesContext(options);
     }
 
     private Mock<MangaConnectorImpl> MakeConnector(string name, bool enabled = true, string[] languages = null!)
@@ -32,9 +32,9 @@ public class MangaConnectorControllerTests
         return mock;
     }
 
-    private MangaConnectorController CreateController(MangaContext ctx, IEnumerable<MangaConnectorImpl> connectors, TrangaSettings settings)
+    private SeriesSourceController CreateController(SeriesContext ctx, IEnumerable<MangaConnectorImpl> connectors, TrangaSettings settings)
     {
-        var controller = new MangaConnectorController(ctx, connectors, settings);
+        var controller = new SeriesSourceController(ctx, connectors, settings);
         controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext()

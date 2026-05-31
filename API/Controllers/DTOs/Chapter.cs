@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations;
 namespace API.Controllers.DTOs;
 
 /// <summary>
-/// <see cref="API.Schema.MangaContext.Chapter"/> DTO
+/// <see cref="API.Schema.SeriesContext.Chapter"/> DTO
 /// </summary>
 public sealed record Chapter(string Key, string MangaId, int? Volume, string ChapterNumber, string? Title, IEnumerable<SourceId<Chapter>> SourceIds, bool Downloaded, string? FileName) : Identifiable(Key)
 {

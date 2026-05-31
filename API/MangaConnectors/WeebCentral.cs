@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 using System.Web;
 using HtmlAgilityPack;
 using API.MangaDownloadClients;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using log4net;
 using System.Collections.Generic;
 using System.Linq; // For OrderBy
@@ -140,18 +140,18 @@ public class WeebCentral : SeriesSource
 
         // Tags
         HtmlNodeCollection? genreNodes = doc.DocumentNode.SelectNodes("//strong[starts-with(text(),'Tag')]/../span");
-        List<MangaTag> tags = genreNodes?.Select(b => new MangaTag(HtmlEntity.DeEntitize(b.InnerText.Trim()))).ToList() ?? [];
+        List<SeriesTag> tags = genreNodes?.Select(b => new SeriesTag(HtmlEntity.DeEntitize(b.InnerText.Trim()))).ToList() ?? [];
 
         // Status
         HtmlNode? statusNode = doc.DocumentNode.SelectSingleNode("//strong[starts-with(text(),'Status')]/../a");
         string rawStatus = HtmlEntity.DeEntitize(statusNode?.InnerText ?? "").ToLowerInvariant().Trim();
-        MangaReleaseStatus releaseStatus = rawStatus switch
+        SeriesReleaseStatus releaseStatus = rawStatus switch
         {
-            "ongoing" => MangaReleaseStatus.Continuing,
-            "hiatus" => MangaReleaseStatus.OnHiatus,
-            "completed" => MangaReleaseStatus.Completed,
-            "canceled" => MangaReleaseStatus.Cancelled,
-            _ => MangaReleaseStatus.Unreleased
+            "ongoing" => SeriesReleaseStatus.Continuing,
+            "hiatus" => SeriesReleaseStatus.OnHiatus,
+            "completed" => SeriesReleaseStatus.Completed,
+            "canceled" => SeriesReleaseStatus.Cancelled,
+            _ => SeriesReleaseStatus.Unreleased
         };
 
         // Authors

@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 using System.Web;
 using HtmlAgilityPack;
 using API.MangaDownloadClients;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using log4net;
 using System.Collections.Generic;
 using System.Linq; // For OrderBy
@@ -144,18 +144,18 @@ public class AsuraComic : SeriesSource
 
         // Tags
         HtmlNodeCollection? genreNodes = doc.DocumentNode.SelectNodes("//h3[text()='Genres']/../div/button");
-        List<MangaTag> tags = genreNodes?.Select(b => new MangaTag(HtmlEntity.DeEntitize(b.InnerText.Trim()))).ToList() ?? [];
+        List<SeriesTag> tags = genreNodes?.Select(b => new SeriesTag(HtmlEntity.DeEntitize(b.InnerText.Trim()))).ToList() ?? [];
 
         // Status
         HtmlNode? statusNode = doc.DocumentNode.SelectSingleNode("//h3[text()='Status']/../h3[2]");
         string rawStatus = HtmlEntity.DeEntitize(statusNode?.InnerText ?? "").ToLowerInvariant().Trim();
-        MangaReleaseStatus releaseStatus = rawStatus switch
+        SeriesReleaseStatus releaseStatus = rawStatus switch
         {
-            "ongoing" or "season end" => MangaReleaseStatus.Continuing,
-            "hiatus" => MangaReleaseStatus.OnHiatus,
-            "completed" => MangaReleaseStatus.Completed,
-            "dropped" => MangaReleaseStatus.Cancelled,
-            _ => MangaReleaseStatus.Unreleased
+            "ongoing" or "season end" => SeriesReleaseStatus.Continuing,
+            "hiatus" => SeriesReleaseStatus.OnHiatus,
+            "completed" => SeriesReleaseStatus.Completed,
+            "dropped" => SeriesReleaseStatus.Cancelled,
+            _ => SeriesReleaseStatus.Unreleased
         };
 
         // Authors/Artists

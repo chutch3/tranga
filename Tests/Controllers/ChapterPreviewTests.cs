@@ -1,7 +1,7 @@
 using System.IO.Compression;
 using API;
 using API.Controllers;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using API.Services;
 using API.Workers;
 using Microsoft.AspNetCore.Http;
@@ -39,18 +39,18 @@ public class ChapterPreviewTests : IDisposable
 
     // ─── Helpers ─────────────────────────────────────────────────────────────
 
-    private MangaContext CreateContext()
+    private SeriesContext CreateContext()
     {
-        var options = new DbContextOptionsBuilder<MangaContext>()
+        var options = new DbContextOptionsBuilder<SeriesContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
-        return new MangaContext(options);
+        return new SeriesContext(options);
     }
 
-    private static API.Schema.MangaContext.Series MakeTestManga(string name = "Test Series")
-        => new(name, "", "http://example.com/img.jpg", MangaReleaseStatus.Continuing, [], [], [], []);
+    private static API.Schema.SeriesContext.Series MakeTestManga(string name = "Test Series")
+        => new(name, "", "http://example.com/img.jpg", SeriesReleaseStatus.Continuing, [], [], [], []);
 
-    private ChaptersController CreateController(MangaContext ctx, IChapterThumbnailService? thumbnailService = null)
+    private ChaptersController CreateController(SeriesContext ctx, IChapterThumbnailService? thumbnailService = null)
     {
         var mockWorkerQueue = new Mock<IWorkerQueue>();
         var connectors = Enumerable.Empty<API.MangaConnectors.SeriesSource>();
@@ -146,7 +146,7 @@ public class ChapterPreviewTests : IDisposable
     {
         using var ctx = CreateContext();
         var manga = MakeTestManga("Berserk");
-        var chapter = new API.Schema.MangaContext.Chapter(manga, "1", 1);
+        var chapter = new API.Schema.SeriesContext.Chapter(manga, "1", 1);
         ctx.Series.Add(manga);
         ctx.Chapters.Add(chapter);
         await ctx.SaveChangesAsync();
@@ -173,7 +173,7 @@ public class ChapterPreviewTests : IDisposable
     {
         using var ctx = CreateContext();
         var manga = MakeTestManga("One Piece");
-        var chapter = new API.Schema.MangaContext.Chapter(manga, "1", 1);
+        var chapter = new API.Schema.SeriesContext.Chapter(manga, "1", 1);
 
         // Create a real CBZ in the temp dir
         string cbzPath = Path.Combine(_tempDir, "chapter1.cbz");
@@ -210,7 +210,7 @@ public class ChapterPreviewTests : IDisposable
     {
         using var ctx = CreateContext();
         var manga = MakeTestManga("Naruto");
-        var chapter = new API.Schema.MangaContext.Chapter(manga, "5", 1);
+        var chapter = new API.Schema.SeriesContext.Chapter(manga, "5", 1);
 
         string cbzPath = Path.Combine(_tempDir, "naruto_ch5.cbz");
         CreateCbzWithImage(cbzPath, "page001.jpg");
@@ -250,7 +250,7 @@ public class ChapterPreviewTests : IDisposable
     {
         using var ctx = CreateContext();
         var manga = MakeTestManga("Bleach");
-        var chapter = new API.Schema.MangaContext.Chapter(manga, "10", 2);
+        var chapter = new API.Schema.SeriesContext.Chapter(manga, "10", 2);
         ctx.Series.Add(manga);
         ctx.Chapters.Add(chapter);
         await ctx.SaveChangesAsync();
@@ -272,7 +272,7 @@ public class ChapterPreviewTests : IDisposable
     {
         using var ctx = CreateContext();
         var manga = MakeTestManga("Attack on Titan");
-        var chapter = new API.Schema.MangaContext.Chapter(manga, "3", 1);
+        var chapter = new API.Schema.SeriesContext.Chapter(manga, "3", 1);
         ctx.Series.Add(manga);
         ctx.Chapters.Add(chapter);
         await ctx.SaveChangesAsync();
@@ -301,7 +301,7 @@ public class ChapterPreviewTests : IDisposable
     {
         using var ctx = CreateContext();
         var manga = MakeTestManga("Dragon Ball");
-        var chapter = new API.Schema.MangaContext.Chapter(manga, "1", 1);
+        var chapter = new API.Schema.SeriesContext.Chapter(manga, "1", 1);
         chapter.IsBundled = true;
         ctx.Series.Add(manga);
         ctx.Chapters.Add(chapter);
@@ -348,7 +348,7 @@ public class ChapterPreviewTests : IDisposable
     {
         using var ctx = CreateContext();
         var manga = MakeTestManga("HxH");
-        var chapter = new API.Schema.MangaContext.Chapter(manga, "1", 1);
+        var chapter = new API.Schema.SeriesContext.Chapter(manga, "1", 1);
         ctx.Series.Add(manga);
         ctx.Chapters.Add(chapter);
         await ctx.SaveChangesAsync();

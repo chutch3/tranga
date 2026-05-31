@@ -1,4 +1,4 @@
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using API.Services;
 using API.Workers.MaintenanceWorkers;
 using Microsoft.EntityFrameworkCore;
@@ -13,18 +13,18 @@ namespace Tests.Workers;
 /// </summary>
 public class RefreshMetadataSourceWorkerTests
 {
-    private static MangaContext CreateContext(string? dbName = null)
+    private static SeriesContext CreateContext(string? dbName = null)
     {
-        var options = new DbContextOptionsBuilder<MangaContext>()
+        var options = new DbContextOptionsBuilder<SeriesContext>()
             .UseInMemoryDatabase(dbName ?? Guid.NewGuid().ToString())
             .Options;
-        return new MangaContext(options);
+        return new SeriesContext(options);
     }
 
-    private static API.Schema.MangaContext.Series MakeTestManga(string name = "Test Series")
-        => new(name, "", "http://example.com/img.jpg", MangaReleaseStatus.Continuing, [], [], [], []);
+    private static API.Schema.SeriesContext.Series MakeTestManga(string name = "Test Series")
+        => new(name, "", "http://example.com/img.jpg", SeriesReleaseStatus.Continuing, [], [], [], []);
 
-    private static IServiceScope CreateServiceScope(MangaContext ctx, IMangaDexSearchService searchService)
+    private static IServiceScope CreateServiceScope(SeriesContext ctx, IMangaDexSearchService searchService)
     {
         var services = new ServiceCollection();
         services.AddSingleton(ctx);

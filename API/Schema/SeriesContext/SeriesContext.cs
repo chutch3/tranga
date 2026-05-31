@@ -1,22 +1,22 @@
 ﻿using API.MangaConnectors;
-using API.Schema.MangaContext.MetadataFetchers;
+using API.Schema.SeriesContext.MetadataFetchers;
 using log4net;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 // Inside this class the DbSet property `Series` shadows the entity type `Series`. SeriesEntity
 // disambiguates in typeof/nameof expressions used by the entity configuration.
-using SeriesEntity = API.Schema.MangaContext.Series;
+using SeriesEntity = API.Schema.SeriesContext.Series;
 
-namespace API.Schema.MangaContext;
+namespace API.Schema.SeriesContext;
 
-public class MangaContext(DbContextOptions<MangaContext> options) : TrangaBaseContext<MangaContext>(options)
+public class SeriesContext(DbContextOptions<SeriesContext> options) : TrangaBaseContext<SeriesContext>(options)
 {
-    private static readonly ILog Log = LogManager.GetLogger(typeof(MangaContext));
+    private static readonly ILog Log = LogManager.GetLogger(typeof(SeriesContext));
     public DbSet<Series> Series { get; set; }
     public DbSet<FileLibrary> FileLibraries { get; set; }
     public DbSet<Chapter> Chapters { get; set; }
     public DbSet<Author> Authors { get; set; }
-    public DbSet<MangaTag> Tags { get; set; }
+    public DbSet<SeriesTag> Tags { get; set; }
     public DbSet<SourceId<Series>> MangaConnectorToManga { get; set; }
     public DbSet<SourceId<Chapter>> MangaConnectorToChapter { get; set; }
     public DbSet<MetadataEntry> MetadataEntries { get; set; }
@@ -61,11 +61,11 @@ public class MangaContext(DbContextOptions<MangaContext> options) : TrangaBaseCo
             .AutoInclude();
         //Series has many Tags associated with many Obj
         modelBuilder.Entity<Series>()
-            .HasMany<MangaTag>(m => m.MangaTags)
+            .HasMany<SeriesTag>(m => m.MangaTags)
             .WithMany()
-            .UsingEntity("MangaTagToManga",
-                l => l.HasOne(typeof(MangaTag)).WithMany().HasForeignKey("MangaTagIds")
-                    .HasPrincipalKey(nameof(MangaTag.Tag)),
+            .UsingEntity("SeriesTagToSeries",
+                l => l.HasOne(typeof(SeriesTag)).WithMany().HasForeignKey("MangaTagIds")
+                    .HasPrincipalKey(nameof(SeriesTag.Tag)),
                 r => r.HasOne(typeof(SeriesEntity)).WithMany().HasForeignKey("MangaIds").HasPrincipalKey(nameof(SeriesEntity.Key)),
                 j => j.HasKey("MangaTagIds", "MangaIds")
             );
@@ -214,9 +214,9 @@ public class MangaContext(DbContextOptions<MangaContext> options) : TrangaBaseCo
         else
         {
             Log.Debug("Series does not exist yet, inserting.");
-            IEnumerable<MangaTag> mergedTags = addManga.MangaTags.Select(mt =>
+            IEnumerable<SeriesTag> mergedTags = addManga.MangaTags.Select(mt =>
             {
-                MangaTag? inDb = Tags.Find(mt.Tag);
+                SeriesTag? inDb = Tags.Find(mt.Tag);
                 return inDb ?? mt;
             });
             addManga.MangaTags = mergedTags.ToList();

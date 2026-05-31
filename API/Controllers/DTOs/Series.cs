@@ -1,13 +1,13 @@
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 
 namespace API.Controllers.DTOs;
 
 /// <summary>
-/// <see cref="Schema.MangaContext.Series"/> DTO
+/// <see cref="Schema.SeriesContext.Series"/> DTO
 /// </summary>
-public sealed record Series(string Key, string Name, string Description, MangaReleaseStatus ReleaseStatus, IEnumerable<SourceId<Series>> SourceIds, float IgnoreChaptersBefore, uint? Year, string? OriginalLanguage, IEnumerable<Author> Authors, IEnumerable<string> Tags, IEnumerable<Link> Links, IEnumerable<AltTitle> AltTitles, string? FileLibraryId, string CoverUrl = "")
+public sealed record Series(string Key, string Name, string Description, SeriesReleaseStatus ReleaseStatus, IEnumerable<SourceId<Series>> SourceIds, float IgnoreChaptersBefore, uint? Year, string? OriginalLanguage, IEnumerable<Author> Authors, IEnumerable<string> Tags, IEnumerable<Link> Links, IEnumerable<AltTitle> AltTitles, string? FileLibraryId, string CoverUrl = "")
     : MinimalSeries(Key, Name, Description, ReleaseStatus, SourceIds, FileLibraryId, OriginalLanguage, CoverUrl)
 {
     /// <summary>

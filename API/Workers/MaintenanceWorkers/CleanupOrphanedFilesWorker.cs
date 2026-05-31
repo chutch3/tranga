@@ -1,4 +1,4 @@
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using Microsoft.EntityFrameworkCore;
 
 namespace API.Workers.MaintenanceWorkers;
@@ -6,7 +6,7 @@ namespace API.Workers.MaintenanceWorkers;
 public class CleanupOrphanedFilesWorker(bool dryRun = false, IEnumerable<BaseWorker>? dependsOn = null)
     : BaseWorkerWithContexts(dependsOn), IPeriodic
 {
-    private MangaContext _mangaContext = null!;
+    private SeriesContext _mangaContext = null!;
     private readonly bool _dryRun = dryRun;
 
     // IPeriodic implementation
@@ -15,7 +15,7 @@ public class CleanupOrphanedFilesWorker(bool dryRun = false, IEnumerable<BaseWor
 
     protected override void SetContexts(IServiceScope serviceScope)
     {
-        _mangaContext = GetContext<MangaContext>(serviceScope);
+        _mangaContext = GetContext<SeriesContext>(serviceScope);
     }
 
     protected override async Task<BaseWorker[]> DoWorkInternal()

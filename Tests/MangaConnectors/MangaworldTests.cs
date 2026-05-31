@@ -3,7 +3,7 @@ using System.Text;
 using API;
 using API.MangaConnectors;
 using API.MangaDownloadClients;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using Moq;
 using Xunit;
 
@@ -29,7 +29,7 @@ public class MangaworldTests
 
     private static SourceId<Series> CreateDummyManga(SeriesSource connector)
     {
-        var manga = new Series("Test Series", "Desc", "url", MangaReleaseStatus.Continuing, [], [], [], []);
+        var manga = new Series("Test Series", "Desc", "url", SeriesReleaseStatus.Continuing, [], [], [], []);
         return new SourceId<Series>(manga, connector, "2003/test", "https://example.com/test");
     }
 

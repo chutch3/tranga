@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 
 namespace API.Workers.MaintenanceWorkers;
 

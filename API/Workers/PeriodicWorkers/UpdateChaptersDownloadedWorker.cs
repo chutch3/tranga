@@ -1,5 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using Microsoft.EntityFrameworkCore;
 
 namespace API.Workers.PeriodicWorkers;
@@ -14,23 +14,23 @@ public class UpdateChaptersDownloadedWorker(TrangaSettings settings, TimeSpan? i
     public TimeSpan Interval { get; set; } = interval??TimeSpan.FromDays(1);
 
     [SuppressMessage("ReSharper", "InconsistentNaming")]
-    private MangaContext MangaContext = null!;
+    private SeriesContext SeriesContext = null!;
 
     protected override void SetContexts(IServiceScope serviceScope)
     {
-        MangaContext = GetContext<MangaContext>(serviceScope);
+        SeriesContext = GetContext<SeriesContext>(serviceScope);
     }
 
     protected override async Task<BaseWorker[]> DoWorkInternal()
     {
         Log.Debug("Checking chapter files...");
-        List<Chapter> chapters = await MangaContext.Chapters.ToListAsync(CancellationToken);
+        List<Chapter> chapters = await SeriesContext.Chapters.ToListAsync(CancellationToken);
         Log.DebugFormat("Checking {0} chapters...", chapters.Count);
         foreach (Chapter chapter in chapters)
         {
             try
             {
-                bool downloaded = await chapter.CheckDownloaded(MangaContext, settings.ChapterNamingScheme, token: CancellationToken);
+                bool downloaded = await chapter.CheckDownloaded(SeriesContext, settings.ChapterNamingScheme, token: CancellationToken);
                 chapter.Downloaded = downloaded;
                 if (!downloaded)
                     chapter.FileName = null;
@@ -41,7 +41,7 @@ public class UpdateChaptersDownloadedWorker(TrangaSettings settings, TimeSpan? i
             }
         }
 
-        if(await MangaContext.Sync(CancellationToken, GetType(), System.Reflection.MethodBase.GetCurrentMethod()?.Name) is { success: false } e)
+        if(await SeriesContext.Sync(CancellationToken, GetType(), System.Reflection.MethodBase.GetCurrentMethod()?.Name) is { success: false } e)
             Log.ErrorFormat("Failed to save database changes: {0}", e.exceptionMessage);
 
         return [];

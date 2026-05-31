@@ -1,5 +1,5 @@
 using API;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using Xunit;
 
 namespace API.Tests.Schema;

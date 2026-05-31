@@ -1,6 +1,6 @@
 using API;
 using API.Schema.ActionsContext;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using API.Workers;
 using API.Workers.MaintenanceWorkers;
 using Microsoft.EntityFrameworkCore;
@@ -31,9 +31,9 @@ public class SyncChapterFileNamesWorkerIntegrationTests : IAsyncLifetime
         return Task.CompletedTask;
     }
 
-    private static MangaContext CreateMangaContext(DbContextOptions<MangaContext> options) => new(options);
+    private static SeriesContext CreateMangaContext(DbContextOptions<SeriesContext> options) => new(options);
 
-    private static IServiceScope CreateScope(MangaContext mangaContext)
+    private static IServiceScope CreateScope(SeriesContext mangaContext)
     {
         var actionsContext = new ActionsContext(
             new DbContextOptionsBuilder<ActionsContext>()
@@ -41,7 +41,7 @@ public class SyncChapterFileNamesWorkerIntegrationTests : IAsyncLifetime
                 .Options);
 
         var sp = new Mock<IServiceProvider>();
-        sp.Setup(x => x.GetService(typeof(MangaContext))).Returns(mangaContext);
+        sp.Setup(x => x.GetService(typeof(SeriesContext))).Returns(mangaContext);
         sp.Setup(x => x.GetService(typeof(ActionsContext))).Returns(actionsContext);
         var scope = new Mock<IServiceScope>();
         scope.Setup(x => x.ServiceProvider).Returns(sp.Object);
@@ -56,7 +56,7 @@ public class SyncChapterFileNamesWorkerIntegrationTests : IAsyncLifetime
     public async Task OPM_ChapterWithStaleFileName_MovesFileToVolumeSubdirectory()
     {
         string dbName = Guid.NewGuid().ToString();
-        var dbOptions = new DbContextOptionsBuilder<MangaContext>()
+        var dbOptions = new DbContextOptionsBuilder<SeriesContext>()
             .UseInMemoryDatabase(dbName).Options;
 
         Series manga;
@@ -65,7 +65,7 @@ public class SyncChapterFileNamesWorkerIntegrationTests : IAsyncLifetime
             var library = new FileLibrary(_tempDir, "Integration Library");
             setupDb.FileLibraries.Add(library);
             manga = new Series("One-Punch Man", "Superhero comedy", "url",
-                MangaReleaseStatus.Continuing, [], [], [], [], library);
+                SeriesReleaseStatus.Continuing, [], [], [], [], library);
             setupDb.Series.Add(manga);
             setupDb.Chapters.Add(new Chapter(manga, "1", 5, null)
                 { Downloaded = true, FileName = "One-Punch Man - Ch.1.cbz" });

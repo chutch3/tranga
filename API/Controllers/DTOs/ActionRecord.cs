@@ -63,7 +63,7 @@ public sealed record ActionRecord : Identifiable
     public string? Filename { get; init; }
     
     /// <summary>
-    /// <see cref="Schema.MangaContext.MetadataFetchers.MetadataFetcher"/> if Record is <see cref="Schema.ActionsContext.Actions.MetadataUpdatedActionRecord"/>
+    /// <see cref="Schema.SeriesContext.MetadataFetchers.MetadataFetcher"/> if Record is <see cref="Schema.ActionsContext.Actions.MetadataUpdatedActionRecord"/>
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? MetadataFetcher { get; init; }

@@ -5,7 +5,7 @@ using System.Text;
 using API.MangaConnectors;
 using API.Schema.ActionsContext;
 using API.Schema.ActionsContext.Actions;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using API.Schema.NotificationsContext;
 using API.Workers.PeriodicWorkers;
 using Microsoft.EntityFrameworkCore;
@@ -29,7 +29,7 @@ public class DownloadChapterFromSourceWorker(SourceId<Chapter> chId, IEnumerable
     public readonly string ChapterIdId = chId.Key;
 
     [SuppressMessage("ReSharper", "InconsistentNaming")]
-    private MangaContext MangaContext = null!;
+    private SeriesContext SeriesContext = null!;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     private ActionsContext ActionsContext = null!;
     [SuppressMessage("ReSharper", "InconsistentNaming")]
@@ -37,7 +37,7 @@ public class DownloadChapterFromSourceWorker(SourceId<Chapter> chId, IEnumerable
 
     protected override void SetContexts(IServiceScope serviceScope)
     {
-        MangaContext = GetContext<MangaContext>(serviceScope);
+        SeriesContext = GetContext<SeriesContext>(serviceScope);
         ActionsContext = GetContext<ActionsContext>(serviceScope);
         NotificationsContext = GetContext<NotificationsContext>(serviceScope);
     }
@@ -46,7 +46,7 @@ public class DownloadChapterFromSourceWorker(SourceId<Chapter> chId, IEnumerable
     {
         Log.Debug($"Downloading chapter for SourceId {ChapterIdId}...");
         // Getting SeriesSource info
-        if (await MangaContext.MangaConnectorToChapter
+        if (await SeriesContext.MangaConnectorToChapter
                 .Include(id => id.Obj)
                 .ThenInclude(c => c.ParentManga)
                 .ThenInclude(m => m.Library)
@@ -57,7 +57,7 @@ public class DownloadChapterFromSourceWorker(SourceId<Chapter> chId, IEnumerable
         }
 
         // Check if Chapter already exists...
-        if (await mangaConnectorId.Obj.CheckDownloaded(MangaContext, settings.ChapterNamingScheme, token: CancellationToken))
+        if (await mangaConnectorId.Obj.CheckDownloaded(SeriesContext, settings.ChapterNamingScheme, token: CancellationToken))
         {
             Log.Warn("Chapter already exists!");
             return [];
@@ -138,7 +138,7 @@ public class DownloadChapterFromSourceWorker(SourceId<Chapter> chId, IEnumerable
             // Consolidated sync for all contexts
             var syncTasks = new List<Task<(bool success, string? exceptionMessage)>>
             {
-                MangaContext.Sync(CancellationToken, GetType(), "Download Success"),
+                SeriesContext.Sync(CancellationToken, GetType(), "Download Success"),
                 ActionsContext.Sync(CancellationToken, GetType(), "Download Success"),
                 NotificationsContext.Sync(CancellationToken, GetType(), "Download Success")
             };
@@ -181,7 +181,7 @@ public class DownloadChapterFromSourceWorker(SourceId<Chapter> chId, IEnumerable
             Log.Debug("Cover filename in cache is null. Attempting to download...");
             coverFileNameInCache = await seriesSource.SaveCoverImageToCache(mangaConnectorId);
             manga.CoverFileNameInCache = coverFileNameInCache;
-            if (await MangaContext.Sync(CancellationToken, reason: "Update cover filename") is { success: false } result)
+            if (await SeriesContext.Sync(CancellationToken, reason: "Update cover filename") is { success: false } result)
                 Log.Error($"Couldn't update cover filename {result.exceptionMessage}");
         }
         
@@ -207,12 +207,12 @@ public class DownloadChapterFromSourceWorker(SourceId<Chapter> chId, IEnumerable
     private async Task<bool> CheckLibraryRefresh() => settings.LibraryRefreshSetting switch
     {
         LibraryRefreshSetting.AfterAllFinished => await AllDownloadsFinished(),
-        LibraryRefreshSetting.AfterMangaFinished => await MangaContext.MangaConnectorToChapter.Include(chId => chId.Obj).Where(chId => chId.UseForDownload).AllAsync(chId => chId.Obj.Downloaded, CancellationToken),
+        LibraryRefreshSetting.AfterMangaFinished => await SeriesContext.MangaConnectorToChapter.Include(chId => chId.Obj).Where(chId => chId.UseForDownload).AllAsync(chId => chId.Obj.Downloaded, CancellationToken),
         LibraryRefreshSetting.AfterEveryChapter => true,
         LibraryRefreshSetting.WhileDownloading => await AllDownloadsFinished() || DateTime.UtcNow.Subtract(RefreshLibrariesWorker.LastRefresh).TotalMinutes > settings.RefreshLibraryWhileDownloadingEveryMinutes,
         _ => true
     };
-    private async Task<bool> AllDownloadsFinished() => (await StartNewChapterDownloadsWorker.GetMissingChapters(MangaContext, CancellationToken)).Count == 0;
+    private async Task<bool> AllDownloadsFinished() => (await StartNewChapterDownloadsWorker.GetMissingChapters(SeriesContext, CancellationToken)).Count == 0;
 
     private async Task<Stream> ProcessImage(Stream imageStream, CancellationToken? cancellationToken = null)
     {

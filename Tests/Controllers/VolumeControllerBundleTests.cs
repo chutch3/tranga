@@ -1,16 +1,16 @@
 using API;
 using API.Controllers;
 using API.Controllers.DTOs;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using API.Workers;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Moq;
-using SchemaManga = API.Schema.MangaContext.Series;
-using SchemaFileLibrary = API.Schema.MangaContext.FileLibrary;
-using SchemaChapter = API.Schema.MangaContext.Chapter;
+using SchemaManga = API.Schema.SeriesContext.Series;
+using SchemaFileLibrary = API.Schema.SeriesContext.FileLibrary;
+using SchemaChapter = API.Schema.SeriesContext.Chapter;
 
 namespace API.Tests.Controllers;
 
@@ -30,15 +30,15 @@ public class VolumeControllerBundleTests : IDisposable
             Directory.Delete(_tempDir, true);
     }
 
-    private MangaContext CreateContext()
+    private SeriesContext CreateContext()
     {
-        var options = new DbContextOptionsBuilder<MangaContext>()
+        var options = new DbContextOptionsBuilder<SeriesContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
-        return new MangaContext(options);
+        return new SeriesContext(options);
     }
 
-    private (VolumeController controller, Mock<IWorkerQueue> workerQueueMock) CreateController(MangaContext ctx)
+    private (VolumeController controller, Mock<IWorkerQueue> workerQueueMock) CreateController(SeriesContext ctx)
     {
         var settings = new TrangaSettings { AppData = _tempDir };
         var workerQueueMock = new Mock<IWorkerQueue>();
@@ -58,7 +58,7 @@ public class VolumeControllerBundleTests : IDisposable
     }
 
     private static SchemaManga MakeManga(string name, SchemaFileLibrary library)
-        => new(name, "", "http://example.com/img.jpg", MangaReleaseStatus.Continuing, [], [], [], [], library);
+        => new(name, "", "http://example.com/img.jpg", SeriesReleaseStatus.Continuing, [], [], [], [], library);
 
     // ──────────────────────────────────────────────────────
     // POST /volumes/{VolumeNumber}/bundle

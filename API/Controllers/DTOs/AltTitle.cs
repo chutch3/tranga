@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations;
 namespace API.Controllers.DTOs;
 
 /// <summary>
-/// <see cref="API.Schema.MangaContext.AltTitle"/> DTO
+/// <see cref="API.Schema.SeriesContext.AltTitle"/> DTO
 /// </summary>
 public sealed record AltTitle(string Language, string Title)
 {

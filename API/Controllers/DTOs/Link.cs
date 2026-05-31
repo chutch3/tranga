@@ -5,7 +5,7 @@ namespace API.Controllers.DTOs;
 
 
 /// <summary>
-/// <see cref="API.Schema.MangaContext.Link"/> DTO
+/// <see cref="API.Schema.SeriesContext.Link"/> DTO
 /// </summary>
 public sealed record Link(string Key, string Provider, string Url) : Identifiable(Key)
 {

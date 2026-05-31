@@ -2,39 +2,39 @@ using API;
 using API.Controllers;
 using API.Controllers.DTOs;
 using API.Schema.ActionsContext;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Moq;
-using Chapter = API.Schema.MangaContext.Chapter;
-using ConnectorId = API.Schema.MangaContext.SourceId<API.Schema.MangaContext.Series>;
+using Chapter = API.Schema.SeriesContext.Chapter;
+using ConnectorId = API.Schema.SeriesContext.SourceId<API.Schema.SeriesContext.Series>;
 
 namespace API.Tests.Controllers;
 
 public class MangaControllerTests
 {
-    private (MangaContext, ActionsContext) CreateContexts()
+    private (SeriesContext, ActionsContext) CreateContexts()
     {
-        var mangaOptions = new DbContextOptionsBuilder<MangaContext>()
+        var mangaOptions = new DbContextOptionsBuilder<SeriesContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
         var actionsOptions = new DbContextOptionsBuilder<ActionsContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
-        return (new MangaContext(mangaOptions), new ActionsContext(actionsOptions));
+        return (new SeriesContext(mangaOptions), new ActionsContext(actionsOptions));
     }
 
-    private static MangaController CreateController(
-        MangaContext ctx, 
+    private static SeriesController CreateController(
+        SeriesContext ctx, 
         ActionsContext actionsCtx, 
         IEnumerable<API.MangaConnectors.SeriesSource>? connectors = null)
     {
         var settings = new TrangaSettings { AppData = Path.GetTempPath() };
         var connectorsList = connectors ?? Enumerable.Empty<API.MangaConnectors.SeriesSource>();
         var workerQueue = new Mock<API.Workers.IWorkerQueue>().Object;
-        var controller = new MangaController(ctx, actionsCtx, settings, connectorsList, workerQueue);
+        var controller = new SeriesController(ctx, actionsCtx, settings, connectorsList, workerQueue);
         controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext()
@@ -42,8 +42,8 @@ public class MangaControllerTests
         return controller;
     }
 
-    private static API.Schema.MangaContext.Series MakeTestManga(string name)
-        => new(name, "", "http://example.com/img.jpg", MangaReleaseStatus.Continuing, [], [], [], []);
+    private static API.Schema.SeriesContext.Series MakeTestManga(string name)
+        => new(name, "", "http://example.com/img.jpg", SeriesReleaseStatus.Continuing, [], [], [], []);
 
     [Fact]
     public async Task GetAllManga_ExcludesSearchOnlyManga()
@@ -62,7 +62,7 @@ public class MangaControllerTests
     public async Task ChangeLibrary_AddsUntrackedMangaWhenConnectorInfoProvided()
     {
         var (ctx, actionsCtx) = CreateContexts();
-        var library = new API.Schema.MangaContext.FileLibrary(Path.GetTempPath(), "TestLib");
+        var library = new API.Schema.SeriesContext.FileLibrary(Path.GetTempPath(), "TestLib");
         ctx.FileLibraries.Add(library);
         await ctx.SaveChangesAsync();
 

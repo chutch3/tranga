@@ -1,6 +1,6 @@
 using API.Controllers.DTOs;
 using API.Controllers.Requests;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using API.Workers;
 using API.Workers.MaintenanceWorkers;
 using Asp.Versioning;
@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using static Microsoft.AspNetCore.Http.StatusCodes;
-using SchemaManga = API.Schema.MangaContext.Series;
+using SchemaManga = API.Schema.SeriesContext.Series;
 
 // ReSharper disable InconsistentNaming
 
@@ -17,7 +17,7 @@ namespace API.Controllers;
 [ApiVersion(2)]
 [ApiController]
 [Route("v{v:apiVersion}/Series/{MangaId}")]
-public class VolumeController(MangaContext context, TrangaSettings settings, IWorkerQueue workerQueue)
+public class VolumeController(SeriesContext context, TrangaSettings settings, IWorkerQueue workerQueue)
     : ControllerBase
 {
     /// <summary>
@@ -275,7 +275,7 @@ public class VolumeController(MangaContext context, TrangaSettings settings, IWo
             }
 
             chapter.VolumeNumber = volumeNumber;
-            chapter.MetadataConfidence = Schema.MangaContext.MetadataConfidence.Manual;
+            chapter.MetadataConfidence = Schema.SeriesContext.MetadataConfidence.Manual;
             applied++;
         }
 
@@ -370,7 +370,7 @@ public class VolumeController(MangaContext context, TrangaSettings settings, IWo
 
     // ─── Private helpers ──────────────────────────────────────────────────────
 
-    private static string ComputeTargetPath(SchemaManga manga, Schema.MangaContext.Chapter chapter, TrangaSettings settings)
+    private static string ComputeTargetPath(SchemaManga manga, Schema.SeriesContext.Chapter chapter, TrangaSettings settings)
     {
         string fileName = chapter.GetArchiveFileName(settings.ChapterNamingScheme);
         return manga.LibraryLayout switch

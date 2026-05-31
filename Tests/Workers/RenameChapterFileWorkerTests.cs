@@ -1,6 +1,6 @@
 using API;
 using API.Schema.ActionsContext;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using API.Workers.MaintenanceWorkers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,7 +13,7 @@ public class RenameChapterFileWorkerTests : IDisposable
 {
     private readonly string _testRoot;
     private readonly Mock<IServiceScope> _mockScope;
-    private readonly MangaContext _mangaContext;
+    private readonly SeriesContext _mangaContext;
     private readonly ActionsContext _actionsContext;
     private const string NamingScheme = "?V(%M Vol %V/)%M - Ch.%C";
 
@@ -22,10 +22,10 @@ public class RenameChapterFileWorkerTests : IDisposable
         _testRoot = Path.Combine(Path.GetTempPath(), $"RenameChapterTest_{Guid.NewGuid()}");
         Directory.CreateDirectory(_testRoot);
 
-        var mangaOptions = new DbContextOptionsBuilder<MangaContext>()
+        var mangaOptions = new DbContextOptionsBuilder<SeriesContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .Options;
-        _mangaContext = new MangaContext(mangaOptions);
+        _mangaContext = new SeriesContext(mangaOptions);
 
         var actionsOptions = new DbContextOptionsBuilder<ActionsContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
@@ -33,7 +33,7 @@ public class RenameChapterFileWorkerTests : IDisposable
         _actionsContext = new ActionsContext(actionsOptions);
 
         var serviceProvider = new Mock<IServiceProvider>();
-        serviceProvider.Setup(x => x.GetService(typeof(MangaContext))).Returns(_mangaContext);
+        serviceProvider.Setup(x => x.GetService(typeof(SeriesContext))).Returns(_mangaContext);
         serviceProvider.Setup(x => x.GetService(typeof(ActionsContext))).Returns(_actionsContext);
 
         _mockScope = new Mock<IServiceScope>();
@@ -53,7 +53,7 @@ public class RenameChapterFileWorkerTests : IDisposable
     {
         var library = new FileLibrary(_testRoot, "Test Library");
         _mangaContext.FileLibraries.Add(library);
-        var manga = new Series("One-Punch Man", "Desc", "url", MangaReleaseStatus.Continuing,
+        var manga = new Series("One-Punch Man", "Desc", "url", SeriesReleaseStatus.Continuing,
             [], [], [], [], library);
         _mangaContext.Series.Add(manga);
         var chapter = new Chapter(manga, chapterNumber, volume, null)

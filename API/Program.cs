@@ -6,8 +6,8 @@ using API.MangaDownloadClients;
 using API.Schema.ActionsContext;
 using API.Schema.ActionsContext.Actions;
 using API.Schema.LibraryContext;
-using API.Schema.MangaContext;
-using API.Schema.MangaContext.MetadataFetchers;
+using API.Schema.SeriesContext;
+using API.Schema.SeriesContext.MetadataFetchers;
 using API.Schema.NotificationsContext;
 using API.Workers;
 using API.Workers.MangaDownloadWorkers;
@@ -146,7 +146,7 @@ builder.Services.AddSingleton<RateLimitHandler>();
 builder.Services.AddSingleton<IWorkerQueue, WorkerQueue>();
 builder.Services.AddSingleton<Tranga>();
 
-builder.Services.AddDbContext<MangaContext>(options =>
+builder.Services.AddDbContext<SeriesContext>(options =>
     options.UseNpgsql(connectionStringBuilder.ConnectionString));
 builder.Services.AddDbContext<NotificationsContext>(options =>
     options.UseNpgsql(connectionStringBuilder.ConnectionString));
@@ -203,7 +203,7 @@ try //Connect to DB and apply migrations
     log.Debug("Applying Migrations...");
     using (IServiceScope scope = app.Services.CreateScope())
     {
-        MangaContext context = scope.ServiceProvider.GetRequiredService<MangaContext>();
+        SeriesContext context = scope.ServiceProvider.GetRequiredService<SeriesContext>();
         await context.Database.MigrateAsync(CancellationToken.None);
 
         if (!await context.FileLibraries.AnyAsync())

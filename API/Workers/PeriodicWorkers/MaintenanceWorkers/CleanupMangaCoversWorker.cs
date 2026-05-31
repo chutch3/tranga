@@ -1,5 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using Microsoft.EntityFrameworkCore;
 
 namespace API.Workers.PeriodicWorkers.MaintenanceWorkers;
@@ -11,17 +11,17 @@ public class CleanupMangaCoversWorker(TrangaSettings settings, TimeSpan? interva
     public TimeSpan Interval { get; set; } = interval ?? TimeSpan.FromHours(24);
 
     [SuppressMessage("ReSharper", "InconsistentNaming")]
-    private MangaContext MangaContext = null!;
+    private SeriesContext SeriesContext = null!;
 
     protected override void SetContexts(IServiceScope serviceScope)
     {
-        MangaContext = GetContext<MangaContext>(serviceScope);
+        SeriesContext = GetContext<SeriesContext>(serviceScope);
     }
     
     protected override async Task<BaseWorker[]> DoWorkInternal()
     {
         Log.Info("Removing stale files...");
-        string[] usedFiles = await MangaContext.Series.Where(m => m.CoverFileNameInCache != null).Select(m => m.CoverFileNameInCache!).ToArrayAsync(CancellationToken);
+        string[] usedFiles = await SeriesContext.Series.Where(m => m.CoverFileNameInCache != null).Select(m => m.CoverFileNameInCache!).ToArrayAsync(CancellationToken);
         CleanupImageCache(usedFiles, settings.CoverImageCacheOriginal);
         CleanupImageCache(usedFiles, settings.CoverImageCacheLarge);
         CleanupImageCache(usedFiles, settings.CoverImageCacheMedium);

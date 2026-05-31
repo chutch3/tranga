@@ -1,20 +1,20 @@
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 using Microsoft.EntityFrameworkCore;
 
 namespace Tests.Schema;
 
 public class BundleChapterMapTests
 {
-    private MangaContext CreateContext()
+    private SeriesContext CreateContext()
     {
-        var options = new DbContextOptionsBuilder<MangaContext>()
+        var options = new DbContextOptionsBuilder<SeriesContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
-        return new MangaContext(options);
+        return new SeriesContext(options);
     }
 
     private static Series MakeTestManga(string name = "Test Series")
-        => new(name, "", "http://example.com/img.jpg", MangaReleaseStatus.Continuing, [], [], [], []);
+        => new(name, "", "http://example.com/img.jpg", SeriesReleaseStatus.Continuing, [], [], [], []);
 
     [Fact]
     public void BundleChapterMap_ObjectInitializer_SetsAllFields()
@@ -37,12 +37,12 @@ public class BundleChapterMapTests
     public async Task BundleChapterMap_PersistsToDatabaseWithCompositePK()
     {
         string dbName = Guid.NewGuid().ToString();
-        var options = new DbContextOptionsBuilder<MangaContext>()
+        var options = new DbContextOptionsBuilder<SeriesContext>()
             .UseInMemoryDatabase(dbName)
             .Options;
 
         string volKey, chKey;
-        await using (var ctx = new MangaContext(options))
+        await using (var ctx = new SeriesContext(options))
         {
             var manga = MakeTestManga("Berserk");
             ctx.Series.Add(manga);
@@ -66,7 +66,7 @@ public class BundleChapterMapTests
             await ctx.SaveChangesAsync();
         }
 
-        await using var ctx2 = new MangaContext(options);
+        await using var ctx2 = new SeriesContext(options);
         var loaded = await ctx2.BundleChapterMaps
             .FirstAsync(m => m.VolumeKey == volKey && m.ChapterKey == chKey);
         Assert.Equal(0, loaded.StartPage);

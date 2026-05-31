@@ -1,13 +1,13 @@
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
-using API.Schema.MangaContext;
+using API.Schema.SeriesContext;
 
 namespace API.Controllers.DTOs;
 
 /// <summary>
 /// Shortened Version of <see cref="Series"/>
 /// </summary>
-public record MinimalSeries(string Key, string Name, string Description, MangaReleaseStatus ReleaseStatus, IEnumerable<SourceId<Series>> SourceIds, string? FileLibraryId = null, string? Language = null, string CoverUrl = "") : Identifiable(Key)
+public record MinimalSeries(string Key, string Name, string Description, SeriesReleaseStatus ReleaseStatus, IEnumerable<SourceId<Series>> SourceIds, string? FileLibraryId = null, string? Language = null, string CoverUrl = "") : Identifiable(Key)
 {
     /// <summary>
     /// Name of the Series
@@ -28,7 +28,7 @@ public record MinimalSeries(string Key, string Name, string Description, MangaRe
     /// </summary>
     [Required]
     [Description("ReleaseStatus of the Series")]
-    public MangaReleaseStatus ReleaseStatus { get; init; } = ReleaseStatus;
+    public SeriesReleaseStatus ReleaseStatus { get; init; } = ReleaseStatus;
     
     /// <summary>
     /// Ids of the Series on MangaConnectors
