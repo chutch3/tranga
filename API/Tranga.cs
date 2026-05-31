@@ -74,6 +74,11 @@ public class Tranga
         _workerQueue.AddWorker(GetWorker<ResolveMissingVolumesWorker>());
         _workerQueue.AddWorker(GetWorker<SyncChapterFileNamesWorker>());
 
+        // Torrent completion worker is registered only when the torrent path is configured;
+        // skip silently if absent so deployments without Prowlarr+qBittorrent are unaffected.
+        if (_serviceProvider.GetService<TorrentCompletionWorker>() is { } torrentWorker)
+            _workerQueue.AddWorker(torrentWorker);
+
         if(Constants.UpdateChaptersDownloadedBeforeStarting)
             _workerQueue.AddWorker(GetWorker<UpdateChaptersDownloadedWorker>());
     }

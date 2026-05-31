@@ -79,6 +79,33 @@ public class TrangaSettings
     /// <summary>True when no explicit origins are configured, i.e. any origin is allowed.</summary>
     [JsonIgnore] public bool CorsAllowAnyOrigin => CorsAllowedOrigins.Length == 0;
 
+    // ---------- Indexer (Prowlarr) ----------
+    /// <summary>Base URL of the Prowlarr instance (e.g. http://prowlarr:9696). Empty disables the indexer.</summary>
+    public string IndexerBaseUrl { get; set; } = "";
+    /// <summary>Prowlarr API key (X-Api-Key header).</summary>
+    public string IndexerApiKey { get; set; } = "";
+    /// <summary>Prowlarr comic category IDs. Default 8000 = Comics (Newznab convention).</summary>
+    public int[] IndexerComicCategories { get; set; } = [8000];
+
+    [JsonIgnore] public bool IndexerConfigured =>
+        !string.IsNullOrWhiteSpace(IndexerBaseUrl) && !string.IsNullOrWhiteSpace(IndexerApiKey);
+
+    // ---------- Torrent client (qBittorrent) ----------
+    /// <summary>Base URL of the torrent client's Web API (e.g. http://qbittorrent:8080). Empty disables torrents.</summary>
+    public string TorrentClientBaseUrl { get; set; } = "";
+    public string TorrentClientUsername { get; set; } = "";
+    public string TorrentClientPassword { get; set; } = "";
+
+    /// <summary>Directory the torrent client downloads into; the completion worker moves files out of here.</summary>
+    [JsonIgnore] public string TorrentStagingDirectory => Path.Join(WorkingDirectory, "torrent-staging");
+
+    [JsonIgnore] public bool TorrentClientConfigured => !string.IsNullOrWhiteSpace(TorrentClientBaseUrl);
+
+    // ---------- Release selection (v1: simple scoring) ----------
+    public int ReleaseMinSeeders { get; set; } = 2;
+    public string[] ReleasePreferredTokens { get; set; } = ["cbz"];
+    public string[] ReleaseBlockedTokens { get; set; } = ["cbr", "pdf"];
+
     public TrangaSettings()
     {
         // WorkingDirectory is created by the AppData setter when AppData is overridden

@@ -36,6 +36,39 @@ public class TrangaSettingsTests
     }
 
     [Fact]
+    public void TorrentPath_DefaultsToDisabled()
+    {
+        var settings = new TrangaSettings();
+
+        Assert.False(settings.IndexerConfigured);
+        Assert.False(settings.TorrentClientConfigured);
+    }
+
+    [Fact]
+    public void TorrentPath_BecomesEnabled_WhenIndexerAndClientConfigured()
+    {
+        var settings = new TrangaSettings
+        {
+            IndexerBaseUrl = "http://prowlarr:9696",
+            IndexerApiKey = "secret",
+            TorrentClientBaseUrl = "http://qbittorrent:8080",
+            TorrentClientUsername = "admin",
+            TorrentClientPassword = "p"
+        };
+
+        Assert.True(settings.IndexerConfigured);
+        Assert.True(settings.TorrentClientConfigured);
+    }
+
+    [Fact]
+    public void TorrentStagingDirectory_LivesUnderWorkingDirectory()
+    {
+        var settings = new TrangaSettings { AppData = "/tmp/x" };
+
+        Assert.Equal("/tmp/x/tranga-api/torrent-staging", settings.TorrentStagingDirectory);
+    }
+
+    [Fact]
     public void WorkingDirectory_ShouldReflectCustomAppData()
     {
         var settings = new TrangaSettings { AppData = "/tmp/custom_manga" };

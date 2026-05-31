@@ -6014,6 +6014,56 @@
             },
             "description": "Origins permitted for browser CORS requests. Empty (the default) preserves the historical\n\"allow any origin\" behaviour; populate it to restrict the API to specific frontends.",
             "nullable": true
+          },
+          "indexerBaseUrl": {
+            "type": "string",
+            "description": "Base URL of the Prowlarr instance (e.g. http://prowlarr:9696). Empty disables the indexer.",
+            "nullable": true
+          },
+          "indexerApiKey": {
+            "type": "string",
+            "description": "Prowlarr API key (X-Api-Key header).",
+            "nullable": true
+          },
+          "indexerComicCategories": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "description": "Prowlarr comic category IDs. Default 8000 = Comics (Newznab convention).",
+            "nullable": true
+          },
+          "torrentClientBaseUrl": {
+            "type": "string",
+            "description": "Base URL of the torrent client's Web API (e.g. http://qbittorrent:8080). Empty disables torrents.",
+            "nullable": true
+          },
+          "torrentClientUsername": {
+            "type": "string",
+            "nullable": true
+          },
+          "torrentClientPassword": {
+            "type": "string",
+            "nullable": true
+          },
+          "releaseMinSeeders": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "releasePreferredTokens": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "releaseBlockedTokens": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false
