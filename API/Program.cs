@@ -14,6 +14,7 @@ using API.Workers.MangaDownloadWorkers;
 using API.Workers.PeriodicWorkers;
 using API.Workers.PeriodicWorkers.MaintenanceWorkers;
 using API.Workers.MaintenanceWorkers;
+using API.Extensions;
 using Asp.Versioning;
 using Asp.Versioning.Builder;
 using Asp.Versioning.Conventions;
@@ -157,50 +158,7 @@ builder.Services.AddSingleton<RateLimitHandler>();
 builder.Services.AddSingleton<IWorkerQueue, WorkerQueue>();
 builder.Services.AddSingleton<Tranga>();
 
-// ---------- Torrent path: register only if both indexer and torrent client are configured. ----------
-if (settings.IndexerConfigured && settings.TorrentClientConfigured)
-{
-    log.Info("Indexer and torrent client are configured — registering torrent acquisition path.");
-
-    builder.Services.AddSingleton<API.Indexers.IIndexerClient>(sp =>
-    {
-        var rl = sp.GetRequiredService<RateLimitHandler>();
-        return new API.Indexers.ProwlarrClient(
-            new HttpClient(rl, disposeHandler: false),
-            settings.IndexerBaseUrl,
-            settings.IndexerApiKey);
-    });
-
-    builder.Services.AddSingleton<API.TorrentClients.ITorrentClient>(sp =>
-    {
-        var rl = sp.GetRequiredService<RateLimitHandler>();
-        return new API.TorrentClients.QBittorrentClient(
-            new HttpClient(rl, disposeHandler: false),
-            settings.TorrentClientBaseUrl,
-            settings.TorrentClientUsername,
-            settings.TorrentClientPassword);
-    });
-
-    builder.Services.AddSingleton<API.Indexers.ReleaseSelector>(_ => new API.Indexers.ReleaseSelector
-    {
-        MinSeeders = settings.ReleaseMinSeeders,
-        PreferredTokens = settings.ReleasePreferredTokens,
-        BlockedTokens = settings.ReleaseBlockedTokens
-    });
-
-    builder.Services.AddSingleton<API.Acquirers.IChapterAcquirer>(sp =>
-        new API.Acquirers.TorrentAcquirer(
-            sp.GetRequiredService<API.Indexers.IIndexerClient>(),
-            sp.GetRequiredService<API.TorrentClients.ITorrentClient>(),
-            sp.GetRequiredService<API.Indexers.ReleaseSelector>(),
-            new API.Acquirers.TorrentAcquirerSettings(settings.TorrentStagingDirectory, settings.IndexerComicCategories)));
-
-    builder.Services.AddSingleton<TorrentCompletionWorker>();
-}
-else
-{
-    log.Info("Torrent acquisition path disabled (indexer or torrent client not configured).");
-}
+builder.Services.AddTorrentAcquisitionPath(settings, log);
 
 builder.Services.AddDbContext<SeriesContext>(options =>
     options.UseNpgsql(connectionStringBuilder.ConnectionString));

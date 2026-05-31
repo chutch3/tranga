@@ -20,6 +20,14 @@ public class NotificationConnector(string name, string url, Dictionary<string, s
 
     [StringLength(4096)] public string Body { get; internal set; } = body;
 
+    /// <summary>
+    /// EF ONLY!!! EF Core's ConstructorBindingConvention cannot bind a
+    /// <c>Dictionary&lt;string,string&gt;</c> parameter, so we provide an alternate constructor with
+    /// only scalar parameters for EF to materialise rows. Headers is set via its property setter.
+    /// </summary>
+    internal NotificationConnector(string name, string url, string httpMethod, string body)
+        : this(name, url, new Dictionary<string, string>(), httpMethod, body) { }
+
     [NotMapped] private readonly HttpClient Client = new()
     {
         DefaultRequestHeaders = { { "User-Agent", TrangaSettings.DefaultUserAgent } }
