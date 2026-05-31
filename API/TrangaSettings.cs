@@ -111,6 +111,12 @@ public class TrangaSettings
 
     [JsonIgnore] public bool TorrentClientConfigured => !string.IsNullOrWhiteSpace(TorrentClientBaseUrl);
 
+    // ---------- Metron metadata (metron.cloud) ----------
+    /// <summary>Metron account username (HTTP Basic auth). Empty disables Metron lookups.</summary>
+    public string MetronUsername { get; set; } = "";
+    /// <summary>Metron account password (HTTP Basic auth).</summary>
+    public string MetronPassword { get; set; } = "";
+
     // ---------- Release selection (v1: simple scoring) ----------
     public int ReleaseMinSeeders { get; set; } = 2;
     public string[] ReleasePreferredTokens { get; set; } = ["cbz"];

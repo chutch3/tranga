@@ -88,6 +88,18 @@ persist them so individual indexers can be enabled/disabled in Tranga's own UI. 
 
 ---
 
+## Frontend: settings UI for new integrations
+
+The API now exposes settings for indexers (`ManualIndexers`, `ProwlarrBaseUrl`/`ProwlarrApiKey`),
+the torrent client (`TorrentClientBaseUrl`/`Username`/`Password`), and Metron
+(`MetronUsername`/`MetronPassword`). These are configurable via `settings.json` / env today but have
+**no website UI yet**. The metadata-fetcher table already lists Metron automatically (fetchers are
+listed by name), but a user can't enter Metron credentials from the UI — add a settings modal
+mirroring the existing `KomgaModal`/`GotifyModal` pattern. Likewise an Indexers panel and a
+Torrent-client panel under Settings. Until then these are config-file-only and unconfigured
+integrations degrade gracefully (appear/return nothing rather than error).
+
+
 ## Other items
 
 - `MetadataEntries.MangaId`, `MetadataSources.MangaId`, `VolumeMetadata.MangaId`,

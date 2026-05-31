@@ -120,6 +120,17 @@ builder.Services.AddSingleton<SeriesSource, WeebCentral>();
 
 // 3. Register your Metadata Fetchers
 builder.Services.AddSingleton<MetadataFetcher, MyAnimeList>();
+// Metron comic metadata: client reads creds from settings; the fetcher always appears in the list
+// and degrades gracefully (returns nothing) when unconfigured.
+builder.Services.AddSingleton<API.Schema.SeriesContext.MetadataFetchers.IMetronClient>(sp =>
+{
+    var rl = sp.GetRequiredService<RateLimitHandler>();
+    return new API.Schema.SeriesContext.MetadataFetchers.MetronClient(
+        new HttpClient(rl, disposeHandler: false), settings.MetronUsername, settings.MetronPassword);
+});
+builder.Services.AddSingleton<MetadataFetcher>(sp =>
+    new API.Schema.SeriesContext.MetadataFetchers.Metron(
+        sp.GetRequiredService<API.Schema.SeriesContext.MetadataFetchers.IMetronClient>()));
 
 // 3b. Register your Chapter Acquirers (one per AcquisitionKind)
 builder.Services.AddSingleton<API.Acquirers.IChapterAcquirer, API.Acquirers.ImageListAcquirer>();

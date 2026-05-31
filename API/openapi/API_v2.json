@@ -6082,6 +6082,16 @@
             "type": "string",
             "nullable": true
           },
+          "metronUsername": {
+            "type": "string",
+            "description": "Metron account username (HTTP Basic auth). Empty disables Metron lookups.",
+            "nullable": true
+          },
+          "metronPassword": {
+            "type": "string",
+            "description": "Metron account password (HTTP Basic auth).",
+            "nullable": true
+          },
           "releaseMinSeeders": {
             "type": "integer",
             "format": "int32"
