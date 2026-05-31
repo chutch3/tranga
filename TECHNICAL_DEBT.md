@@ -54,27 +54,37 @@ the dev-DB verification step.
 
 ## Concrete `Kind = Torrent` `SeriesSource`
 
-**Status.** All torrent infrastructure exists (`IIndexerClient`, `ITorrentClient`, `TorrentAcquirer`,
-`TorrentCompletionWorker`, `ReleaseSelector`, settings, DI wiring), but no concrete `SeriesSource`
-declares `Kind = AcquisitionKind.Torrent`. Result: the torrent path is fully built and tested in
-isolation but dormant in production.
+**Status.** All torrent infrastructure exists and no concrete `SeriesSource` declares
+`Kind = AcquisitionKind.Torrent` yet, so the torrent path is built+tested but dormant in production.
 
-**Suggested implementation: `ProwlarrSeriesSource`.**
+**Indexer model (important — not coupled to Prowlarr).** An indexer is a Torznab/Newznab endpoint
+(`IIndexer` / `TorznabIndexer`). Indexers come from `IIndexerProvider`s:
+`ConfiguredIndexerProvider` (manually-added, from `settings.ManualIndexers`) and
+`ProwlarrIndexerProvider` (enumerates the indexers Prowlarr manages and exposes each as a Torznab
+endpoint). `AggregateIndexerSearch : IIndexerClient` fans out across all of them. This mirrors the
+*arr model: you add indexers by hand or let Prowlarr sync them; Prowlarr is one source of indexers,
+not the indexer. A concrete torrent `SeriesSource` therefore depends on `IIndexerClient` (the
+aggregate) and never on Prowlarr directly.
+
+**Suggested implementation: `IndexerBackedSeriesSource` (name it for the model, not for Prowlarr).**
 
 - Override `Kind => AcquisitionKind.Torrent`.
 - `SearchManga(query)`: call `IIndexerClient.Search` with the user's query, dedupe results by parsed
   series name (strip issue numbers, year, tags from the release title), return one `Series` per
-  distinct match. Cover/description metadata will be sparse — users would typically pair this with
-  Metron metadata enrichment.
+  distinct match. Cover/description metadata will be sparse — pair with a metadata fetcher (Metron).
 - `GetMangaFromId(id)`: round-trip metadata for the stored series identifier.
 - `GetChapters(seriesId, language)`: call `IIndexerClient.Search` again with just the series name,
   parse issue numbers from release titles into distinct `Chapter` rows. Title parsing is the hardest
   bit; a regex over common comic release patterns (`Series Title 060 (2024)`, `Series Title #60`,
   etc.) is a reasonable v1.
-- `GetChapterImageUrls`: throws (not used; `Kind=Torrent` bypasses this path).
-- `DownloadImage`: throws (not used).
+- `GetChapterImageUrls` / `DownloadImage`: throw (not used; `Kind=Torrent` bypasses these).
 
 Estimated effort: 1-2 hours including parser tests.
+
+**Future: Prowlarr push-sync + per-indexer enable/disable.** Today `ProwlarrIndexerProvider` *pulls*
+Prowlarr's indexer list live at search time. A fuller *arr-style integration would let Prowlarr
+*push* indexer definitions into Tranga (implementing Prowlarr's "application" sync contract) and
+persist them so individual indexers can be enabled/disabled in Tranga's own UI. Not needed for v1.
 
 ---
 

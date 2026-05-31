@@ -80,15 +80,25 @@ public class TrangaSettings
     [JsonIgnore] public bool CorsAllowAnyOrigin => CorsAllowedOrigins.Length == 0;
 
     // ---------- Indexer (Prowlarr) ----------
-    /// <summary>Base URL of the Prowlarr instance (e.g. http://prowlarr:9696). Empty disables the indexer.</summary>
-    public string IndexerBaseUrl { get; set; } = "";
+    // Indexers follow the *arr model: a list of Torznab/Newznab endpoints. You can ADD them by hand
+    // (ManualIndexers) and/or let Prowlarr SYNC them (Prowlarr* below). Prowlarr is one source of
+    // indexers, not the indexer itself.
+
+    /// <summary>Manually-configured Torznab/Newznab indexers.</summary>
+    public List<API.Indexers.ManualIndexerConfig> ManualIndexers { get; set; } = [];
+
+    /// <summary>Base URL of a Prowlarr instance to sync indexers from (e.g. http://prowlarr:9696). Empty disables Prowlarr sync.</summary>
+    public string ProwlarrBaseUrl { get; set; } = "";
     /// <summary>Prowlarr API key (X-Api-Key header).</summary>
-    public string IndexerApiKey { get; set; } = "";
-    /// <summary>Prowlarr comic category IDs. Default 8000 = Comics (Newznab convention).</summary>
+    public string ProwlarrApiKey { get; set; } = "";
+    /// <summary>Comic category IDs applied to indexer searches. Default 8000 = Comics (Newznab convention).</summary>
     public int[] IndexerComicCategories { get; set; } = [8000];
 
-    [JsonIgnore] public bool IndexerConfigured =>
-        !string.IsNullOrWhiteSpace(IndexerBaseUrl) && !string.IsNullOrWhiteSpace(IndexerApiKey);
+    [JsonIgnore] public bool ProwlarrConfigured =>
+        !string.IsNullOrWhiteSpace(ProwlarrBaseUrl) && !string.IsNullOrWhiteSpace(ProwlarrApiKey);
+
+    /// <summary>True when at least one indexer source (manual or Prowlarr sync) is configured.</summary>
+    [JsonIgnore] public bool IndexerConfigured => ManualIndexers.Count > 0 || ProwlarrConfigured;
 
     // ---------- Torrent client (qBittorrent) ----------
     /// <summary>Base URL of the torrent client's Web API (e.g. http://qbittorrent:8080). Empty disables torrents.</summary>

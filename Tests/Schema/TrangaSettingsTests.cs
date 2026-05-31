@@ -45,19 +45,32 @@ public class TrangaSettingsTests
     }
 
     [Fact]
-    public void TorrentPath_BecomesEnabled_WhenIndexerAndClientConfigured()
+    public void TorrentPath_BecomesEnabled_WhenProwlarrSyncAndClientConfigured()
     {
         var settings = new TrangaSettings
         {
-            IndexerBaseUrl = "http://prowlarr:9696",
-            IndexerApiKey = "secret",
+            ProwlarrBaseUrl = "http://prowlarr:9696",
+            ProwlarrApiKey = "secret",
             TorrentClientBaseUrl = "http://qbittorrent:8080",
             TorrentClientUsername = "admin",
             TorrentClientPassword = "p"
         };
 
+        Assert.True(settings.ProwlarrConfigured);
         Assert.True(settings.IndexerConfigured);
         Assert.True(settings.TorrentClientConfigured);
+    }
+
+    [Fact]
+    public void Indexer_BecomesConfigured_WithManualIndexersAlone_NoProwlarr()
+    {
+        var settings = new TrangaSettings
+        {
+            ManualIndexers = [new API.Indexers.ManualIndexerConfig("Tracker", "http://t.test/api", "k", [8000])]
+        };
+
+        Assert.False(settings.ProwlarrConfigured);
+        Assert.True(settings.IndexerConfigured); // manual indexers are sufficient — not coupled to Prowlarr
     }
 
     [Fact]

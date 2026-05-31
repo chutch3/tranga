@@ -5319,6 +5319,33 @@
         "additionalProperties": false,
         "description": "API.Schema.SeriesContext.Link DTO"
       },
+      "ManualIndexerConfig": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "url": {
+            "type": "string",
+            "nullable": true
+          },
+          "apiKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "A manually-configured Torznab/Newznab indexer (name + endpoint + key + categories)."
+      },
       "MetadataEntry": {
         "type": "object",
         "properties": {
@@ -6015,12 +6042,20 @@
             "description": "Origins permitted for browser CORS requests. Empty (the default) preserves the historical\n\"allow any origin\" behaviour; populate it to restrict the API to specific frontends.",
             "nullable": true
           },
-          "indexerBaseUrl": {
-            "type": "string",
-            "description": "Base URL of the Prowlarr instance (e.g. http://prowlarr:9696). Empty disables the indexer.",
+          "manualIndexers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ManualIndexerConfig"
+            },
+            "description": "Manually-configured Torznab/Newznab indexers.",
             "nullable": true
           },
-          "indexerApiKey": {
+          "prowlarrBaseUrl": {
+            "type": "string",
+            "description": "Base URL of a Prowlarr instance to sync indexers from (e.g. http://prowlarr:9696). Empty disables Prowlarr sync.",
+            "nullable": true
+          },
+          "prowlarrApiKey": {
             "type": "string",
             "description": "Prowlarr API key (X-Api-Key header).",
             "nullable": true
@@ -6031,7 +6066,7 @@
               "type": "integer",
               "format": "int32"
             },
-            "description": "Prowlarr comic category IDs. Default 8000 = Comics (Newznab convention).",
+            "description": "Comic category IDs applied to indexer searches. Default 8000 = Comics (Newznab convention).",
             "nullable": true
           },
           "torrentClientBaseUrl": {
