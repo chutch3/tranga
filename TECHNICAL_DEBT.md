@@ -90,14 +90,20 @@ persist them so individual indexers can be enabled/disabled in Tranga's own UI. 
 
 ## Frontend: settings UI for new integrations
 
-The API now exposes settings for indexers (`ManualIndexers`, `ProwlarrBaseUrl`/`ProwlarrApiKey`),
-the torrent client (`TorrentClientBaseUrl`/`Username`/`Password`), and Metron
-(`MetronUsername`/`MetronPassword`). These are configurable via `settings.json` / env today but have
-**no website UI yet**. The metadata-fetcher table already lists Metron automatically (fetchers are
-listed by name), but a user can't enter Metron credentials from the UI — add a settings modal
-mirroring the existing `KomgaModal`/`GotifyModal` pattern. Likewise an Indexers panel and a
-Torrent-client panel under Settings. Until then these are config-file-only and unconfigured
-integrations degrade gracefully (appear/return nothing rather than error).
+DONE for the credential blocks: a "Comics & Torrents" card on the Settings page with connect/
+disconnect modals for Prowlarr, the torrent client, and Metron (`ProwlarrModal`/`TorrentClientModal`/
+`MetronModal`, backed by `PATCH`/`DELETE /v2/Settings/{Prowlarr|TorrentClient|Metron}`). Metron also
+appears automatically in the existing metadata-fetcher table.
+
+STILL config-file-only:
+- **Manual (non-Prowlarr) indexers** (`ManualIndexers`) — no add/remove UI yet; only Prowlarr-synced
+  indexers are reachable from the website. Add a small list editor if standalone Torznab feeds are
+  needed.
+- **Pending torrent downloads view** — no UI surfaces in-flight torrents (the `TorrentCompletionWorker`
+  state). A read-only panel would be nice-to-have.
+- **Secrets in `GET /v2/Settings`** — passwords/API keys are serialised in the settings GET (matches
+  the pre-existing pattern; the API has no auth layer anyway). Modals never pre-fill them. If an auth
+  layer is added later, redact these via a response DTO.
 
 
 ## Other items
